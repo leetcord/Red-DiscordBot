@@ -15,7 +15,7 @@ from .utils.common_filters import (
     filter_urls,
     escape_spoilers,
 )
-from .utils.chat_formatting import pagify
+from .utils.chat_formatting import bold, pagify
 from .i18n import Translator, set_contextual_locales_from_guild
 
 from .generic_casetypes import all_generics
@@ -467,15 +467,26 @@ class Case:
                 translated = _("Unknown or Deleted User")
                 user = f"[{translated}] ({self.user})"
             else:
-                user = f"{self.last_known_username} ({self.user})"
+                # See usage explanation here: https://www.unicode.org/reports/tr9/#Formatting
+                name = self.last_known_username[:-5]
+                discriminator = self.last_known_username[-4:]
+                user = (
+                    f"\N{FIRST STRONG ISOLATE}{name}"
+                    f"\N{POP DIRECTIONAL ISOLATE}#{discriminator} ({self.user})"
+                )
         else:
+            # isolate the name so that the direction of the discriminator and ID do not get changed
+            # See usage explanation here: https://www.unicode.org/reports/tr9/#Formatting
             user = escape_spoilers(
-                filter_invites(f"{self.user} ({self.user.id})")
+                filter_invites(
+                    f"\N{FIRST STRONG ISOLATE}{self.user.name}"
+                    f"\N{POP DIRECTIONAL ISOLATE}#{self.user.discriminator} ({self.user.id})"
+                )
             )  # Invites and spoilers get rendered even in embeds.
 
         if embed:
             if self.reason:
-                reason = _("**Reason:** {}").format(self.reason)
+                reason = f"{bold(_('Reason:'))} {self.reason}"
                 if len(reason) > 2048:
                     reason = (
                         next(
@@ -510,7 +521,7 @@ class Case:
             return emb
         else:
             if self.reason:
-                reason = _("**Reason:** {}").format(self.reason)
+                reason = f"{bold(_('Reason:'))} {self.reason}"
                 if len(reason) > 1000:
                     reason = (
                         next(
@@ -525,20 +536,20 @@ class Case:
             user = filter_mass_mentions(filter_urls(user))  # Further sanitization outside embeds
             case_text = ""
             case_text += "{}\n".format(title)
-            case_text += _("**User:** {}\n").format(user)
-            case_text += _("**Moderator:** {}\n").format(moderator)
+            case_text += f"{bold(_('User:'))} {user}\n"
+            case_text += f"{bold(_('Moderator:'))} {moderator}\n"
             case_text += "{}\n".format(reason)
             if until and duration:
-                case_text += _("**Until:** {}\n**Duration:** {}\n").format(until, duration)
+                case_text += f"{bold(_('Until:'))} {until}\n{bold(_('Duration:'))} {duration}\n"
             if self.channel:
                 if isinstance(self.channel, int):
-                    case_text += _("**Channel**: {} (Deleted)\n").format(self.channel)
+                    case_text += f"{bold(_('Channel:'))} {self.channel} {_('(Deleted)')}\n"
                 else:
-                    case_text += _("**Channel**: {}\n").format(self.channel.name)
+                    case_text += f"{bold(_('Channel:'))} {self.channel.name}\n"
             if amended_by:
-                case_text += _("**Amended by:** {}\n").format(amended_by)
+                case_text += f"{bold(_('Amended by:'))} {amended_by}\n"
             if last_modified:
-                case_text += _("**Last modified at:** {}\n").format(last_modified)
+                case_text += f"{bold(_('Last modified at:'))} {last_modified}\n"
             return case_text.strip()
 
     def to_json(self) -> dict:
