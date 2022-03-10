@@ -9,7 +9,6 @@ markdown
 platformdirs
 psutil
 python-dateutil
-PyNaCl
 PyYAML
 rapidfuzz
 Red-Commons
