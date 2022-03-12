@@ -3,7 +3,6 @@ aiohttp-json-rpc
 apsw-wheels
 babel
 click
-colorama
 discord.py @ https://github.com/Rapptz/discord.py/archive/3d914e08e0c7df370987592affb3655d2a12f7d1.zip
 markdown
 platformdirs
