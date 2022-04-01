@@ -1,240 +1,240 @@
-import asyncio 
-import inspect 
-import logging 
-import os 
-import platform 
-import shutil 
-import sys 
-import contextlib 
-import weakref 
-import functools 
-from collections import namedtuple 
-from datetime import datetime 
-from enum import IntEnum 
-from importlib .machinery import ModuleSpec 
-from pathlib import Path 
+import asyncio
+import inspect
+import logging
+import os
+import platform
+import shutil
+import sys
+import contextlib
+import weakref
+import functools
+from collections import namedtuple
+from datetime import datetime
+from enum import IntEnum
+from importlib.machinery import ModuleSpec
+from pathlib import Path
 from typing import (
-Optional ,
-Union ,
-List ,
-Iterable ,
-Dict ,
-NoReturn ,
-Set ,
-TypeVar ,
-Callable ,
-Awaitable ,
-Any ,
-Literal ,
-MutableMapping ,
-Set ,
-overload ,
+    Optional,
+    Union,
+    List,
+    Iterable,
+    Dict,
+    NoReturn,
+    Set,
+    TypeVar,
+    Callable,
+    Awaitable,
+    Any,
+    Literal,
+    MutableMapping,
+    Set,
+    overload,
 )
-from types import MappingProxyType 
+from types import MappingProxyType
 
-import discord 
-from discord .ext import commands as dpy_commands 
-from discord .ext .commands import when_mentioned_or 
+import discord
+from discord.ext import commands as dpy_commands
+from discord.ext.commands import when_mentioned_or
 
-from .import Config ,i18n ,commands ,errors ,drivers ,modlog ,bank 
-from .cog_manager import CogManager ,CogManagerUI 
-from .core_commands import Core 
-from .data_manager import cog_data_path 
-from .dev_commands import Dev 
-from .events import init_events 
-from .global_checks import init_global_checks 
+from . import Config, i18n, commands, errors, drivers, modlog, bank
+from .cog_manager import CogManager, CogManagerUI
+from .core_commands import Core
+from .data_manager import cog_data_path
+from .dev_commands import Dev
+from .events import init_events
+from .global_checks import init_global_checks
 from .settings_caches import (
-PrefixManager ,
-IgnoreManager ,
-WhitelistBlacklistManager ,
-DisabledCogCache ,
-I18nManager ,
+    PrefixManager,
+    IgnoreManager,
+    WhitelistBlacklistManager,
+    DisabledCogCache,
+    I18nManager,
 )
-from .rpc import RPCMixin 
-from .utils import common_filters ,AsyncIter 
-from .utils ._internal_utils import send_to_owners_with_prefix_replaced 
+from .rpc import RPCMixin
+from .utils import common_filters, AsyncIter
+from .utils._internal_utils import send_to_owners_with_prefix_replaced
 
-CUSTOM_GROUPS ="CUSTOM_GROUPS"
-COMMAND_SCOPE ="COMMAND"
-SHARED_API_TOKENS ="SHARED_API_TOKENS"
+CUSTOM_GROUPS = "CUSTOM_GROUPS"
+COMMAND_SCOPE = "COMMAND"
+SHARED_API_TOKENS = "SHARED_API_TOKENS"
 
-log =logging .getLogger ("red")
+log = logging.getLogger("red")
 
-__all__ =("Blue","ExitCodes")
+__all__ = ("Blue", "ExitCodes")
 
-NotMessage =namedtuple ("NotMessage","guild")
+NotMessage = namedtuple("NotMessage", "guild")
 
-DataDeletionResults =namedtuple ("DataDeletionResults","failed_modules failed_cogs unhandled")
+DataDeletionResults = namedtuple("DataDeletionResults", "failed_modules failed_cogs unhandled")
 
-PreInvokeCoroutine =Callable [[commands .Context ],Awaitable [Any ]]
-T_BIC =TypeVar ("T_BIC",bound =PreInvokeCoroutine )
-UserOrRole =Union [int ,discord .Role ,discord .Member ,discord .User ]
-
-
-def _is_submodule (parent ,child ):
-    return parent ==child or child .startswith (parent +".")
+PreInvokeCoroutine = Callable[[commands.Context], Awaitable[Any]]
+T_BIC = TypeVar("T_BIC", bound=PreInvokeCoroutine)
+UserOrRole = Union[int, discord.Role, discord.Member, discord.User]
 
 
-class _NoOwnerSet (RuntimeError ):
+def _is_submodule(parent, child):
+    return parent == child or child.startswith(parent + ".")
+
+
+class _NoOwnerSet(RuntimeError):
     """Raised when there is no owner set for the instance that is trying to start."""
 
 
-    # That's it!
-    # Applejack, you're not a failure.
-    # No... Why would Luna do this? Why now? [crying] You're all right. You're all right! Princess Celestia?
-    # No, Pinkie! I can't believe that the greatest author and secret pony adventurer of all time, A. K. Yearling... is retiring!
-class Blue (
-commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot 
-):# I promise you'll absolutely adore the headdress as soon as you see it.
+# Order of inheritance here matters.
+# d.py autoshardedbot should be at the end
+# all of our mixins should happen before,
+# and must include a call to super().__init__ unless they do not provide an init
+class Blue(
+    commands.GroupMixin, RPCMixin, dpy_commands.bot.AutoShardedBot
+):  # pylint: disable=no-member # barely spurious warning caused by shadowing
     """Our subclass of discord.ext.commands.AutoShardedBot"""
 
-    def __init__ (self ,*args ,cli_flags =None ,bot_dir :Path =Path .cwd (),**kwargs ):
-        self ._shutdown_mode =ExitCodes .CRITICAL 
-        self ._cli_flags =cli_flags 
-        self ._config =Config .get_core_conf (force_registration =False )
-        self .rpc_enabled =cli_flags .rpc 
-        self .rpc_port =cli_flags .rpc_port 
-        self ._last_exception =None 
-        self ._config .register_global (
-        token =None ,
-        prefix =[],
-        packages =[],
-        owner =None ,
-        whitelist =[],
-        blacklist =[],
-        locale ="en-US",
-        regional_format =None ,
-        embeds =True ,
-        color =15158332 ,
-        fuzzy =False ,
-        custom_info =None ,
-        help__page_char_limit =1000 ,
-        help__max_pages_in_guild =2 ,
-        help__delete_delay =0 ,
-        help__use_menus =False ,
-        help__show_hidden =False ,
-        help__show_aliases =True ,
-        help__verify_checks =True ,
-        help__verify_exists =False ,
-        help__tagline ="",
-        help__use_tick =False ,
-        help__react_timeout =30 ,
-        description ="Blue V3",
-        invite_public =False ,
-        invite_perm =0 ,
-        invite_commands_scope =False ,
-        disabled_commands =[],
-        disabled_command_msg ="That command is disabled.",
-        extra_owner_destinations =[],
-        owner_opt_out_list =[],
-        last_system_info__python_version =[3 ,7 ],
-        last_system_info__machine =None ,
-        last_system_info__system =None ,
-        schema_version =0 ,
-        datarequests__allow_user_requests =True ,
-        datarequests__user_requests_are_strict =True ,
+    def __init__(self, *args, cli_flags=None, bot_dir: Path = Path.cwd(), **kwargs):
+        self._shutdown_mode = ExitCodes.CRITICAL
+        self._cli_flags = cli_flags
+        self._config = Config.get_core_conf(force_registration=False)
+        self.rpc_enabled = cli_flags.rpc
+        self.rpc_port = cli_flags.rpc_port
+        self._last_exception = None
+        self._config.register_global(
+            token=None,
+            prefix=[],
+            packages=[],
+            owner=None,
+            whitelist=[],
+            blacklist=[],
+            locale="en-US",
+            regional_format=None,
+            embeds=True,
+            color=15158332,
+            fuzzy=False,
+            custom_info=None,
+            help__page_char_limit=1000,
+            help__max_pages_in_guild=2,
+            help__delete_delay=0,
+            help__use_menus=False,
+            help__show_hidden=False,
+            help__show_aliases=True,
+            help__verify_checks=True,
+            help__verify_exists=False,
+            help__tagline="",
+            help__use_tick=False,
+            help__react_timeout=30,
+            description="Blue V3",
+            invite_public=False,
+            invite_perm=0,
+            invite_commands_scope=False,
+            disabled_commands=[],
+            disabled_command_msg="That command is disabled.",
+            extra_owner_destinations=[],
+            owner_opt_out_list=[],
+            last_system_info__python_version=[3, 7],
+            last_system_info__machine=None,
+            last_system_info__system=None,
+            schema_version=0,
+            datarequests__allow_user_requests=True,
+            datarequests__user_requests_are_strict=True,
         )
 
-        self ._config .register_guild (
-        prefix =[],
-        whitelist =[],
-        blacklist =[],
-        admin_role =[],
-        mod_role =[],
-        embeds =None ,
-        ignored =False ,
-        use_bot_color =False ,
-        fuzzy =False ,
-        disabled_commands =[],
-        autoimmune_ids =[],
-        delete_delay =-1 ,
-        locale =None ,
-        regional_format =None ,
+        self._config.register_guild(
+            prefix=[],
+            whitelist=[],
+            blacklist=[],
+            admin_role=[],
+            mod_role=[],
+            embeds=None,
+            ignored=False,
+            use_bot_color=False,
+            fuzzy=False,
+            disabled_commands=[],
+            autoimmune_ids=[],
+            delete_delay=-1,
+            locale=None,
+            regional_format=None,
         )
 
-        self ._config .register_channel (embeds =None ,ignored =False )
-        self ._config .register_user (embeds =None )
+        self._config.register_channel(embeds=None, ignored=False)
+        self._config.register_user(embeds=None)
 
-        self ._config .init_custom ("COG_DISABLE_SETTINGS",2 )
-        self ._config .register_custom ("COG_DISABLE_SETTINGS",disabled =None )
+        self._config.init_custom("COG_DISABLE_SETTINGS", 2)
+        self._config.register_custom("COG_DISABLE_SETTINGS", disabled=None)
 
-        self ._config .init_custom (CUSTOM_GROUPS ,2 )
-        self ._config .register_custom (CUSTOM_GROUPS )
+        self._config.init_custom(CUSTOM_GROUPS, 2)
+        self._config.register_custom(CUSTOM_GROUPS)
 
-        # Well, I never! Hum-ph!
-        # Oh, I hope I haven't forgotten anything.
-        self ._config .init_custom (COMMAND_SCOPE ,2 )
-        self ._config .register_custom (COMMAND_SCOPE ,embeds =None )
-        # Well, not yet, technically. In fact, she can't break your heart if you break hers first.
+        # {COMMAND_NAME: {GUILD_ID: {...}}}
+        # GUILD_ID=0 for global setting
+        self._config.init_custom(COMMAND_SCOPE, 2)
+        self._config.register_custom(COMMAND_SCOPE, embeds=None)
+        # TODO: add cache for embed settings
 
-        self ._config .init_custom (SHARED_API_TOKENS ,2 )
-        self ._config .register_custom (SHARED_API_TOKENS )
-        self ._prefix_cache =PrefixManager (self ._config ,cli_flags )
-        self ._disabled_cog_cache =DisabledCogCache (self ._config )
-        self ._ignored_cache =IgnoreManager (self ._config )
-        self ._whiteblacklist_cache =WhitelistBlacklistManager (self ._config )
-        self ._i18n_cache =I18nManager (self ._config )
-        self ._bypass_cooldowns =False 
+        self._config.init_custom(SHARED_API_TOKENS, 2)
+        self._config.register_custom(SHARED_API_TOKENS)
+        self._prefix_cache = PrefixManager(self._config, cli_flags)
+        self._disabled_cog_cache = DisabledCogCache(self._config)
+        self._ignored_cache = IgnoreManager(self._config)
+        self._whiteblacklist_cache = WhitelistBlacklistManager(self._config)
+        self._i18n_cache = I18nManager(self._config)
+        self._bypass_cooldowns = False
 
-        async def prefix_manager (bot ,message )->List [str ]:
-            prefixes =await self ._prefix_cache .get_prefixes (message .guild )
-            if cli_flags .mentionable :
-                return when_mentioned_or (*prefixes )(bot ,message )
-            return prefixes 
+        async def prefix_manager(bot, message) -> List[str]:
+            prefixes = await self._prefix_cache.get_prefixes(message.guild)
+            if cli_flags.mentionable:
+                return when_mentioned_or(*prefixes)(bot, message)
+            return prefixes
 
-        if "command_prefix"not in kwargs :
-            kwargs ["command_prefix"]=prefix_manager 
+        if "command_prefix" not in kwargs:
+            kwargs["command_prefix"] = prefix_manager
 
-        if "owner_id"in kwargs :
-            raise RuntimeError ("Blue doesn't accept owner_id kwarg, use owner_ids instead.")
+        if "owner_id" in kwargs:
+            raise RuntimeError("Blue doesn't accept owner_id kwarg, use owner_ids instead.")
 
-        if "intents"not in kwargs :
-            intents =discord .Intents .all ()
-            for intent_name in cli_flags .disable_intent :
-                setattr (intents ,intent_name ,False )
-            kwargs ["intents"]=intents 
+        if "intents" not in kwargs:
+            intents = discord.Intents.all()
+            for intent_name in cli_flags.disable_intent:
+                setattr(intents, intent_name, False)
+            kwargs["intents"] = intents
 
-        self ._owner_id_overwrite =cli_flags .owner 
+        self._owner_id_overwrite = cli_flags.owner
 
-        if "owner_ids"in kwargs :
-            kwargs ["owner_ids"]=set (kwargs ["owner_ids"])
-        else :
-            kwargs ["owner_ids"]=set ()
-        kwargs ["owner_ids"].update (cli_flags .co_owner )
+        if "owner_ids" in kwargs:
+            kwargs["owner_ids"] = set(kwargs["owner_ids"])
+        else:
+            kwargs["owner_ids"] = set()
+        kwargs["owner_ids"].update(cli_flags.co_owner)
 
-        if "command_not_found"not in kwargs :
-            kwargs ["command_not_found"]="Command {} not found.\n{}"
+        if "command_not_found" not in kwargs:
+            kwargs["command_not_found"] = "Command {} not found.\n{}"
 
-        if "allowed_mentions"not in kwargs :
-            kwargs ["allowed_mentions"]=discord .AllowedMentions (everyone =False ,roles =False )
+        if "allowed_mentions" not in kwargs:
+            kwargs["allowed_mentions"] = discord.AllowedMentions(everyone=False, roles=False)
 
-        message_cache_size =cli_flags .message_cache_size 
-        if cli_flags .no_message_cache :
-            message_cache_size =None 
-        kwargs ["max_messages"]=message_cache_size 
-        self ._max_messages =message_cache_size 
+        message_cache_size = cli_flags.message_cache_size
+        if cli_flags.no_message_cache:
+            message_cache_size = None
+        kwargs["max_messages"] = message_cache_size
+        self._max_messages = message_cache_size
 
-        self ._uptime =None 
-        self ._checked_time_accuracy =None 
+        self._uptime = None
+        self._checked_time_accuracy = None
 
-        self ._main_dir =bot_dir 
-        self ._cog_mgr =CogManager ()
-        self ._use_team_features =cli_flags .use_team_features 
-        # Big Mac?
-        self ._app_info =None 
-        super ().__init__ (*args ,help_command =None ,**kwargs )
-        # Beware! Beware!
-        # Come on, Bolts! Let's start this thing!
-        self ._help_formatter =commands .help .BlueHelpFormatter ()
-        self .add_command (commands .help .blue_help )
+        self._main_dir = bot_dir
+        self._cog_mgr = CogManager()
+        self._use_team_features = cli_flags.use_team_features
+        # to prevent multiple calls to app info during startup
+        self._app_info = None
+        super().__init__(*args, help_command=None, **kwargs)
+        # Do not manually use the help formatter attribute here, see `send_help_for`,
+        # for a documented API. The internals of this object are still subject to change.
+        self._help_formatter = commands.help.BlueHelpFormatter()
+        self.add_command(commands.help.blue_help)
 
-        self ._permissions_hooks :List [commands .CheckPredicate ]=[]
-        self ._blue_ready =asyncio .Event ()
-        self ._blue_before_invoke_objs :Set [PreInvokeCoroutine ]=set ()
+        self._permissions_hooks: List[commands.CheckPredicate] = []
+        self._blue_ready = asyncio.Event()
+        self._blue_before_invoke_objs: Set[PreInvokeCoroutine] = set()
 
-        self ._deletion_requests :MutableMapping [int ,asyncio .Lock ]=weakref .WeakValueDictionary ()
+        self._deletion_requests: MutableMapping[int, asyncio.Lock] = weakref.WeakValueDictionary()
 
-    def set_help_formatter (self ,formatter :commands .help .HelpFormatterABC ):
+    def set_help_formatter(self, formatter: commands.help.HelpFormatterABC):
         """
         Set's Blue's help formatter.
 
@@ -262,20 +262,20 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
             If given an invalid formatter
         """
 
-        if not isinstance (formatter ,commands .help .HelpFormatterABC ):
-            raise TypeError (
-            "Help formatters must inherit from `commands.help.HelpFormatterABC` "
-            "and implement the required interfaces."
+        if not isinstance(formatter, commands.help.HelpFormatterABC):
+            raise TypeError(
+                "Help formatters must inherit from `commands.help.HelpFormatterABC` "
+                "and implement the required interfaces."
             )
 
-            # Uh, a hair to the right...
-            # So, when did you ride it?
-        if type (self ._help_formatter )is commands .help .BlueHelpFormatter :
-            self ._help_formatter =formatter 
-        else :
-            raise RuntimeError ("The formatter has already been overridden.")
+        # do not switch to isinstance, we want to know that this has not been overridden,
+        # even with a subclass.
+        if type(self._help_formatter) is commands.help.BlueHelpFormatter:
+            self._help_formatter = formatter
+        else:
+            raise RuntimeError("The formatter has already been overridden.")
 
-    def reset_help_formatter (self ):
+    def reset_help_formatter(self):
         """
         Resets Blue's help formatter.
 
@@ -287,9 +287,9 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
         as well as for a rescue command in core_commands.
 
         """
-        self ._help_formatter =commands .help .BlueHelpFormatter ()
+        self._help_formatter = commands.help.BlueHelpFormatter()
 
-    def add_dev_env_value (self ,name :str ,value :Callable [[commands .Context ],Any ]):
+    def add_dev_env_value(self, name: str, value: Callable[[commands.Context], Any]):
         """
         Add a custom variable to the dev environment (``[p]debug``, ``[p]eval``, and ``[p]repl`` commands).
         If dev mode is disabled, nothing will happen.
@@ -330,33 +330,33 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
             The name of the custom variable is either reserved by a variable
             from the default environment or already taken by some other custom variable.
         """
-        signature =inspect .signature (value )
-        if len (signature .parameters )!=1 :
-            raise ValueError ("Callable must take exactly one argument for context")
-        dev =self .get_cog ("Dev")
-        if dev is None :
-            return 
+        signature = inspect.signature(value)
+        if len(signature.parameters) != 1:
+            raise ValueError("Callable must take exactly one argument for context")
+        dev = self.get_cog("Dev")
+        if dev is None:
+            return
         if name in [
-        "bot",
-        "ctx",
-        "channel",
-        "author",
-        "guild",
-        "message",
-        "asyncio",
-        "aiohttp",
-        "discord",
-        "commands",
-        "_",
-        "__name__",
-        "__builtins__",
+            "bot",
+            "ctx",
+            "channel",
+            "author",
+            "guild",
+            "message",
+            "asyncio",
+            "aiohttp",
+            "discord",
+            "commands",
+            "_",
+            "__name__",
+            "__builtins__",
         ]:
-            raise RuntimeError (f"The name {name} is reserved for default environment.")
-        if name in dev .env_extensions :
-            raise RuntimeError (f"The name {name} is already used.")
-        dev .env_extensions [name ]=value 
+            raise RuntimeError(f"The name {name} is reserved for default environment.")
+        if name in dev.env_extensions:
+            raise RuntimeError(f"The name {name} is already used.")
+        dev.env_extensions[name] = value
 
-    def remove_dev_env_value (self ,name :str ):
+    def remove_dev_env_value(self, name: str):
         """
         Remove a custom variable from the dev environment.
 
@@ -370,42 +370,42 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
         KeyError
             The custom variable was never set.
         """
-        dev =self .get_cog ("Dev")
-        if dev is None :
-            return 
-        del dev .env_extensions [name ]
+        dev = self.get_cog("Dev")
+        if dev is None:
+            return
+        del dev.env_extensions[name]
 
-    def get_command (self ,name :str )->Optional [commands .Command ]:
-        com =super ().get_command (name )
-        assert com is None or isinstance (com ,commands .Command )
-        return com 
+    def get_command(self, name: str) -> Optional[commands.Command]:
+        com = super().get_command(name)
+        assert com is None or isinstance(com, commands.Command)
+        return com
 
-    def get_cog (self ,name :str )->Optional [commands .Cog ]:
-        cog =super ().get_cog (name )
-        assert cog is None or isinstance (cog ,commands .Cog )
-        return cog 
+    def get_cog(self, name: str) -> Optional[commands.Cog]:
+        cog = super().get_cog(name)
+        assert cog is None or isinstance(cog, commands.Cog)
+        return cog
 
-    @property 
-    def _before_invoke (self ):# Ooh! I want a flamingo!
-        return self ._blue_before_invoke_method 
+    @property
+    def _before_invoke(self):  # DEP-WARN
+        return self._blue_before_invoke_method
 
-    @_before_invoke .setter 
-    def _before_invoke (self ,val ):# Blood is rushing from my head to my hooves, yeah I start movin' when I'm feeling that groove, yeah
+    @_before_invoke.setter
+    def _before_invoke(self, val):  # DEP-WARN
         """Prevent this from being overwritten in super().__init__"""
-        pass 
+        pass
 
-    async def _blue_before_invoke_method (self ,ctx ):
-        await self .wait_until_blue_ready ()
-        return_exceptions =isinstance (ctx .command ,commands .commands ._RuleDropper )
-        if self ._blue_before_invoke_objs :
-            await asyncio .gather (
-            *(coro (ctx )for coro in self ._blue_before_invoke_objs ),
-            return_exceptions =return_exceptions ,
+    async def _blue_before_invoke_method(self, ctx):
+        await self.wait_until_blue_ready()
+        return_exceptions = isinstance(ctx.command, commands.commands._RuleDropper)
+        if self._blue_before_invoke_objs:
+            await asyncio.gather(
+                *(coro(ctx) for coro in self._blue_before_invoke_objs),
+                return_exceptions=return_exceptions,
             )
 
-    async def cog_disabled_in_guild (
-    self ,cog :commands .Cog ,guild :Optional [discord .Guild ]
-    )->bool :
+    async def cog_disabled_in_guild(
+        self, cog: commands.Cog, guild: Optional[discord.Guild]
+    ) -> bool:
         """
         Check if a cog is disabled in a guild
 
@@ -418,11 +418,11 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
         -------
         bool
         """
-        if guild is None :
-            return False 
-        return await self ._disabled_cog_cache .cog_disabled_in_guild (cog .qualified_name ,guild .id )
+        if guild is None:
+            return False
+        return await self._disabled_cog_cache.cog_disabled_in_guild(cog.qualified_name, guild.id)
 
-    async def cog_disabled_in_guild_raw (self ,cog_name :str ,guild_id :int )->bool :
+    async def cog_disabled_in_guild_raw(self, cog_name: str, guild_id: int) -> bool:
         """
         Check if a cog is disabled in a guild without the cog or guild object
 
@@ -436,15 +436,15 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
         -------
         bool
         """
-        return await self ._disabled_cog_cache .cog_disabled_in_guild (cog_name ,guild_id )
+        return await self._disabled_cog_cache.cog_disabled_in_guild(cog_name, guild_id)
 
-    def remove_before_invoke_hook (self ,coro :PreInvokeCoroutine )->None :
+    def remove_before_invoke_hook(self, coro: PreInvokeCoroutine) -> None:
         """
         Functional method to remove a `before_invoke` hook.
         """
-        self ._blue_before_invoke_objs .discard (coro )
+        self._blue_before_invoke_objs.discard(coro)
 
-    def before_invoke (self ,coro :T_BIC )->T_BIC :
+    def before_invoke(self, coro: T_BIC) -> T_BIC:
         """
         Overridden decorator method for Blue's ``before_invoke`` behavior.
 
@@ -471,62 +471,62 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
         TypeError
             The coroutine passed is not actually a coroutine.
         """
-        if not asyncio .iscoroutinefunction (coro ):
-            raise TypeError ("The pre-invoke hook must be a coroutine.")
+        if not asyncio.iscoroutinefunction(coro):
+            raise TypeError("The pre-invoke hook must be a coroutine.")
 
-        self ._blue_before_invoke_objs .add (coro )
-        return coro 
+        self._blue_before_invoke_objs.add(coro)
+        return coro
 
-    async def before_identify_hook (self ,shard_id ,*,initial =False ):
+    async def before_identify_hook(self, shard_id, *, initial=False):
         """A hook that is called before IDENTIFYing a session.
         Same as in discord.py, but also dispatches "on_blue_identify" bot event."""
-        self .dispatch ("blue_before_identify",shard_id ,initial )
-        return await super ().before_identify_hook (shard_id ,initial =initial )
+        self.dispatch("blue_before_identify", shard_id, initial)
+        return await super().before_identify_hook(shard_id, initial=initial)
 
-    @property 
-    def cog_mgr (self )->NoReturn :
-        raise AttributeError ("Please don't mess with the cog manager internals.")
+    @property
+    def cog_mgr(self) -> NoReturn:
+        raise AttributeError("Please don't mess with the cog manager internals.")
 
-    @property 
-    def uptime (self )->datetime :
+    @property
+    def uptime(self) -> datetime:
         """Allow access to the value, but we don't want cog creators setting it"""
-        return self ._uptime 
+        return self._uptime
 
-    @uptime .setter 
-    def uptime (self ,value )->NoReturn :
-        raise RuntimeError (
-        "Hey, we're cool with sharing info about the uptime, but don't try and assign to it please."
+    @uptime.setter
+    def uptime(self, value) -> NoReturn:
+        raise RuntimeError(
+            "Hey, we're cool with sharing info about the uptime, but don't try and assign to it please."
         )
 
-    @property 
-    def db (self )->NoReturn :
-        raise AttributeError (
-        "We really don't want you touching the bot config directly. "
-        "If you need something in here, take a look at the exposed methods "
-        "and use the one which corresponds to your needs or "
-        "open an issue if you need an additional method for your use case."
+    @property
+    def db(self) -> NoReturn:
+        raise AttributeError(
+            "We really don't want you touching the bot config directly. "
+            "If you need something in here, take a look at the exposed methods "
+            "and use the one which corresponds to your needs or "
+            "open an issue if you need an additional method for your use case."
         )
 
-    @property 
-    def counter (self )->NoReturn :
-        raise AttributeError (
-        "Please make your own counter object by importing ``Counter`` from ``collections``."
+    @property
+    def counter(self) -> NoReturn:
+        raise AttributeError(
+            "Please make your own counter object by importing ``Counter`` from ``collections``."
         )
 
-    @property 
-    def color (self )->NoReturn :
-        raise AttributeError ("Please fetch the embed color with `get_embed_color`")
+    @property
+    def color(self) -> NoReturn:
+        raise AttributeError("Please fetch the embed color with `get_embed_color`")
 
-    @property 
-    def colour (self )->NoReturn :
-        raise AttributeError ("Please fetch the embed colour with `get_embed_colour`")
+    @property
+    def colour(self) -> NoReturn:
+        raise AttributeError("Please fetch the embed colour with `get_embed_colour`")
 
-    @property 
-    def max_messages (self )->Optional [int ]:
-        return self ._max_messages 
+    @property
+    def max_messages(self) -> Optional[int]:
+        return self._max_messages
 
-    async def add_to_blacklist (
-    self ,users_or_roles :Iterable [UserOrRole ],*,guild :Optional [discord .Guild ]=None 
+    async def add_to_blacklist(
+        self, users_or_roles: Iterable[UserOrRole], *, guild: Optional[discord.Guild] = None
     ):
         """
         Add users or roles to the global or local blocklist.
@@ -545,11 +545,11 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
         TypeError
             The values passed were not of the proper type.
         """
-        to_add :Set [int ]={getattr (uor ,"id",uor )for uor in users_or_roles }
-        await self ._whiteblacklist_cache .add_to_blacklist (guild ,to_add )
+        to_add: Set[int] = {getattr(uor, "id", uor) for uor in users_or_roles}
+        await self._whiteblacklist_cache.add_to_blacklist(guild, to_add)
 
-    async def remove_from_blacklist (
-    self ,users_or_roles :Iterable [UserOrRole ],*,guild :Optional [discord .Guild ]=None 
+    async def remove_from_blacklist(
+        self, users_or_roles: Iterable[UserOrRole], *, guild: Optional[discord.Guild] = None
     ):
         """
         Remove users or roles from the global or local blocklist.
@@ -568,10 +568,10 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
         TypeError
             The values passed were not of the proper type.
         """
-        to_remove :Set [int ]={getattr (uor ,"id",uor )for uor in users_or_roles }
-        await self ._whiteblacklist_cache .remove_from_blacklist (guild ,to_remove )
+        to_remove: Set[int] = {getattr(uor, "id", uor) for uor in users_or_roles}
+        await self._whiteblacklist_cache.remove_from_blacklist(guild, to_remove)
 
-    async def get_blacklist (self ,guild :Optional [discord .Guild ]=None )->Set [int ]:
+    async def get_blacklist(self, guild: Optional[discord.Guild] = None) -> Set[int]:
         """
         Get the global or local blocklist.
 
@@ -586,9 +586,9 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
         Set[int]
             The IDs of the blocked users/roles.
         """
-        return await self ._whiteblacklist_cache .get_blacklist (guild )
+        return await self._whiteblacklist_cache.get_blacklist(guild)
 
-    async def clear_blacklist (self ,guild :Optional [discord .Guild ]=None ):
+    async def clear_blacklist(self, guild: Optional[discord.Guild] = None):
         """
         Clears the global or local blocklist.
 
@@ -598,10 +598,10 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
             The guild, whose local blocklist should be cleared.
             If not passed, the global blocklist will be cleared.
         """
-        await self ._whiteblacklist_cache .clear_blacklist (guild )
+        await self._whiteblacklist_cache.clear_blacklist(guild)
 
-    async def add_to_whitelist (
-    self ,users_or_roles :Iterable [UserOrRole ],*,guild :Optional [discord .Guild ]=None 
+    async def add_to_whitelist(
+        self, users_or_roles: Iterable[UserOrRole], *, guild: Optional[discord.Guild] = None
     ):
         """
         Add users or roles to the global or local allowlist.
@@ -620,11 +620,11 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
         TypeError
             The passed values were not of the proper type.
         """
-        to_add :Set [int ]={getattr (uor ,"id",uor )for uor in users_or_roles }
-        await self ._whiteblacklist_cache .add_to_whitelist (guild ,to_add )
+        to_add: Set[int] = {getattr(uor, "id", uor) for uor in users_or_roles}
+        await self._whiteblacklist_cache.add_to_whitelist(guild, to_add)
 
-    async def remove_from_whitelist (
-    self ,users_or_roles :Iterable [UserOrRole ],*,guild :Optional [discord .Guild ]=None 
+    async def remove_from_whitelist(
+        self, users_or_roles: Iterable[UserOrRole], *, guild: Optional[discord.Guild] = None
     ):
         """
         Remove users or roles from the global or local allowlist.
@@ -643,10 +643,10 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
         TypeError
             The passed values were not of the proper type.
         """
-        to_remove :Set [int ]={getattr (uor ,"id",uor )for uor in users_or_roles }
-        await self ._whiteblacklist_cache .remove_from_whitelist (guild ,to_remove )
+        to_remove: Set[int] = {getattr(uor, "id", uor) for uor in users_or_roles}
+        await self._whiteblacklist_cache.remove_from_whitelist(guild, to_remove)
 
-    async def get_whitelist (self ,guild :Optional [discord .Guild ]=None ):
+    async def get_whitelist(self, guild: Optional[discord.Guild] = None):
         """
         Get the global or local allowlist.
 
@@ -661,9 +661,9 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
         Set[int]
             The IDs of the allowed users/roles.
         """
-        return await self ._whiteblacklist_cache .get_whitelist (guild )
+        return await self._whiteblacklist_cache.get_whitelist(guild)
 
-    async def clear_whitelist (self ,guild :Optional [discord .Guild ]=None ):
+    async def clear_whitelist(self, guild: Optional[discord.Guild] = None):
         """
         Clears the global or local allowlist.
 
@@ -673,16 +673,16 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
             The guild, whose local allowlist should be cleared.
             If not passed, the global allowlist will be cleared.
         """
-        await self ._whiteblacklist_cache .clear_whitelist (guild )
+        await self._whiteblacklist_cache.clear_whitelist(guild)
 
-    async def allowed_by_whitelist_blacklist (
-    self ,
-    who :Optional [Union [discord .Member ,discord .User ]]=None ,
-    *,
-    who_id :Optional [int ]=None ,
-    guild :Optional [discord .Guild ]=None ,
-    role_ids :Optional [List [int ]]=None ,
-    )->bool :
+    async def allowed_by_whitelist_blacklist(
+        self,
+        who: Optional[Union[discord.Member, discord.User]] = None,
+        *,
+        who_id: Optional[int] = None,
+        guild: Optional[discord.Guild] = None,
+        role_ids: Optional[List[int]] = None,
+    ) -> bool:
         """
         This checks if a user or member is allowed to run things,
         as considered by Blue's allowlist and blocklist.
@@ -727,59 +727,59 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
         bool
             `True` if user is allowed to run things, `False` otherwise
         """
-        # What happened?
-        # Trust us. Before you know it, you and your puppy will be back to bein' besties!
-        # [in unison] Lady, you're trouble.
+        # Contributor Note:
+        # All config calls are delayed until needed in this section
+        # All changes should be made keeping in mind that this is also used as a global check
 
-        mocked =False # Hey, what gives?
-        if not who :
-            if not who_id :
-                raise TypeError ("Must provide a value for either `who` or `who_id`")
-            mocked =True 
-            who =discord .Object (id =who_id )
-        else :
-            guild =getattr (who ,"guild",None )
+        mocked = False  # used for an accurate delayed role id expansion later.
+        if not who:
+            if not who_id:
+                raise TypeError("Must provide a value for either `who` or `who_id`")
+            mocked = True
+            who = discord.Object(id=who_id)
+        else:
+            guild = getattr(who, "guild", None)
 
-        if await self .is_owner (who ):
-            return True 
+        if await self.is_owner(who):
+            return True
 
-        global_whitelist =await self .get_whitelist ()
-        if global_whitelist :
-            if who .id not in global_whitelist :
-                return False 
-        else :
-        # No, 'Serves Her Right' is another one of Sapphire Shores' songs!
-            global_blacklist =await self .get_blacklist ()
-            if who .id in global_blacklist :
-                return False 
+        global_whitelist = await self.get_whitelist()
+        if global_whitelist:
+            if who.id not in global_whitelist:
+                return False
+        else:
+            # blacklist is only used when whitelist doesn't exist.
+            global_blacklist = await self.get_blacklist()
+            if who.id in global_blacklist:
+                return False
 
-        if guild :
-            if guild .owner_id ==who .id :
-                return True 
+        if guild:
+            if guild.owner_id == who.id:
+                return True
 
-                # Mmmm! These berries look good enough to eat!
-                # No, Twilight. You can! You can copy Rarity's gem-finding spell.
-            if mocked :
-                ids ={i for i in (who .id ,*(role_ids or []))if i !=guild .id }
-            else :
-            # Will you accept my friendship?
-            # Very ready!
-            # [panting] Yes. Better than okay actually.
-            # Good thing you're not really Hum Drum, then.
-                ids ={i for i in (who .id ,*(getattr (who ,"_roles",[])))if i !=guild .id }
+            # The delayed expansion of ids to check saves time in the DM case.
+            # Converting to a set reduces the total lookup time in section
+            if mocked:
+                ids = {i for i in (who.id, *(role_ids or [])) if i != guild.id}
+            else:
+                # DEP-WARN
+                # This uses member._roles (getattr is for the user case)
+                # If this is removed upstream (undocumented)
+                # there is a silent failure potential, and role blacklist/whitelists will break.
+                ids = {i for i in (who.id, *(getattr(who, "_roles", []))) if i != guild.id}
 
-            guild_whitelist =await self .get_whitelist (guild )
-            if guild_whitelist :
-                if ids .isdisjoint (guild_whitelist ):
-                    return False 
-            else :
-                guild_blacklist =await self .get_blacklist (guild )
-                if not ids .isdisjoint (guild_blacklist ):
-                    return False 
+            guild_whitelist = await self.get_whitelist(guild)
+            if guild_whitelist:
+                if ids.isdisjoint(guild_whitelist):
+                    return False
+            else:
+                guild_blacklist = await self.get_blacklist(guild)
+                if not ids.isdisjoint(guild_blacklist):
+                    return False
 
-        return True 
+        return True
 
-    async def message_eligible_as_command (self ,message :discord .Message )->bool :
+    async def message_eligible_as_command(self, message: discord.Message) -> bool:
         """
         Runs through the things which apply globally about commands
         to determine if a message may be responded to as a command.
@@ -803,27 +803,27 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
             Whether or not the message is eligible to be treated as a command.
         """
 
-        channel =message .channel 
-        guild =message .guild 
+        channel = message.channel
+        guild = message.guild
 
-        if message .author .bot :
-            return False 
+        if message.author.bot:
+            return False
 
-        if guild :
-            assert isinstance (channel ,discord .abc .GuildChannel )# Ha, try and catch me now. Oh, nuts.
-            if not channel .permissions_for (guild .me ).send_messages :
-                return False 
-            if not (await self .ignored_channel_or_guild (message )):
-                return False 
+        if guild:
+            assert isinstance(channel, discord.abc.GuildChannel)  # nosec
+            if not channel.permissions_for(guild.me).send_messages:
+                return False
+            if not (await self.ignored_channel_or_guild(message)):
+                return False
 
-        if not (await self .allowed_by_whitelist_blacklist (message .author )):
-            return False 
+        if not (await self.allowed_by_whitelist_blacklist(message.author)):
+            return False
 
-        return True 
+        return True
 
-    async def ignored_channel_or_guild (
-    self ,ctx :Union [commands .Context ,discord .Message ]
-    )->bool :
+    async def ignored_channel_or_guild(
+        self, ctx: Union[commands.Context, discord.Message]
+    ) -> bool:
         """
         This checks if the bot is meant to be ignoring commands in a channel or guild,
         as considered by Blue's whitelist and blacklist.
@@ -839,20 +839,20 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
         bool
             `True` if commands are allowed in the channel, `False` otherwise
         """
-        perms =ctx .channel .permissions_for (ctx .author )
-        surpass_ignore =(
-        isinstance (ctx .channel ,discord .abc .PrivateChannel )
-        or perms .manage_guild 
-        or await self .is_owner (ctx .author )
-        or await self .is_admin (ctx .author )
+        perms = ctx.channel.permissions_for(ctx.author)
+        surpass_ignore = (
+            isinstance(ctx.channel, discord.abc.PrivateChannel)
+            or perms.manage_guild
+            or await self.is_owner(ctx.author)
+            or await self.is_admin(ctx.author)
         )
-        if surpass_ignore :
-            return True 
-        guild_ignored =await self ._ignored_cache .get_ignored_guild (ctx .guild )
-        chann_ignored =await self ._ignored_cache .get_ignored_channel (ctx .channel )
-        return not (guild_ignored or chann_ignored and not perms .manage_channels )
+        if surpass_ignore:
+            return True
+        guild_ignored = await self._ignored_cache.get_ignored_guild(ctx.guild)
+        chann_ignored = await self._ignored_cache.get_ignored_channel(ctx.channel)
+        return not (guild_ignored or chann_ignored and not perms.manage_channels)
 
-    async def get_valid_prefixes (self ,guild :Optional [discord .Guild ]=None )->List [str ]:
+    async def get_valid_prefixes(self, guild: Optional[discord.Guild] = None) -> List[str]:
         """
         This gets the valid prefixes for a guild.
 
@@ -871,9 +871,9 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
             If a guild was specified, the valid prefixes in that guild.
             If a guild was not specified, the valid prefixes for DMs
         """
-        return await self .get_prefix (NotMessage (guild ))
+        return await self.get_prefix(NotMessage(guild))
 
-    async def set_prefixes (self ,prefixes :List [str ],guild :Optional [discord .Guild ]=None ):
+    async def set_prefixes(self, prefixes: List[str], guild: Optional[discord.Guild] = None):
         """
         Set global/server prefixes.
 
@@ -893,9 +893,9 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
         ValueError
             If empty list is passed to ``prefixes`` when setting global prefixes
         """
-        await self ._prefix_cache .set_prefixes (guild =guild ,prefixes =prefixes )
+        await self._prefix_cache.set_prefixes(guild=guild, prefixes=prefixes)
 
-    async def get_embed_color (self ,location :discord .abc .Messageable )->discord .Color :
+    async def get_embed_color(self, location: discord.abc.Messageable) -> discord.Color:
         """
         Get the embed color for a location. This takes into account all related settings.
 
@@ -910,18 +910,18 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
             Embed color for the provided location.
         """
 
-        guild =getattr (location ,"guild",None )
+        guild = getattr(location, "guild", None)
 
         if (
-        guild 
-        and await self ._config .guild (guild ).use_bot_color ()
-        and not isinstance (location ,discord .Member )
+            guild
+            and await self._config.guild(guild).use_bot_color()
+            and not isinstance(location, discord.Member)
         ):
-            return guild .me .color 
+            return guild.me.color
 
-        return self ._color 
+        return self._color
 
-    async def get_or_fetch_user (self ,user_id :int )->discord .User :
+    async def get_or_fetch_user(self, user_id: int) -> discord.User:
         """
         Retrieves a `discord.User` based on their ID.
         You do not have to share any guilds
@@ -948,11 +948,11 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
             The user you requested.
         """
 
-        if (user :=self .get_user (user_id ))is not None :
-            return user 
-        return await self .fetch_user (user_id )
+        if (user := self.get_user(user_id)) is not None:
+            return user
+        return await self.fetch_user(user_id)
 
-    async def get_or_fetch_member (self ,guild :discord .Guild ,member_id :int )->discord .Member :
+    async def get_or_fetch_member(self, guild: discord.Guild, member_id: int) -> discord.Member:
         """
         Retrieves a `discord.Member` from a guild and a member ID.
 
@@ -978,238 +978,238 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
             The user you requested.
         """
 
-        if (member :=guild .get_member (member_id ))is not None :
-            return member 
-        return await guild .fetch_member (member_id )
+        if (member := guild.get_member(member_id)) is not None:
+            return member
+        return await guild.fetch_member(member_id)
 
-    get_embed_colour =get_embed_color 
+    get_embed_colour = get_embed_color
 
-    # Uh, Applejack? It isn't as bad as we thought.
-    async def _maybe_update_config (self ):
+    # start config migrations
+    async def _maybe_update_config(self):
         """
         This should be run prior to loading cogs or connecting to discord.
         """
-        schema_version =await self ._config .schema_version ()
+        schema_version = await self._config.schema_version()
 
-        if schema_version ==0 :
-            await self ._schema_0_to_1 ()
-            schema_version +=1 
-            await self ._config .schema_version .set (schema_version )
-        if schema_version ==1 :
-            await self ._schema_1_to_2 ()
-            schema_version +=1 
-            await self ._config .schema_version .set (schema_version )
+        if schema_version == 0:
+            await self._schema_0_to_1()
+            schema_version += 1
+            await self._config.schema_version.set(schema_version)
+        if schema_version == 1:
+            await self._schema_1_to_2()
+            schema_version += 1
+            await self._config.schema_version.set(schema_version)
 
-    async def _schema_1_to_2 (self ):
+    async def _schema_1_to_2(self):
         """
         This contains the migration of shared API tokens to a custom config scope
         """
 
-        log .info ("Moving shared API tokens to a custom group")
-        all_shared_api_tokens =await self ._config .get_raw ("api_tokens",default ={})
-        for service_name ,token_mapping in all_shared_api_tokens .items ():
-            service_partial =self ._config .custom (SHARED_API_TOKENS ,service_name )
-            async with service_partial .all ()as basically_bulk_update :
-                basically_bulk_update .update (token_mapping )
+        log.info("Moving shared API tokens to a custom group")
+        all_shared_api_tokens = await self._config.get_raw("api_tokens", default={})
+        for service_name, token_mapping in all_shared_api_tokens.items():
+            service_partial = self._config.custom(SHARED_API_TOKENS, service_name)
+            async with service_partial.all() as basically_bulk_update:
+                basically_bulk_update.update(token_mapping)
 
-        await self ._config .clear_raw ("api_tokens")
+        await self._config.clear_raw("api_tokens")
 
-    async def _schema_0_to_1 (self ):
+    async def _schema_0_to_1(self):
         """
         This contains the migration to allow multiple mod and multiple admin roles.
         """
 
-        log .info ("Begin updating guild configs to support multiple mod/admin roles")
-        all_guild_data =await self ._config .all_guilds ()
-        for guild_id ,guild_data in all_guild_data .items ():
-            guild_obj =discord .Object (id =guild_id )
-            mod_roles ,admin_roles =[],[]
-            maybe_mod_role_id =guild_data ["mod_role"]
-            maybe_admin_role_id =guild_data ["admin_role"]
+        log.info("Begin updating guild configs to support multiple mod/admin roles")
+        all_guild_data = await self._config.all_guilds()
+        for guild_id, guild_data in all_guild_data.items():
+            guild_obj = discord.Object(id=guild_id)
+            mod_roles, admin_roles = [], []
+            maybe_mod_role_id = guild_data["mod_role"]
+            maybe_admin_role_id = guild_data["admin_role"]
 
-            if maybe_mod_role_id :
-                mod_roles .append (maybe_mod_role_id )
-                await self ._config .guild (guild_obj ).mod_role .set (mod_roles )
-            if maybe_admin_role_id :
-                admin_roles .append (maybe_admin_role_id )
-                await self ._config .guild (guild_obj ).admin_role .set (admin_roles )
-        log .info ("Done updating guild configs to support multiple mod/admin roles")
+            if maybe_mod_role_id:
+                mod_roles.append(maybe_mod_role_id)
+                await self._config.guild(guild_obj).mod_role.set(mod_roles)
+            if maybe_admin_role_id:
+                admin_roles.append(maybe_admin_role_id)
+                await self._config.guild(guild_obj).admin_role.set(admin_roles)
+        log.info("Done updating guild configs to support multiple mod/admin roles")
 
-        # Are you really, really, really sure you're ready? I mean, I don't want to take it if you're not super sure.
+    # end Config migrations
 
-    async def _pre_login (self )->None :
+    async def _pre_login(self) -> None:
         """
         This should only be run once, prior to logging in to Discord REST API.
         """
-        await self ._maybe_update_config ()
-        self .description =await self ._config .description ()
-        self ._color =discord .Colour (await self ._config .color ())
+        await self._maybe_update_config()
+        self.description = await self._config.description()
+        self._color = discord.Colour(await self._config.color())
 
-        init_global_checks (self )
-        init_events (self ,self ._cli_flags )
+        init_global_checks(self)
+        init_events(self, self._cli_flags)
 
-        if self ._owner_id_overwrite is None :
-            self ._owner_id_overwrite =await self ._config .owner ()
-        if self ._owner_id_overwrite is not None :
-            self .owner_ids .add (self ._owner_id_overwrite )
+        if self._owner_id_overwrite is None:
+            self._owner_id_overwrite = await self._config.owner()
+        if self._owner_id_overwrite is not None:
+            self.owner_ids.add(self._owner_id_overwrite)
 
-        i18n_locale =await self ._config .locale ()
-        i18n .set_locale (i18n_locale )
-        i18n_regional_format =await self ._config .regional_format ()
-        i18n .set_regional_format (i18n_regional_format )
+        i18n_locale = await self._config.locale()
+        i18n.set_locale(i18n_locale)
+        i18n_regional_format = await self._config.regional_format()
+        i18n.set_regional_format(i18n_regional_format)
 
-    async def _pre_connect (self )->None :
+    async def _pre_connect(self) -> None:
         """
         This should only be run once, prior to connecting to Discord gateway.
         """
-        self .add_cog (Core (self ))
-        self .add_cog (CogManagerUI ())
-        if self ._cli_flags .dev :
-            self .add_cog (Dev ())
+        self.add_cog(Core(self))
+        self.add_cog(CogManagerUI())
+        if self._cli_flags.dev:
+            self.add_cog(Dev())
 
-        await modlog ._init (self )
-        await bank ._init ()
+        await modlog._init(self)
+        await bank._init()
 
-        packages =[]
+        packages = []
 
-        last_system_info =await self ._config .last_system_info ()
+        last_system_info = await self._config.last_system_info()
 
-        ver_info =list (sys .version_info [:2 ])
-        python_version_changed =False 
-        LIB_PATH =cog_data_path (raw_name ="Downloader")/"lib"
-        if ver_info !=last_system_info ["python_version"]:
-            await self ._config .last_system_info .python_version .set (ver_info )
-            if any (LIB_PATH .iterdir ()):
-                shutil .rmtree (str (LIB_PATH ))
-                LIB_PATH .mkdir ()
-                asyncio .create_task (
-                send_to_owners_with_prefix_replaced (
-                self ,
-                "We detected a change in minor Python version"
-                " and cleared packages in lib folder.\n"
-                "The instance was started with no cogs, please load Downloader"
-                " and use `[p]cog reinstallreqs` to regenerate lib folder."
-                " After that, restart the bot to get"
-                " all of your previously loaded cogs loaded again.",
+        ver_info = list(sys.version_info[:2])
+        python_version_changed = False
+        LIB_PATH = cog_data_path(raw_name="Downloader") / "lib"
+        if ver_info != last_system_info["python_version"]:
+            await self._config.last_system_info.python_version.set(ver_info)
+            if any(LIB_PATH.iterdir()):
+                shutil.rmtree(str(LIB_PATH))
+                LIB_PATH.mkdir()
+                asyncio.create_task(
+                    send_to_owners_with_prefix_replaced(
+                        self,
+                        "We detected a change in minor Python version"
+                        " and cleared packages in lib folder.\n"
+                        "The instance was started with no cogs, please load Downloader"
+                        " and use `[p]cog reinstallreqs` to regenerate lib folder."
+                        " After that, restart the bot to get"
+                        " all of your previously loaded cogs loaded again.",
+                    )
                 )
+                python_version_changed = True
+        else:
+            if self._cli_flags.no_cogs is False:
+                packages.extend(await self._config.packages())
+
+            if self._cli_flags.load_cogs:
+                packages.extend(self._cli_flags.load_cogs)
+
+        system_changed = False
+        machine = platform.machine()
+        system = platform.system()
+        if last_system_info["machine"] is None:
+            await self._config.last_system_info.machine.set(machine)
+        elif last_system_info["machine"] != machine:
+            await self._config.last_system_info.machine.set(machine)
+            system_changed = True
+
+        if last_system_info["system"] is None:
+            await self._config.last_system_info.system.set(system)
+        elif last_system_info["system"] != system:
+            await self._config.last_system_info.system.set(system)
+            system_changed = True
+
+        if system_changed and not python_version_changed:
+            asyncio.create_task(
+                send_to_owners_with_prefix_replaced(
+                    self,
+                    "We detected a possible change in machine's operating system"
+                    " or architecture. You might need to regenerate your lib folder"
+                    " if 3rd-party cogs stop working properly.\n"
+                    "To regenerate lib folder, load Downloader and use `[p]cog reinstallreqs`.",
                 )
-                python_version_changed =True 
-        else :
-            if self ._cli_flags .no_cogs is False :
-                packages .extend (await self ._config .packages ())
-
-            if self ._cli_flags .load_cogs :
-                packages .extend (self ._cli_flags .load_cogs )
-
-        system_changed =False 
-        machine =platform .machine ()
-        system =platform .system ()
-        if last_system_info ["machine"]is None :
-            await self ._config .last_system_info .machine .set (machine )
-        elif last_system_info ["machine"]!=machine :
-            await self ._config .last_system_info .machine .set (machine )
-            system_changed =True 
-
-        if last_system_info ["system"]is None :
-            await self ._config .last_system_info .system .set (system )
-        elif last_system_info ["system"]!=system :
-            await self ._config .last_system_info .system .set (system )
-            system_changed =True 
-
-        if system_changed and not python_version_changed :
-            asyncio .create_task (
-            send_to_owners_with_prefix_replaced (
-            self ,
-            "We detected a possible change in machine's operating system"
-            " or architecture. You might need to regenerate your lib folder"
-            " if 3rd-party cogs stop working properly.\n"
-            "To regenerate lib folder, load Downloader and use `[p]cog reinstallreqs`.",
-            )
             )
 
-        if packages :
-        # [pants] Here we are! Safe and sound. A good and heroic citizen deserves a little recognition, don't you think?
-            try :
-                packages .remove ("permissions")
-            except ValueError :
-                pass 
-            else :
-                packages .insert (0 ,"permissions")
+        if packages:
+            # Load permissions first, for security reasons
+            try:
+                packages.remove("permissions")
+            except ValueError:
+                pass
+            else:
+                packages.insert(0, "permissions")
 
-            to_remove =[]
-            log .info ("Loading packages...")
-            for package in packages :
-                try :
-                    spec =await self ._cog_mgr .find_cog (package )
-                    if spec is None :
-                        log .error (
-                        "Failed to load package %s (package was not found in any cog path)",
-                        package ,
+            to_remove = []
+            log.info("Loading packages...")
+            for package in packages:
+                try:
+                    spec = await self._cog_mgr.find_cog(package)
+                    if spec is None:
+                        log.error(
+                            "Failed to load package %s (package was not found in any cog path)",
+                            package,
                         )
-                        await self .remove_loaded_package (package )
-                        to_remove .append (package )
-                        continue 
-                    await asyncio .wait_for (self .load_extension (spec ),30 )
-                except asyncio .TimeoutError :
-                    log .exception ("Failed to load package %s (timeout)",package )
-                    to_remove .append (package )
-                except Exception as e :
-                    log .exception ("Failed to load package %s",package ,exc_info =e )
-                    await self .remove_loaded_package (package )
-                    to_remove .append (package )
-            for package in to_remove :
-                packages .remove (package )
-            if packages :
-                log .info ("Loaded packages: "+", ".join (packages ))
+                        await self.remove_loaded_package(package)
+                        to_remove.append(package)
+                        continue
+                    await asyncio.wait_for(self.load_extension(spec), 30)
+                except asyncio.TimeoutError:
+                    log.exception("Failed to load package %s (timeout)", package)
+                    to_remove.append(package)
+                except Exception as e:
+                    log.exception("Failed to load package %s", package, exc_info=e)
+                    await self.remove_loaded_package(package)
+                    to_remove.append(package)
+            for package in to_remove:
+                packages.remove(package)
+            if packages:
+                log.info("Loaded packages: " + ", ".join(packages))
 
-        if self .rpc_enabled :
-            await self .rpc .initialize (self .rpc_port )
+        if self.rpc_enabled:
+            await self.rpc.initialize(self.rpc_port)
 
-    async def _pre_fetch_owners (self )->None :
-        app_info =await self .application_info ()
+    async def _pre_fetch_owners(self) -> None:
+        app_info = await self.application_info()
 
-        if app_info .team :
-            if self ._use_team_features :
-                self .owner_ids .update (m .id for m in app_info .team .members )
-        elif self ._owner_id_overwrite is None :
-            self .owner_ids .add (app_info .owner .id )
+        if app_info.team:
+            if self._use_team_features:
+                self.owner_ids.update(m.id for m in app_info.team.members)
+        elif self._owner_id_overwrite is None:
+            self.owner_ids.add(app_info.owner.id)
 
-        self ._app_info =app_info 
+        self._app_info = app_info
 
-        if not self .owner_ids :
-            raise _NoOwnerSet ("Bot doesn't have any owner set!")
+        if not self.owner_ids:
+            raise _NoOwnerSet("Bot doesn't have any owner set!")
 
-    async def start (self ,*args ,**kwargs ):
+    async def start(self, *args, **kwargs):
         """
         Overridden start which ensures that cog load and other pre-connection tasks are handled.
         """
-        await self ._pre_login ()
-        await self .login (*args )
-        await self ._pre_fetch_owners ()
-        await self ._pre_connect ()
-        await self .connect ()
+        await self._pre_login()
+        await self.login(*args)
+        await self._pre_fetch_owners()
+        await self._pre_connect()
+        await self.connect()
 
-    async def send_help_for (
-    self ,
-    ctx :commands .Context ,
-    help_for :Union [commands .Command ,commands .GroupMixin ,str ],
-    *,
-    from_help_command :bool =False ,
+    async def send_help_for(
+        self,
+        ctx: commands.Context,
+        help_for: Union[commands.Command, commands.GroupMixin, str],
+        *,
+        from_help_command: bool = False,
     ):
         """
         Invokes Blue's helpformatter for a given context and object.
         """
-        return await self ._help_formatter .send_help (
-        ctx ,help_for ,from_help_command =from_help_command 
+        return await self._help_formatter.send_help(
+            ctx, help_for, from_help_command=from_help_command
         )
 
-    async def embed_requested (
-    self ,
-    channel :Union [discord .TextChannel ,commands .Context ,discord .User ,discord .Member ],
-    *,
-    command :Optional [commands .Command ]=None ,
-    check_permissions :bool =True ,
-    )->bool :
+    async def embed_requested(
+        self,
+        channel: Union[discord.TextChannel, commands.Context, discord.User, discord.Member],
+        *,
+        command: Optional[commands.Command] = None,
+        check_permissions: bool = True,
+    ) -> bool:
         """
         Determine if an embed is requested for a response.
 
@@ -1241,48 +1241,48 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
 
         """
 
-        async def get_command_setting (guild_id :int )->Optional [bool ]:
-            if command is None :
-                return None 
-            scope =self ._config .custom (COMMAND_SCOPE ,command .qualified_name ,guild_id )
-            return await scope .embeds ()
+        async def get_command_setting(guild_id: int) -> Optional[bool]:
+            if command is None:
+                return None
+            scope = self._config.custom(COMMAND_SCOPE, command.qualified_name, guild_id)
+            return await scope.embeds()
 
-        if isinstance (channel ,(discord .GroupChannel ,discord .DMChannel )):
-            raise TypeError ("You cannot pass a GroupChannel or DMChannel to this method")
+        if isinstance(channel, (discord.GroupChannel, discord.DMChannel)):
+            raise TypeError("You cannot pass a GroupChannel or DMChannel to this method")
 
-            # Rarity, they all adore you! Aren't you going to tell them about your fabulous pieces?
-        if isinstance (channel ,dpy_commands .Context ):
-            command =command or channel .command 
-            channel =(
-            channel .author 
-            if isinstance (channel .channel ,discord .DMChannel )
-            else channel .channel 
+        # using dpy_commands.Context to keep the Messageable contract in full
+        if isinstance(channel, dpy_commands.Context):
+            command = command or channel.command
+            channel = (
+                channel.author
+                if isinstance(channel.channel, discord.DMChannel)
+                else channel.channel
             )
 
-        if isinstance (channel ,discord .TextChannel ):
-            if check_permissions and not channel .permissions_for (channel .guild .me ).embed_links :
-                return False 
+        if isinstance(channel, discord.TextChannel):
+            if check_permissions and not channel.permissions_for(channel.guild.me).embed_links:
+                return False
 
-            if (channel_setting :=await self ._config .channel (channel ).embeds ())is not None :
-                return channel_setting 
+            if (channel_setting := await self._config.channel(channel).embeds()) is not None:
+                return channel_setting
 
-            if (command_setting :=await get_command_setting (channel .guild .id ))is not None :
-                return command_setting 
+            if (command_setting := await get_command_setting(channel.guild.id)) is not None:
+                return command_setting
 
-            if (guild_setting :=await self ._config .guild (channel .guild ).embeds ())is not None :
-                return guild_setting 
-        else :
-            user =channel 
-            if (user_setting :=await self ._config .user (user ).embeds ())is not None :
-                return user_setting 
+            if (guild_setting := await self._config.guild(channel.guild).embeds()) is not None:
+                return guild_setting
+        else:
+            user = channel
+            if (user_setting := await self._config.user(user).embeds()) is not None:
+                return user_setting
 
-        if (global_command_setting :=await get_command_setting (0 ))is not None :
-            return global_command_setting 
+        if (global_command_setting := await get_command_setting(0)) is not None:
+            return global_command_setting
 
-        global_setting =await self ._config .embeds ()
-        return global_setting 
+        global_setting = await self._config.embeds()
+        return global_setting
 
-    async def is_owner (self ,user :Union [discord .User ,discord .Member ])->bool :
+    async def is_owner(self, user: Union[discord.User, discord.Member]) -> bool:
         """
         Determines if the user should be considered a bot owner.
 
@@ -1300,9 +1300,9 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
         -------
         bool
         """
-        return user .id in self .owner_ids 
+        return user.id in self.owner_ids
 
-    async def get_invite_url (self )->str :
+    async def get_invite_url(self) -> str:
         """
         Generates the invite URL for the bot.
 
@@ -1315,14 +1315,14 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
         str
             Invite URL.
         """
-        data =await self ._config .all ()
-        commands_scope =data ["invite_commands_scope"]
-        scopes =("bot","applications.commands")if commands_scope else None 
-        perms_int =data ["invite_perm"]
-        permissions =discord .Permissions (perms_int )
-        return discord .utils .oauth_url (self ._app_info .id ,permissions ,scopes =scopes )
+        data = await self._config.all()
+        commands_scope = data["invite_commands_scope"]
+        scopes = ("bot", "applications.commands") if commands_scope else None
+        perms_int = data["invite_perm"]
+        permissions = discord.Permissions(perms_int)
+        return discord.utils.oauth_url(self._app_info.id, permissions, scopes=scopes)
 
-    async def is_invite_url_public (self )->bool :
+    async def is_invite_url_public(self) -> bool:
         """
         Determines if invite URL is configured to be public with ``[p]inviteset public``.
 
@@ -1331,78 +1331,78 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
         bool
             :code:`True` if the invite URL is public.
         """
-        return await self ._config .invite_public ()
+        return await self._config.invite_public()
 
-    async def is_admin (self ,member :discord .Member )->bool :
+    async def is_admin(self, member: discord.Member) -> bool:
         """Checks if a member is an admin of their guild."""
-        try :
-            member_snowflakes =member ._roles # Spike, I've been thinking about our flying lesson.
-            for snowflake in await self ._config .guild (member .guild ).admin_role ():
-                if member_snowflakes .has (snowflake ):# What's that?
-                    return True 
-        except AttributeError :# But apart, all we are is just a pile of mush and some crumbly dry mess... [gasp] I know what I need to do! I just hope it isn't too late!
-            pass 
-        return False 
+        try:
+            member_snowflakes = member._roles  # DEP-WARN
+            for snowflake in await self._config.guild(member.guild).admin_role():
+                if member_snowflakes.has(snowflake):  # Dep-WARN
+                    return True
+        except AttributeError:  # someone passed a webhook to this
+            pass
+        return False
 
-    async def is_mod (self ,member :discord .Member )->bool :
+    async def is_mod(self, member: discord.Member) -> bool:
         """Checks if a member is a mod or admin of their guild."""
-        try :
-            member_snowflakes =member ._roles # Super duper party ponies -- that is me and you A party thrown by one is good, but not as great as two Come on and let's join forces, have twice the expertise Now let's all go to the party planned by Pinkie Pie and Cheese!
-            for snowflake in await self ._config .guild (member .guild ).admin_role ():
-                if member_snowflakes .has (snowflake ):# I must say, I was impressed by that spell she used to fix the dam. Seems like something like that would take quite a bit of study.
-                    return True 
-            for snowflake in await self ._config .guild (member .guild ).mod_role ():
-                if member_snowflakes .has (snowflake ):# You've got swollen hooves and hindquarters or terrible bridle-bit cleft.
-                    return True 
-        except AttributeError :# Ta-da!
-            pass 
-        return False 
+        try:
+            member_snowflakes = member._roles  # DEP-WARN
+            for snowflake in await self._config.guild(member.guild).admin_role():
+                if member_snowflakes.has(snowflake):  # DEP-WARN
+                    return True
+            for snowflake in await self._config.guild(member.guild).mod_role():
+                if member_snowflakes.has(snowflake):  # DEP-WARN
+                    return True
+        except AttributeError:  # someone passed a webhook to this
+            pass
+        return False
 
-    async def get_admin_roles (self ,guild :discord .Guild )->List [discord .Role ]:
+    async def get_admin_roles(self, guild: discord.Guild) -> List[discord.Role]:
         """
         Gets the admin roles for a guild.
         """
-        ret :List [discord .Role ]=[]
-        for snowflake in await self ._config .guild (guild ).admin_role ():
-            r =guild .get_role (snowflake )
-            if r :
-                ret .append (r )
-        return ret 
+        ret: List[discord.Role] = []
+        for snowflake in await self._config.guild(guild).admin_role():
+            r = guild.get_role(snowflake)
+            if r:
+                ret.append(r)
+        return ret
 
-    async def get_mod_roles (self ,guild :discord .Guild )->List [discord .Role ]:
+    async def get_mod_roles(self, guild: discord.Guild) -> List[discord.Role]:
         """
         Gets the mod roles for a guild.
         """
-        ret :List [discord .Role ]=[]
-        for snowflake in await self ._config .guild (guild ).mod_role ():
-            r =guild .get_role (snowflake )
-            if r :
-                ret .append (r )
-        return ret 
+        ret: List[discord.Role] = []
+        for snowflake in await self._config.guild(guild).mod_role():
+            r = guild.get_role(snowflake)
+            if r:
+                ret.append(r)
+        return ret
 
-    async def get_admin_role_ids (self ,guild_id :int )->List [int ]:
+    async def get_admin_role_ids(self, guild_id: int) -> List[int]:
         """
         Gets the admin role ids for a guild id.
         """
-        return await self ._config .guild (discord .Object (id =guild_id )).admin_role ()
+        return await self._config.guild(discord.Object(id=guild_id)).admin_role()
 
-    async def get_mod_role_ids (self ,guild_id :int )->List [int ]:
+    async def get_mod_role_ids(self, guild_id: int) -> List[int]:
         """
         Gets the mod role ids for a guild id.
         """
-        return await self ._config .guild (discord .Object (id =guild_id )).mod_role ()
+        return await self._config.guild(discord.Object(id=guild_id)).mod_role()
 
-    @overload 
-    async def get_shared_api_tokens (self ,service_name :str =...)->Dict [str ,str ]:
+    @overload
+    async def get_shared_api_tokens(self, service_name: str = ...) -> Dict[str, str]:
         ...
 
-    @overload 
-    async def get_shared_api_tokens (self ,service_name :None =...)->Dict [str ,Dict [str ,str ]]:
+    @overload
+    async def get_shared_api_tokens(self, service_name: None = ...) -> Dict[str, Dict[str, str]]:
         ...
 
-    async def get_shared_api_tokens (
-    self ,service_name :Optional [str ]=None 
-    )->Union [Dict [str ,Dict [str ,str ]],Dict [str ,str ]]:
+    async def get_shared_api_tokens(
+        self, service_name: Optional[str] = None
+    ) -> Union[Dict[str, Dict[str, str]], Dict[str, str]]:
         """
         Gets the shared API tokens for a service, or all of them if no argument specified.
 
@@ -1419,12 +1419,12 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
             If ``service_name`` is `None`, this method will return
             a mapping with mappings for all services.
         """
-        if service_name is None :
-            return await self ._config .custom (SHARED_API_TOKENS ).all ()
-        else :
-            return await self ._config .custom (SHARED_API_TOKENS ,service_name ).all ()
+        if service_name is None:
+            return await self._config.custom(SHARED_API_TOKENS).all()
+        else:
+            return await self._config.custom(SHARED_API_TOKENS, service_name).all()
 
-    async def set_shared_api_tokens (self ,service_name :str ,**tokens :str ):
+    async def set_shared_api_tokens(self, service_name: str, **tokens: str):
         """
         Sets shared API tokens for a service
 
@@ -1447,11 +1447,11 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
         >>> await ctx.bot.set_shared_api_tokens("youtube", api_key=my_key)
         """
 
-        async with self ._config .custom (SHARED_API_TOKENS ,service_name ).all ()as group :
-            group .update (tokens )
-        self .dispatch ("blue_api_tokens_update",service_name ,MappingProxyType (group ))
+        async with self._config.custom(SHARED_API_TOKENS, service_name).all() as group:
+            group.update(tokens)
+        self.dispatch("blue_api_tokens_update", service_name, MappingProxyType(group))
 
-    async def remove_shared_api_tokens (self ,service_name :str ,*token_names :str ):
+    async def remove_shared_api_tokens(self, service_name: str, *token_names: str):
         """
         Removes shared API tokens
 
@@ -1468,12 +1468,12 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
 
         >>> await ctx.bot.remove_shared_api_tokens("youtube", "api_key")
         """
-        async with self ._config .custom (SHARED_API_TOKENS ,service_name ).all ()as group :
-            for name in token_names :
-                group .pop (name ,None )
-        self .dispatch ("blue_api_tokens_update",service_name ,MappingProxyType (group ))
+        async with self._config.custom(SHARED_API_TOKENS, service_name).all() as group:
+            for name in token_names:
+                group.pop(name, None)
+        self.dispatch("blue_api_tokens_update", service_name, MappingProxyType(group))
 
-    async def remove_shared_api_services (self ,*service_names :str ):
+    async def remove_shared_api_services(self, *service_names: str):
         """
         Removes shared API services, as well as keys and tokens associated with them.
 
@@ -1488,96 +1488,96 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
 
         >>> await ctx.bot.remove_shared_api_services("youtube")
         """
-        async with self ._config .custom (SHARED_API_TOKENS ).all ()as group :
-            for service in service_names :
-                group .pop (service ,None )
-                # I can only imagine.
-        for service in service_names :
-            self .dispatch ("blue_api_tokens_update",service ,MappingProxyType ({}))
+        async with self._config.custom(SHARED_API_TOKENS).all() as group:
+            for service in service_names:
+                group.pop(service, None)
+        # dispatch needs to happen *after* it actually updates
+        for service in service_names:
+            self.dispatch("blue_api_tokens_update", service, MappingProxyType({}))
 
-    async def get_context (self ,message ,*,cls =commands .Context ):
-        return await super ().get_context (message ,cls =cls )
+    async def get_context(self, message, *, cls=commands.Context):
+        return await super().get_context(message, cls=cls)
 
-    async def process_commands (self ,message :discord .Message ):
+    async def process_commands(self, message: discord.Message):
         """
         Same as base method, but dispatches an additional event for cogs
         which want to handle normal messages differently to command
         messages,  without the overhead of additional get_context calls
         per cog.
         """
-        if not message .author .bot :
-            ctx =await self .get_context (message )
-            await self .invoke (ctx )
-        else :
-            ctx =None 
+        if not message.author.bot:
+            ctx = await self.get_context(message)
+            await self.invoke(ctx)
+        else:
+            ctx = None
 
-        if ctx is None or ctx .valid is False :
-            self .dispatch ("message_without_command",message )
+        if ctx is None or ctx.valid is False:
+            self.dispatch("message_without_command", message)
 
-    @staticmethod 
-    def list_packages ():
+    @staticmethod
+    def list_packages():
         """Lists packages present in the cogs folder"""
-        return os .listdir ("cogs")
+        return os.listdir("cogs")
 
-    async def save_packages_status (self ,packages ):
-        await self ._config .packages .set (packages )
+    async def save_packages_status(self, packages):
+        await self._config.packages.set(packages)
 
-    async def add_loaded_package (self ,pkg_name :str ):
-        async with self ._config .packages ()as curr_pkgs :
-            if pkg_name not in curr_pkgs :
-                curr_pkgs .append (pkg_name )
+    async def add_loaded_package(self, pkg_name: str):
+        async with self._config.packages() as curr_pkgs:
+            if pkg_name not in curr_pkgs:
+                curr_pkgs.append(pkg_name)
 
-    async def remove_loaded_package (self ,pkg_name :str ):
-        async with self ._config .packages ()as curr_pkgs :
-            while pkg_name in curr_pkgs :
-                curr_pkgs .remove (pkg_name )
+    async def remove_loaded_package(self, pkg_name: str):
+        async with self._config.packages() as curr_pkgs:
+            while pkg_name in curr_pkgs:
+                curr_pkgs.remove(pkg_name)
 
-    async def load_extension (self ,spec :ModuleSpec ):
-    # [gasps] If the dam breaks, the whole town will be flooded! Looks like Ponyville needs a hero! Easy peasy.
-        name =spec .name .split (".")[-1 ]
-        if name in self .extensions :
-            raise errors .PackageAlreadyLoaded (spec )
+    async def load_extension(self, spec: ModuleSpec):
+        # NB: this completely bypasses `discord.ext.commands.Bot._load_from_module_spec`
+        name = spec.name.split(".")[-1]
+        if name in self.extensions:
+            raise errors.PackageAlreadyLoaded(spec)
 
-        lib =spec .loader .load_module ()
-        if not hasattr (lib ,"setup"):
-            del lib 
-            raise discord .ClientException (f"extension {name} does not have a setup function")
+        lib = spec.loader.load_module()
+        if not hasattr(lib, "setup"):
+            del lib
+            raise discord.ClientException(f"extension {name} does not have a setup function")
 
-        try :
-            if asyncio .iscoroutinefunction (lib .setup ):
-                await lib .setup (self )
-            else :
-                lib .setup (self )
-        except Exception as e :
-            self ._remove_module_references (lib .__name__ )
-            self ._call_module_finalizers (lib ,name )
-            raise 
-        else :
-            self ._BotBase__extensions [name ]=lib 
+        try:
+            if asyncio.iscoroutinefunction(lib.setup):
+                await lib.setup(self)
+            else:
+                lib.setup(self)
+        except Exception as e:
+            self._remove_module_references(lib.__name__)
+            self._call_module_finalizers(lib, name)
+            raise
+        else:
+            self._BotBase__extensions[name] = lib
 
-    def remove_cog (self ,cogname :str ):
-        cog =self .get_cog (cogname )
-        if cog is None :
-            return 
+    def remove_cog(self, cogname: str):
+        cog = self.get_cog(cogname)
+        if cog is None:
+            return
 
-        for cls in inspect .getmro (cog .__class__ ):
-            try :
-                hook =getattr (cog ,f"_{cls.__name__}__permissions_hook")
-            except AttributeError :
-                pass 
-            else :
-                self .remove_permissions_hook (hook )
+        for cls in inspect.getmro(cog.__class__):
+            try:
+                hook = getattr(cog, f"_{cls.__name__}__permissions_hook")
+            except AttributeError:
+                pass
+            else:
+                self.remove_permissions_hook(hook)
 
-        super ().remove_cog (cogname )
+        super().remove_cog(cogname)
 
-        cog .requires .reset ()
+        cog.requires.reset()
 
-        for meth in self .rpc_handlers .pop (cogname .upper (),()):
-            self .unregister_rpc_handler (meth )
+        for meth in self.rpc_handlers.pop(cogname.upper(), ()):
+            self.unregister_rpc_handler(meth)
 
-    async def is_automod_immune (
-    self ,to_check :Union [discord .Message ,commands .Context ,discord .abc .User ,discord .Role ]
-    )->bool :
+    async def is_automod_immune(
+        self, to_check: Union[discord.Message, commands.Context, discord.abc.User, discord.Role]
+    ) -> bool:
         """
         Checks if the user, message, context, or role should be considered immune from automated
         moderation actions.
@@ -1595,35 +1595,35 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
             ``True`` if immune
 
         """
-        guild =getattr (to_check ,"guild",None )
-        if not guild :
-            return False 
+        guild = getattr(to_check, "guild", None)
+        if not guild:
+            return False
 
-        if isinstance (to_check ,discord .Role ):
-            ids_to_check =[to_check .id ]
-        else :
-            author =getattr (to_check ,"author",to_check )
-            try :
-                ids_to_check =[r .id for r in author .roles ]
-            except AttributeError :
-            # [stammers] Uh, just thinking thoughts. [narrating] Rainbow Dash was right. In order to solve the mystery, we had to be focused. Driven. One hundred percent in theÂ— [normally] Ooh! The damask pattern on these curtains is exquisite! Oh, and this velvet rope-holder Â– oh, it's justÂ—
-            # What now?
-                if author .bot and author .discriminator =="0000":
-                    return True # Mrs. My goodness! I can't believe what I'm seeing here!
-            else :
-                ids_to_check .append (author .id )
+        if isinstance(to_check, discord.Role):
+            ids_to_check = [to_check.id]
+        else:
+            author = getattr(to_check, "author", to_check)
+            try:
+                ids_to_check = [r.id for r in author.roles]
+            except AttributeError:
+                # webhook messages are a user not member,
+                # cheaper than isinstance
+                if author.bot and author.discriminator == "0000":
+                    return True  # webhooks require significant permissions to enable.
+            else:
+                ids_to_check.append(author.id)
 
-        immune_ids =await self ._config .guild (guild ).autoimmune_ids ()
+        immune_ids = await self._config.guild(guild).autoimmune_ids()
 
-        return any (i in immune_ids for i in ids_to_check )
+        return any(i in immune_ids for i in ids_to_check)
 
-    @staticmethod 
-    async def send_filtered (
-    destination :discord .abc .Messageable ,
-    filter_mass_mentions =True ,
-    filter_invite_links =True ,
-    filter_all_links =False ,
-    **kwargs ,
+    @staticmethod
+    async def send_filtered(
+        destination: discord.abc.Messageable,
+        filter_mass_mentions=True,
+        filter_invite_links=True,
+        filter_all_links=False,
+        **kwargs,
     ):
         """
         This is a convenience wrapper around
@@ -1644,86 +1644,86 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
             The message that was sent.
         """
 
-        content =kwargs .pop ("content",None )
+        content = kwargs.pop("content", None)
 
-        if content :
-            if filter_mass_mentions :
-                content =common_filters .filter_mass_mentions (content )
-            if filter_invite_links :
-                content =common_filters .filter_invites (content )
-            if filter_all_links :
-                content =common_filters .filter_urls (content )
+        if content:
+            if filter_mass_mentions:
+                content = common_filters.filter_mass_mentions(content)
+            if filter_invite_links:
+                content = common_filters.filter_invites(content)
+            if filter_all_links:
+                content = common_filters.filter_urls(content)
 
-        return await destination .send (content =content ,**kwargs )
+        return await destination.send(content=content, **kwargs)
 
-    def add_cog (self ,cog :commands .Cog ):
-        if not isinstance (cog ,commands .Cog ):
-            raise RuntimeError (
-            f"The {cog.__class__.__name__} cog in the {cog.__module__} package does "
-            f"not inherit from the commands.Cog base class. The cog author must update "
-            f"the cog to adhere to this requirement."
+    def add_cog(self, cog: commands.Cog):
+        if not isinstance(cog, commands.Cog):
+            raise RuntimeError(
+                f"The {cog.__class__.__name__} cog in the {cog.__module__} package does "
+                f"not inherit from the commands.Cog base class. The cog author must update "
+                f"the cog to adhere to this requirement."
             )
-        if cog .__cog_name__ in self .cogs :
-            raise RuntimeError (f"There is already a cog named {cog.__cog_name__} loaded.")
-        if not hasattr (cog ,"requires"):
-            commands .Cog .__init__ (cog )
+        if cog.__cog_name__ in self.cogs:
+            raise RuntimeError(f"There is already a cog named {cog.__cog_name__} loaded.")
+        if not hasattr(cog, "requires"):
+            commands.Cog.__init__(cog)
 
-        added_hooks =[]
+        added_hooks = []
 
-        try :
-            for cls in inspect .getmro (cog .__class__ ):
-                try :
-                    hook =getattr (cog ,f"_{cls.__name__}__permissions_hook")
-                except AttributeError :
-                    pass 
-                else :
-                    self .add_permissions_hook (hook )
-                    added_hooks .append (hook )
+        try:
+            for cls in inspect.getmro(cog.__class__):
+                try:
+                    hook = getattr(cog, f"_{cls.__name__}__permissions_hook")
+                except AttributeError:
+                    pass
+                else:
+                    self.add_permissions_hook(hook)
+                    added_hooks.append(hook)
 
-            super ().add_cog (cog )
-            self .dispatch ("cog_add",cog )
-            if "permissions"not in self .extensions :
-                cog .requires .ready_event .set ()
-        except Exception :
-            for hook in added_hooks :
-                try :
-                    self .remove_permissions_hook (hook )
-                except Exception :
-                # Then I came here and, well, met all of you. So I don't want to go home for the break. And that's why... I did it!
-                    log .exception (
-                    "A hook got extremely screwed up, "
-                    "and could not be removed properly during another error in cog load."
+            super().add_cog(cog)
+            self.dispatch("cog_add", cog)
+            if "permissions" not in self.extensions:
+                cog.requires.ready_event.set()
+        except Exception:
+            for hook in added_hooks:
+                try:
+                    self.remove_permissions_hook(hook)
+                except Exception:
+                    # This shouldn't be possible
+                    log.exception(
+                        "A hook got extremely screwed up, "
+                        "and could not be removed properly during another error in cog load."
                     )
-            del cog 
-            raise 
+            del cog
+            raise
 
-    def add_command (self ,command :commands .Command )->None :
-        if not isinstance (command ,commands .Command ):
-            raise RuntimeError ("Commands must be instances of `bluebot.core.commands.Command`")
+    def add_command(self, command: commands.Command) -> None:
+        if not isinstance(command, commands.Command):
+            raise RuntimeError("Commands must be instances of `bluebot.core.commands.Command`")
 
-        super ().add_command (command )
+        super().add_command(command)
 
-        permissions_not_loaded ="permissions"not in self .extensions 
-        self .dispatch ("command_add",command )
-        if permissions_not_loaded :
-            command .requires .ready_event .set ()
-        if isinstance (command ,commands .Group ):
-            for subcommand in command .walk_commands ():
-                self .dispatch ("command_add",subcommand )
-                if permissions_not_loaded :
-                    subcommand .requires .ready_event .set ()
+        permissions_not_loaded = "permissions" not in self.extensions
+        self.dispatch("command_add", command)
+        if permissions_not_loaded:
+            command.requires.ready_event.set()
+        if isinstance(command, commands.Group):
+            for subcommand in command.walk_commands():
+                self.dispatch("command_add", subcommand)
+                if permissions_not_loaded:
+                    subcommand.requires.ready_event.set()
 
-    def remove_command (self ,name :str )->Optional [commands .Command ]:
-        command =super ().remove_command (name )
-        if command is None :
-            return None 
-        command .requires .reset ()
-        if isinstance (command ,commands .Group ):
-            for subcommand in command .walk_commands ():
-                subcommand .requires .reset ()
-        return command 
+    def remove_command(self, name: str) -> Optional[commands.Command]:
+        command = super().remove_command(name)
+        if command is None:
+            return None
+        command.requires.reset()
+        if isinstance(command, commands.Group):
+            for subcommand in command.walk_commands():
+                subcommand.requires.reset()
+        return command
 
-    def clear_permission_rules (self ,guild_id :Optional [int ],**kwargs )->None :
+    def clear_permission_rules(self, guild_id: Optional[int], **kwargs) -> None:
         """Clear all permission overrides in a scope.
 
         Parameters
@@ -1738,12 +1738,12 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
             ``commands.Requires.clear_all_rules``
 
         """
-        for cog in self .cogs .values ():
-            cog .requires .clear_all_rules (guild_id ,**kwargs )
-        for command in self .walk_commands ():
-            command .requires .clear_all_rules (guild_id ,**kwargs )
+        for cog in self.cogs.values():
+            cog.requires.clear_all_rules(guild_id, **kwargs)
+        for command in self.walk_commands():
+            command.requires.clear_all_rules(guild_id, **kwargs)
 
-    def add_permissions_hook (self ,hook :commands .CheckPredicate )->None :
+    def add_permissions_hook(self, hook: commands.CheckPredicate) -> None:
         """Add a permissions hook.
 
         Permissions hooks are check predicates which are called before
@@ -1758,9 +1758,9 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
             or ``None``.
 
         """
-        self ._permissions_hooks .append (hook )
+        self._permissions_hooks.append(hook)
 
-    def remove_permissions_hook (self ,hook :commands .CheckPredicate )->None :
+    def remove_permissions_hook(self, hook: commands.CheckPredicate) -> None:
         """Remove a permissions hook.
 
         Parameters are the same as those in `add_permissions_hook`.
@@ -1771,9 +1771,9 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
             If the permissions hook has not been added.
 
         """
-        self ._permissions_hooks .remove (hook )
+        self._permissions_hooks.remove(hook)
 
-    async def verify_permissions_hooks (self ,ctx :commands .Context )->Optional [bool ]:
+    async def verify_permissions_hooks(self, ctx: commands.Context) -> Optional[bool]:
         """Run permissions hooks.
 
         Parameters
@@ -1789,53 +1789,53 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
             otherwise.
 
         """
-        hook_results =[]
-        for hook in self ._permissions_hooks :
-            result =await discord .utils .maybe_coroutine (hook ,ctx )
-            if result is not None :
-                hook_results .append (result )
-        if hook_results :
-            if all (hook_results ):
-                ctx .permission_state =commands .PermState .ALLOWED_BY_HOOK 
-                return True 
-            else :
-                ctx .permission_state =commands .PermState .DENIED_BY_HOOK 
-                return False 
+        hook_results = []
+        for hook in self._permissions_hooks:
+            result = await discord.utils.maybe_coroutine(hook, ctx)
+            if result is not None:
+                hook_results.append(result)
+        if hook_results:
+            if all(hook_results):
+                ctx.permission_state = commands.PermState.ALLOWED_BY_HOOK
+                return True
+            else:
+                ctx.permission_state = commands.PermState.DENIED_BY_HOOK
+                return False
 
-    async def get_owner_notification_destinations (self )->List [discord .abc .Messageable ]:
+    async def get_owner_notification_destinations(self) -> List[discord.abc.Messageable]:
         """
         Gets the users and channels to send to
         """
-        await self .wait_until_blue_ready ()
-        destinations =[]
-        opt_outs =await self ._config .owner_opt_out_list ()
-        for user_id in self .owner_ids :
-            if user_id not in opt_outs :
-                user =self .get_user (user_id )
-                if user and not user .bot :# You can never catch me! I am far too powerful and dangerous!
-                    destinations .append (user )
-                else :
-                    log .warning (
-                    "Owner with ID %s is missing in user cache,"
-                    " ignoring owner notification destination.",
-                    user_id ,
+        await self.wait_until_blue_ready()
+        destinations = []
+        opt_outs = await self._config.owner_opt_out_list()
+        for user_id in self.owner_ids:
+            if user_id not in opt_outs:
+                user = self.get_user(user_id)
+                if user and not user.bot:  # user.bot is possible with flags and teams
+                    destinations.append(user)
+                else:
+                    log.warning(
+                        "Owner with ID %s is missing in user cache,"
+                        " ignoring owner notification destination.",
+                        user_id,
                     )
 
-        channel_ids =await self ._config .extra_owner_destinations ()
-        for channel_id in channel_ids :
-            channel =self .get_channel (channel_id )
-            if channel :
-                destinations .append (channel )
-            else :
-                log .warning (
-                "Channel with ID %s is not available,"
-                " ignoring owner notification destination.",
-                channel_id ,
+        channel_ids = await self._config.extra_owner_destinations()
+        for channel_id in channel_ids:
+            channel = self.get_channel(channel_id)
+            if channel:
+                destinations.append(channel)
+            else:
+                log.warning(
+                    "Channel with ID %s is not available,"
+                    " ignoring owner notification destination.",
+                    channel_id,
                 )
 
-        return destinations 
+        return destinations
 
-    async def send_to_owners (self ,content =None ,**kwargs ):
+    async def send_to_owners(self, content=None, **kwargs):
         """
         This sends something to all owners and their configured extra destinations.
 
@@ -1843,59 +1843,59 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
 
         This logs failing sends
         """
-        destinations =await self .get_owner_notification_destinations ()
+        destinations = await self.get_owner_notification_destinations()
 
-        async def wrapped_send (location ,content =None ,**kwargs ):
-            try :
-                await location .send (content ,**kwargs )
-            except Exception as _exc :
-                log .error (
-                "I could not send an owner notification to %s (%s)",
-                location ,
-                location .id ,
-                exc_info =_exc ,
+        async def wrapped_send(location, content=None, **kwargs):
+            try:
+                await location.send(content, **kwargs)
+            except Exception as _exc:
+                log.error(
+                    "I could not send an owner notification to %s (%s)",
+                    location,
+                    location.id,
+                    exc_info=_exc,
                 )
 
-        sends =[wrapped_send (d ,content ,**kwargs )for d in destinations ]
-        await asyncio .gather (*sends )
+        sends = [wrapped_send(d, content, **kwargs) for d in destinations]
+        await asyncio.gather(*sends)
 
-    async def wait_until_blue_ready (self ):
+    async def wait_until_blue_ready(self):
         """Wait until our post connection startup is done."""
-        await self ._blue_ready .wait ()
+        await self._blue_ready.wait()
 
-    async def _delete_delay (self ,ctx :commands .Context ):
+    async def _delete_delay(self, ctx: commands.Context):
         """
         Currently used for:
           * delete delay
         """
-        guild =ctx .guild 
-        if guild is None :
-            return 
-        message =ctx .message 
-        delay =await self ._config .guild (guild ).delete_delay ()
+        guild = ctx.guild
+        if guild is None:
+            return
+        message = ctx.message
+        delay = await self._config.guild(guild).delete_delay()
 
-        if delay ==-1 :
-            return 
+        if delay == -1:
+            return
 
-        async def _delete_helper (m ):
-            with contextlib .suppress (discord .HTTPException ):
-                await m .delete ()
-                log .debug ("Deleted command msg {}".format (m .id ))
+        async def _delete_helper(m):
+            with contextlib.suppress(discord.HTTPException):
+                await m.delete()
+                log.debug("Deleted command msg {}".format(m.id))
 
-        await asyncio .sleep (delay )
-        await _delete_helper (message )
+        await asyncio.sleep(delay)
+        await _delete_helper(message)
 
-    async def close (self ):
+    async def close(self):
         """Logs out of Discord and closes all connections."""
-        await super ().close ()
-        await drivers .get_driver_class ().teardown ()
-        try :
-            if self .rpc_enabled :
-                await self .rpc .close ()
-        except AttributeError :
-            pass 
+        await super().close()
+        await drivers.get_driver_class().teardown()
+        try:
+            if self.rpc_enabled:
+                await self.rpc.close()
+        except AttributeError:
+            pass
 
-    async def shutdown (self ,*,restart :bool =False ):
+    async def shutdown(self, *, restart: bool = False):
         """Gracefully quit Blue.
 
         The program will exit with code :code:`0` by default.
@@ -1907,42 +1907,42 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
             launcher sees this, it will attempt to restart the bot.
 
         """
-        if not restart :
-            self ._shutdown_mode =ExitCodes .SHUTDOWN 
-        else :
-            self ._shutdown_mode =ExitCodes .RESTART 
+        if not restart:
+            self._shutdown_mode = ExitCodes.SHUTDOWN
+        else:
+            self._shutdown_mode = ExitCodes.RESTART
 
-        await self .close ()
-        sys .exit (self ._shutdown_mode )
+        await self.close()
+        sys.exit(self._shutdown_mode)
 
-    async def _core_data_deletion (
-    self ,
-    *,
-    requester :Literal ["discord_deleted_user","owner","user","user_strict"],
-    user_id :int ,
+    async def _core_data_deletion(
+        self,
+        *,
+        requester: Literal["discord_deleted_user", "owner", "user", "user_strict"],
+        user_id: int,
     ):
-        if requester !="discord_deleted_user":
-            return 
+        if requester != "discord_deleted_user":
+            return
 
-        await self ._config .user_from_id (user_id ).clear ()
-        all_guilds =await self ._config .all_guilds ()
+        await self._config.user_from_id(user_id).clear()
+        all_guilds = await self._config.all_guilds()
 
-        async for guild_id ,guild_data in AsyncIter (all_guilds .items (),steps =100 ):
-            if user_id in guild_data .get ("autoimmune_ids",[]):
-                async with self ._config .guild_from_id (guild_id ).autoimmune_ids ()as ids :
-                # Um... I feel... like I don't want to talk about feelings?
-                # Dr. Won't I? You've led me to the temple, and Daring Do is too noble to let harm befall her companions, so the amulet is as good as mine. What? No witty remarks this time about how silly my plan is?
-                    with contextlib .suppress (ValueError ):
-                        ids .remove (user_id )
+        async for guild_id, guild_data in AsyncIter(all_guilds.items(), steps=100):
+            if user_id in guild_data.get("autoimmune_ids", []):
+                async with self._config.guild_from_id(guild_id).autoimmune_ids() as ids:
+                    # prevent a racy crash here without locking
+                    # up the vals in all guilds first
+                    with contextlib.suppress(ValueError):
+                        ids.remove(user_id)
 
-        await self ._whiteblacklist_cache .discord_deleted_user (user_id )
+        await self._whiteblacklist_cache.discord_deleted_user(user_id)
 
-    async def handle_data_deletion_request (
-    self ,
-    *,
-    requester :Literal ["discord_deleted_user","owner","user","user_strict"],
-    user_id :int ,
-    )->DataDeletionResults :
+    async def handle_data_deletion_request(
+        self,
+        *,
+        requester: Literal["discord_deleted_user", "owner", "user", "user_strict"],
+        user_id: int,
+    ) -> DataDeletionResults:
         """
         This tells each cog and extension, as well as any APIs in Blue
         to go delete data
@@ -1964,17 +1964,17 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
             containing lists with names of failed modules, failed cogs,
             and cogs that didn't handle data deletion request.
         """
-        await self .wait_until_blue_ready ()
-        lock =self ._deletion_requests .setdefault (user_id ,asyncio .Lock ())
-        async with lock :
-            return await self ._handle_data_deletion_request (requester =requester ,user_id =user_id )
+        await self.wait_until_blue_ready()
+        lock = self._deletion_requests.setdefault(user_id, asyncio.Lock())
+        async with lock:
+            return await self._handle_data_deletion_request(requester=requester, user_id=user_id)
 
-    async def _handle_data_deletion_request (
-    self ,
-    *,
-    requester :Literal ["discord_deleted_user","owner","user","user_strict"],
-    user_id :int ,
-    )->DataDeletionResults :
+    async def _handle_data_deletion_request(
+        self,
+        *,
+        requester: Literal["discord_deleted_user", "owner", "user", "user_strict"],
+        user_id: int,
+    ) -> DataDeletionResults:
         """
         Actual interface for the above.
 
@@ -1987,56 +1987,56 @@ commands .GroupMixin ,RPCMixin ,dpy_commands .bot .AutoShardedBot
         -------
         DataDeletionResults
         """
-        extension_handlers ={
-        extension_name :handler 
-        for extension_name ,extension in self .extensions .items ()
-        if (handler :=getattr (extension ,"blue_delete_data_for_user",None ))
+        extension_handlers = {
+            extension_name: handler
+            for extension_name, extension in self.extensions.items()
+            if (handler := getattr(extension, "blue_delete_data_for_user", None))
         }
 
-        cog_handlers ={
-        cog_qualname :cog .blue_delete_data_for_user for cog_qualname ,cog in self .cogs .items ()
+        cog_handlers = {
+            cog_qualname: cog.blue_delete_data_for_user for cog_qualname, cog in self.cogs.items()
         }
 
-        special_handlers ={
-        "Blue Core Modlog API":modlog ._process_data_deletion ,
-        "Blue Core Bank API":bank ._process_data_deletion ,
-        "Blue Core Bot Data":self ._core_data_deletion ,
+        special_handlers = {
+            "Blue Core Modlog API": modlog._process_data_deletion,
+            "Blue Core Bank API": bank._process_data_deletion,
+            "Blue Core Bot Data": self._core_data_deletion,
         }
 
-        failures ={
-        "extension":[],
-        "cog":[],
-        "unhandled":[],
+        failures = {
+            "extension": [],
+            "cog": [],
+            "unhandled": [],
         }
 
-        async def wrapper (func ,stype ,sname ):
-            try :
-                await func (requester =requester ,user_id =user_id )
-            except commands .commands .BlueUnhandledAPI :
-                log .warning (f"{stype}.{sname} did not handle data deletion ")
-                failures ["unhandled"].append (sname )
-            except Exception as exc :
-                log .exception (f"{stype}.{sname} errored when handling data deletion ")
-                failures [stype ].append (sname )
+        async def wrapper(func, stype, sname):
+            try:
+                await func(requester=requester, user_id=user_id)
+            except commands.commands.BlueUnhandledAPI:
+                log.warning(f"{stype}.{sname} did not handle data deletion ")
+                failures["unhandled"].append(sname)
+            except Exception as exc:
+                log.exception(f"{stype}.{sname} errored when handling data deletion ")
+                failures[stype].append(sname)
 
-        handlers =[
-        *(wrapper (coro ,"extension",name )for name ,coro in extension_handlers .items ()),
-        *(wrapper (coro ,"cog",name )for name ,coro in cog_handlers .items ()),
-        *(wrapper (coro ,"extension",name )for name ,coro in special_handlers .items ()),
+        handlers = [
+            *(wrapper(coro, "extension", name) for name, coro in extension_handlers.items()),
+            *(wrapper(coro, "cog", name) for name, coro in cog_handlers.items()),
+            *(wrapper(coro, "extension", name) for name, coro in special_handlers.items()),
         ]
 
-        await asyncio .gather (*handlers )
+        await asyncio.gather(*handlers)
 
-        return DataDeletionResults (
-        failed_modules =failures ["extension"],
-        failed_cogs =failures ["cog"],
-        unhandled =failures ["unhandled"],
+        return DataDeletionResults(
+            failed_modules=failures["extension"],
+            failed_cogs=failures["cog"],
+            unhandled=failures["unhandled"],
         )
 
 
-class ExitCodes (IntEnum ):
-# Mrs. We're gonna need one more pony to tell that story.
-# Wonderful news, look! Princess Cadance, better than new!
-    CRITICAL =1 
-    SHUTDOWN =0 
-    RESTART =26 
+class ExitCodes(IntEnum):
+    # This needs to be an int enum to be used
+    # with sys.exit
+    CRITICAL = 1
+    SHUTDOWN = 0
+    RESTART = 26

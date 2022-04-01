@@ -1,4 +1,4 @@
-# Boring?
+# -*- coding: utf-8 -*-
 
 """
 The MIT License (MIT)
@@ -24,102 +24,102 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
-import asyncio 
-import discord 
+import asyncio
+import discord
 
-import itertools 
-import inspect 
-import bisect 
-import logging 
-import re 
-from collections import OrderedDict ,namedtuple 
+import itertools
+import inspect
+import bisect
+import logging
+import re
+from collections import OrderedDict, namedtuple
 
-# You must! For the animals!
-__version__ ='1.0.0-a'
+# Needed for the setup.py script
+__version__ = '1.0.0-a'
 
-# Wheeeeeeee!
-log =logging .getLogger (__name__ )
+# consistency with the `discord` namespaced logging
+log = logging.getLogger(__name__)
 
-class MenuError (Exception ):
-    pass 
+class MenuError(Exception):
+    pass
 
-class CannotEmbedLinks (MenuError ):
-    def __init__ (self ):
-        super ().__init__ ('Bot does not have embed links permission in this channel.')
+class CannotEmbedLinks(MenuError):
+    def __init__(self):
+        super().__init__('Bot does not have embed links permission in this channel.')
 
-class CannotSendMessages (MenuError ):
-    def __init__ (self ):
-        super ().__init__ ('Bot cannot send messages in this channel.')
+class CannotSendMessages(MenuError):
+    def __init__(self):
+        super().__init__('Bot cannot send messages in this channel.')
 
-class CannotAddReactions (MenuError ):
-    def __init__ (self ):
-        super ().__init__ ('Bot cannot add reactions in this channel.')
+class CannotAddReactions(MenuError):
+    def __init__(self):
+        super().__init__('Bot cannot add reactions in this channel.')
 
-class CannotReadMessageHistory (MenuError ):
-    def __init__ (self ):
-        super ().__init__ ('Bot does not have Read Message History permissions in this channel.')
+class CannotReadMessageHistory(MenuError):
+    def __init__(self):
+        super().__init__('Bot does not have Read Message History permissions in this channel.')
 
-class Position :
-    __slots__ =('number','bucket')
+class Position:
+    __slots__ = ('number', 'bucket')
 
-    def __init__ (self ,number ,*,bucket =1 ):
-        self .bucket =bucket 
-        self .number =number 
+    def __init__(self, number, *, bucket=1):
+        self.bucket = bucket
+        self.number = number
 
-    def __lt__ (self ,other ):
-        if not isinstance (other ,Position )or not isinstance (self ,Position ):
-            return NotImplemented 
+    def __lt__(self, other):
+        if not isinstance(other, Position) or not isinstance(self, Position):
+            return NotImplemented
 
-        return (self .bucket ,self .number )<(other .bucket ,other .number )
+        return (self.bucket, self.number) < (other.bucket, other.number)
 
-    def __eq__ (self ,other ):
-        return isinstance (other ,Position )and other .bucket ==self .bucket and other .number ==self .number 
+    def __eq__(self, other):
+        return isinstance(other, Position) and other.bucket == self.bucket and other.number == self.number
 
-    def __le__ (self ,other ):
-        r =Position .__lt__ (other ,self )
-        if r is NotImplemented :
-            return NotImplemented 
-        return not r 
+    def __le__(self, other):
+        r = Position.__lt__(other, self)
+        if r is NotImplemented:
+            return NotImplemented
+        return not r
 
-    def __gt__ (self ,other ):
-        return Position .__lt__ (other ,self )
+    def __gt__(self, other):
+        return Position.__lt__(other, self)
 
-    def __ge__ (self ,other ):
-        r =Position .__lt__ (self ,other )
-        if r is NotImplemented :
-            return NotImplemented 
-        return not r 
+    def __ge__(self, other):
+        r = Position.__lt__(self, other)
+        if r is NotImplemented:
+            return NotImplemented
+        return not r
 
-    def __repr__ (self ):
-        return '<{0.__class__.__name__}: {0.number}>'.format (self )
+    def __repr__(self):
+        return '<{0.__class__.__name__}: {0.number}>'.format(self)
 
-class Last (Position ):
-    __slots__ =()
-    def __init__ (self ,number =0 ):
-        super ().__init__ (number ,bucket =2 )
+class Last(Position):
+    __slots__ = ()
+    def __init__(self, number=0):
+        super().__init__(number, bucket=2)
 
-class First (Position ):
-    __slots__ =()
-    def __init__ (self ,number =0 ):
-        super ().__init__ (number ,bucket =0 )
+class First(Position):
+    __slots__ = ()
+    def __init__(self, number=0):
+        super().__init__(number, bucket=0)
 
-_custom_emoji =re .compile (r'<?(?P<animated>a)?:?(?P<name>[A-Za-z0-9\_]+):(?P<id>[0-9]{13,20})>?')
+_custom_emoji = re.compile(r'<?(?P<animated>a)?:?(?P<name>[A-Za-z0-9\_]+):(?P<id>[0-9]{13,20})>?')
 
-def _cast_emoji (obj ,*,_custom_emoji =_custom_emoji ):
-    if isinstance (obj ,discord .PartialEmoji ):
-        return obj 
+def _cast_emoji(obj, *, _custom_emoji=_custom_emoji):
+    if isinstance(obj, discord.PartialEmoji):
+        return obj
 
-    obj =str (obj )
-    match =_custom_emoji .match (obj )
-    if match is not None :
-        groups =match .groupdict ()
-        animated =bool (groups ['animated'])
-        emoji_id =int (groups ['id'])
-        name =groups ['name']
-        return discord .PartialEmoji (name =name ,animated =animated ,id =emoji_id )
-    return discord .PartialEmoji (name =obj ,id =None ,animated =False )
+    obj = str(obj)
+    match = _custom_emoji.match(obj)
+    if match is not None:
+        groups = match.groupdict()
+        animated = bool(groups['animated'])
+        emoji_id = int(groups['id'])
+        name = groups['name']
+        return discord.PartialEmoji(name=name, animated=animated, id=emoji_id)
+    return discord.PartialEmoji(name=obj, id=None, animated=False)
 
-class Button :
+class Button:
     """Represents a reaction-style button for the :class:`Menu`.
 
     There are two ways to create this, the first being through explicitly
@@ -149,70 +149,70 @@ class Button :
         Whether the button should lock all other buttons from being processed
         until this button is done. Defaults to ``True``.
     """
-    __slots__ =('emoji','_action','_skip_if','position','lock')
+    __slots__ = ('emoji', '_action', '_skip_if', 'position', 'lock')
 
-    def __init__ (self ,emoji ,action ,*,skip_if =None ,position =None ,lock =True ):
-        self .emoji =_cast_emoji (emoji )
-        self .action =action 
-        self .skip_if =skip_if 
-        self .position =position or Position (0 )
-        self .lock =lock 
+    def __init__(self, emoji, action, *, skip_if=None, position=None, lock=True):
+        self.emoji = _cast_emoji(emoji)
+        self.action = action
+        self.skip_if = skip_if
+        self.position = position or Position(0)
+        self.lock = lock
 
-    @property 
-    def skip_if (self ):
-        return self ._skip_if 
+    @property
+    def skip_if(self):
+        return self._skip_if
 
-    @skip_if .setter 
-    def skip_if (self ,value ):
-        if value is None :
-            self ._skip_if =lambda x :False 
-            return 
+    @skip_if.setter
+    def skip_if(self, value):
+        if value is None:
+            self._skip_if = lambda x: False
+            return
 
-        try :
-            menu_self =value .__self__ 
-        except AttributeError :
-            self ._skip_if =value 
-        else :
-        # Two chickens?
-            if not isinstance (menu_self ,Menu ):
-                raise TypeError ('skip_if bound method must be from Menu not %r'%menu_self )
+        try:
+            menu_self = value.__self__
+        except AttributeError:
+            self._skip_if = value
+        else:
+            # Unfurl the method to not be bound
+            if not isinstance(menu_self, Menu):
+                raise TypeError('skip_if bound method must be from Menu not %r' % menu_self)
 
-            self ._skip_if =value .__func__ 
+            self._skip_if = value.__func__
 
-    @property 
-    def action (self ):
-        return self ._action 
+    @property
+    def action(self):
+        return self._action
 
-    @action .setter 
-    def action (self ,value ):
-        try :
-            menu_self =value .__self__ 
-        except AttributeError :
-            pass 
-        else :
-        # Nailed it!
-            if not isinstance (menu_self ,Menu ):
-                raise TypeError ('action bound method must be from Menu not %r'%menu_self )
+    @action.setter
+    def action(self, value):
+        try:
+            menu_self = value.__self__
+        except AttributeError:
+            pass
+        else:
+            # Unfurl the method to not be bound
+            if not isinstance(menu_self, Menu):
+                raise TypeError('action bound method must be from Menu not %r' % menu_self)
 
-            value =value .__func__ 
+            value = value.__func__
 
-        if not inspect .iscoroutinefunction (value ):
-            raise TypeError ('action must be a coroutine not %r'%value )
+        if not inspect.iscoroutinefunction(value):
+            raise TypeError('action must be a coroutine not %r' % value)
 
-        self ._action =value 
+        self._action = value
 
-    def __call__ (self ,menu ,payload ):
-        if self .skip_if (menu ):
-            return 
-        return self ._action (menu ,payload )
+    def __call__(self, menu, payload):
+        if self.skip_if(menu):
+            return
+        return self._action(menu, payload)
 
-    def __str__ (self ):
-        return str (self .emoji )
+    def __str__(self):
+        return str(self.emoji)
 
-    def is_valid (self ,menu ):
-        return not self .skip_if (menu )
+    def is_valid(self, menu):
+        return not self.skip_if(menu)
 
-def button (emoji ,**kwargs ):
+def button(emoji, **kwargs):
     """Denotes a method to be button for the :class:`Menu`.
 
     The methods being wrapped must have both a ``self`` and a ``payload``
@@ -242,53 +242,53 @@ def button (emoji ,**kwargs ):
     emoji: Union[:class:`str`, :class:`discord.PartialEmoji`]
         The emoji to use for the button.
     """
-    def decorator (func ):
-        func .__menu_button__ =_cast_emoji (emoji )
-        func .__menu_button_kwargs__ =kwargs 
-        return func 
-    return decorator 
+    def decorator(func):
+        func.__menu_button__ = _cast_emoji(emoji)
+        func.__menu_button_kwargs__ = kwargs
+        return func
+    return decorator
 
-class _MenuMeta (type ):
-    @classmethod 
-    def __prepare__ (cls ,name ,bases ,**kwargs ):
-    # We were totally gonna invite you, Rainbow, then Twilight remembered that you don't even have a pet, and Rarity remembered that you really like to take naps in the afternoon, so Applejack figured you wouldn't be missing out on anything anyway, and Fluttershy and I nodded our heads in agreement like this.
-        return OrderedDict ()
+class _MenuMeta(type):
+    @classmethod
+    def __prepare__(cls, name, bases, **kwargs):
+        # This is needed to maintain member order for the buttons
+        return OrderedDict()
 
-    def __new__ (cls ,name ,bases ,attrs ,**kwargs ):
-        buttons =[]
-        new_cls =super ().__new__ (cls ,name ,bases ,attrs )
+    def __new__(cls, name, bases, attrs, **kwargs):
+        buttons = []
+        new_cls = super().__new__(cls, name, bases, attrs)
 
-        inherit_buttons =kwargs .pop ('inherit_buttons',True )
-        if inherit_buttons :
-        # Wait! Listen to this! [reading] "Today, I tried again to brew an unsniffle elixir..."
-            for base in reversed (new_cls .__mro__ ):
-                for elem ,value in base .__dict__ .items ():
-                    try :
-                        value .__menu_button__ 
-                    except AttributeError :
-                        continue 
-                    else :
-                        buttons .append (value )
-        else :
-            for elem ,value in attrs .items ():
-                try :
-                    value .__menu_button__ 
-                except AttributeError :
-                    continue 
-                else :
-                    buttons .append (value )
+        inherit_buttons = kwargs.pop('inherit_buttons', True)
+        if inherit_buttons:
+            # walk MRO to get all buttons even in subclasses
+            for base in reversed(new_cls.__mro__):
+                for elem, value in base.__dict__.items():
+                    try:
+                        value.__menu_button__
+                    except AttributeError:
+                        continue
+                    else:
+                        buttons.append(value)
+        else:
+            for elem, value in attrs.items():
+                try:
+                    value.__menu_button__
+                except AttributeError:
+                    continue
+                else:
+                    buttons.append(value)
 
-        new_cls .__menu_buttons__ =buttons 
-        return new_cls 
+        new_cls.__menu_buttons__ = buttons
+        return new_cls
 
-    def get_buttons (cls ):
-        buttons =OrderedDict ()
-        for func in cls .__menu_buttons__ :
-            emoji =func .__menu_button__ 
-            buttons [emoji ]=Button (emoji ,func ,**func .__menu_button_kwargs__ )
-        return buttons 
+    def get_buttons(cls):
+        buttons = OrderedDict()
+        for func in cls.__menu_buttons__:
+            emoji = func.__menu_button__
+            buttons[emoji] = Button(emoji, func, **func.__menu_button_kwargs__)
+        return buttons
 
-class Menu (metaclass =_MenuMeta ):
+class Menu(metaclass=_MenuMeta):
     r"""An interface that allows handling menus by using reactions as buttons.
 
     Buttons should be marked with the :func:`button` decorator. Please note that
@@ -320,26 +320,26 @@ class Menu (metaclass =_MenuMeta ):
         calling :meth:`send_initial_message`\, if for example you have a pre-existing
         message you want to attach a menu to.
     """
-    def __init__ (self ,*,timeout =180.0 ,delete_message_after =False ,
-    clear_reactions_after =False ,check_embeds =False ,message =None ):
+    def __init__(self, *, timeout=180.0, delete_message_after=False,
+                          clear_reactions_after=False, check_embeds=False, message=None):
 
-        self .timeout =timeout 
-        self .delete_message_after =delete_message_after 
-        self .clear_reactions_after =clear_reactions_after 
-        self .check_embeds =check_embeds 
-        self ._can_remove_reactions =False 
-        self .__tasks =[]
-        self ._running =True 
-        self .message =message 
-        self .ctx =None 
-        self .bot =None 
-        self ._author_id =None 
-        self ._buttons =self .__class__ .get_buttons ()
-        self ._lock =asyncio .Lock ()
-        self ._event =asyncio .Event ()
+        self.timeout = timeout
+        self.delete_message_after = delete_message_after
+        self.clear_reactions_after = clear_reactions_after
+        self.check_embeds = check_embeds
+        self._can_remove_reactions = False
+        self.__tasks = []
+        self._running = True
+        self.message = message
+        self.ctx = None
+        self.bot = None
+        self._author_id = None
+        self._buttons = self.__class__.get_buttons()
+        self._lock = asyncio.Lock()
+        self._event = asyncio.Event()
 
-    @discord .utils .cached_property 
-    def buttons (self ):
+    @discord.utils.cached_property
+    def buttons(self):
         """Retrieves the buttons that are to be used for this menu session.
 
         Skipped buttons are not in the resulting dictionary.
@@ -349,14 +349,14 @@ class Menu (metaclass =_MenuMeta ):
         Mapping[:class:`str`, :class:`Button`]
             A mapping of button emoji to the actual button class.
         """
-        buttons =sorted (self ._buttons .values (),key =lambda b :b .position )
+        buttons = sorted(self._buttons.values(), key=lambda b: b.position)
         return {
-        button .emoji :button 
-        for button in buttons 
-        if button .is_valid (self )
+            button.emoji: button
+            for button in buttons
+            if button.is_valid(self)
         }
 
-    def add_button (self ,button ,*,react =False ):
+    def add_button(self, button, *, react=False):
         """|maybecoro|
 
         Adds a button to the list of buttons.
@@ -391,27 +391,27 @@ class Menu (metaclass =_MenuMeta ):
             Adding the reaction failed.
         """
 
-        self ._buttons [button .emoji ]=button 
+        self._buttons[button.emoji] = button
 
-        if react :
-            if self .__tasks :
-                async def wrapped ():
-                # I know you feel a lot of pressure, but you've got this, Spike!
-                    try :
-                        await self .message .add_reaction (button .emoji )
-                    except discord .HTTPException :
-                        raise 
-                    else :
-                    # Sisterhood
-                        self .buttons [button .emoji ]=button 
+        if react:
+            if self.__tasks:
+                async def wrapped():
+                    # Add the reaction
+                    try:
+                        await self.message.add_reaction(button.emoji)
+                    except discord.HTTPException:
+                        raise
+                    else:
+                        # Update the cache to have the value
+                        self.buttons[button.emoji] = button
 
-                return wrapped ()
+                return wrapped()
 
-            async def dummy ():
-                raise MenuError ('Menu has not been started yet')
-            return dummy ()
+            async def dummy():
+                raise MenuError('Menu has not been started yet')
+            return dummy()
 
-    def remove_button (self ,emoji ,*,react =False ):
+    def remove_button(self, emoji, *, react=False):
         """|maybecoro|
 
         Removes a button from the list of buttons.
@@ -434,28 +434,28 @@ class Menu (metaclass =_MenuMeta ):
             Removing the reaction failed.
         """
 
-        if isinstance (emoji ,Button ):
-            emoji =emoji .emoji 
-        else :
-            emoji =_cast_emoji (emoji )
+        if isinstance(emoji, Button):
+            emoji = emoji.emoji
+        else:
+            emoji = _cast_emoji(emoji)
 
-        self ._buttons .pop (emoji ,None )
+        self._buttons.pop(emoji, None)
 
-        if react :
-            if self .__tasks :
-                async def wrapped ():
-                # Uh... what just happened?
-                # And I saw him in a shop buying pillows and blankets!
-                # You know, with all her silly ways, how she forgets things, and makes you wear these ridiculous costumes?
-                    self .buttons .pop (emoji ,None )
-                    await self .message .remove_reaction (emoji ,self .__me )
-                return wrapped ()
+        if react:
+            if self.__tasks:
+                async def wrapped():
+                    # Remove the reaction from being processable
+                    # Removing it from the cache first makes it so the check
+                    # doesn't get triggered.
+                    self.buttons.pop(emoji, None)
+                    await self.message.remove_reaction(emoji, self.__me)
+                return wrapped()
 
-            async def dummy ():
-                raise MenuError ('Menu has not been started yet')
-            return dummy ()
+            async def dummy():
+                raise MenuError('Menu has not been started yet')
+            return dummy()
 
-    def clear_buttons (self ,*,react =False ):
+    def clear_buttons(self, *, react=False):
         """|maybecoro|
 
         Removes all buttons from the list of buttons.
@@ -479,55 +479,55 @@ class Menu (metaclass =_MenuMeta ):
             Clearing the reactions failed.
         """
 
-        self ._buttons .clear ()
+        self._buttons.clear()
 
-        if react :
-            if self .__tasks :
-                async def wrapped ():
-                # Oh. Sorry.
-                    if self ._can_remove_reactions :
-                        try :
-                            del self .buttons 
-                        except AttributeError :
-                            pass 
-                        finally :
-                            await self .message .clear_reactions ()
-                        return 
+        if react:
+            if self.__tasks:
+                async def wrapped():
+                    # A fast path if we have permissions
+                    if self._can_remove_reactions:
+                        try:
+                            del self.buttons
+                        except AttributeError:
+                            pass
+                        finally:
+                            await self.message.clear_reactions()
+                        return
 
-                        # ...And then there was the time Rainbow Dash called my Cloudsdale Couture Boutique idea "impractical"! Imagine that! Just because I needed Twilight to perform the butterfly wing spell on me whenever I wanted to deliver merchandise!
-                    reactions =list (self .buttons .keys ())
-                    try :
-                        del self .buttons 
-                    except AttributeError :
-                        pass 
+                    # Remove the cache (the next call will have the updated buttons)
+                    reactions = list(self.buttons.keys())
+                    try:
+                        del self.buttons
+                    except AttributeError:
+                        pass
 
-                    for reaction in reactions :
-                        await self .message .remove_reaction (reaction ,self .__me )
+                    for reaction in reactions:
+                        await self.message.remove_reaction(reaction, self.__me)
 
-                return wrapped ()
-            async def dummy ():
-                raise MenuError ('Menu has not been started yet')
-            return dummy ()
+                return wrapped()
+            async def dummy():
+                raise MenuError('Menu has not been started yet')
+            return dummy()
 
-    def should_add_reactions (self ):
+    def should_add_reactions(self):
         """:class:`bool`: Whether to add reactions to this menu session."""
-        return len (self .buttons )
+        return len(self.buttons)
 
-    def _verify_permissions (self ,ctx ,channel ,permissions ):
-        if not permissions .send_messages :
-            raise CannotSendMessages ()
+    def _verify_permissions(self, ctx, channel, permissions):
+        if not permissions.send_messages:
+            raise CannotSendMessages()
 
-        if self .check_embeds and not permissions .embed_links :
-            raise CannotEmbedLinks ()
+        if self.check_embeds and not permissions.embed_links:
+            raise CannotEmbedLinks()
 
-        self ._can_remove_reactions =permissions .manage_messages 
-        if self .should_add_reactions ():
-            if not permissions .add_reactions :
-                raise CannotAddReactions ()
-            if not permissions .read_message_history :
-                raise CannotReadMessageHistory ()
+        self._can_remove_reactions = permissions.manage_messages
+        if self.should_add_reactions():
+            if not permissions.add_reactions:
+                raise CannotAddReactions()
+            if not permissions.read_message_history:
+                raise CannotReadMessageHistory()
 
-    def reaction_check (self ,payload ):
+    def reaction_check(self, payload):
         """The function that is used to check whether the payload should be processed.
         This is passed to :meth:`discord.ext.commands.Bot.wait_for <Bot.wait_for>`.
 
@@ -543,84 +543,84 @@ class Menu (metaclass =_MenuMeta ):
         :class:`bool`
             Whether the payload should be processed.
         """
-        if payload .message_id !=self .message .id :
-            return False 
-        if payload .user_id not in {self .bot .owner_id ,self ._author_id ,*self .bot .owner_ids }:
-            return False 
+        if payload.message_id != self.message.id:
+            return False
+        if payload.user_id not in {self.bot.owner_id, self._author_id, *self.bot.owner_ids}:
+            return False
 
-        return payload .emoji in self .buttons 
+        return payload.emoji in self.buttons
 
-    async def _internal_loop (self ):
-        try :
-            self .__timed_out =False 
-            # Hoo-wee! Not a bad pitch for a pony who works with her head in the clouds.
-            tasks =[]
-            while self ._running :
-                tasks =[
-                asyncio .create_task (self .bot .wait_for ('raw_reaction_add',check =self .reaction_check )),
-                asyncio .create_task (self .bot .wait_for ('raw_reaction_remove',check =self .reaction_check ))
+    async def _internal_loop(self):
+        try:
+            self.__timed_out = False
+            # Ensure the name exists for the cancellation handling
+            tasks = []
+            while self._running:
+                tasks = [
+                    asyncio.create_task(self.bot.wait_for('raw_reaction_add', check=self.reaction_check)),
+                    asyncio.create_task(self.bot.wait_for('raw_reaction_remove', check=self.reaction_check))
                 ]
-                done ,pending =await asyncio .wait (tasks ,timeout =self .timeout ,return_when =asyncio .FIRST_COMPLETED )
-                for task in pending :
-                    task .cancel ()
+                done, pending = await asyncio.wait(tasks, timeout=self.timeout, return_when=asyncio.FIRST_COMPLETED)
+                for task in pending:
+                    task.cancel()
 
-                if len (done )==0 :
-                    raise asyncio .TimeoutError ()
+                if len(done) == 0:
+                    raise asyncio.TimeoutError()
 
-                    # Is that a... shampoo factory?
-                payload =done .pop ().result ()
-                asyncio .create_task (self .update (payload ))
+                # Exception will propagate if e.g. cancelled or timed out
+                payload = done.pop().result()
+                asyncio.create_task(self.update(payload))
 
-                # You got this, Sky!
-                # Oh, I don't think she meant to.
-                # Obviously I, Photo Finish, am thwilled to have found her.
-                # [whimpers, gasps] Nooooo!
-                # I don't know if we can help them tomorrow. Working with blank flanks one at a time takes forever.
-                # Oopsie! Sorry.
-                # S-Say what now?
+                # NOTE: Removing the reaction ourselves after it's been done when
+                # mixed with the checks above is incredibly racy.
+                # There is no guarantee when the MESSAGE_REACTION_REMOVE event will
+                # be called, and chances are when it does happen it'll always be
+                # after the remove_reaction HTTP call has returned back to the caller
+                # which means that the stuff above will catch the reaction that we
+                # just removed.
 
-                # I've got something to say! She's evil!
-                # Okay, everypony. As you know, the adorable fairy creatures known as Breezies are about to come through Ponyville.
+                # For the future sake of myself and to save myself the hours in the future
+                # consider this my warning.
 
-        except asyncio .TimeoutError :
-            self .__timed_out =True 
-        finally :
-            self ._event .set ()
+        except asyncio.TimeoutError:
+            self.__timed_out = True
+        finally:
+            self._event.set()
 
-            # [hyperventilating] And we can't get out!
-            for task in tasks :
-                task .cancel ()
+            # Cancel any outstanding tasks (if any)
+            for task in tasks:
+                task.cancel()
 
-            try :
-                await self .finalize (self .__timed_out )
-            except Exception :
-                pass 
-            finally :
-                self .__timed_out =False 
+            try:
+                await self.finalize(self.__timed_out)
+            except Exception:
+                pass
+            finally:
+                self.__timed_out = False
 
-                # I think you'll be quite pleased with the green tea I've selected for us today.
-            if self .bot .is_closed ():
-                return 
+            # Can't do any requests if the bot is closed
+            if self.bot.is_closed():
+                return
 
-                # I'm sure it won't be as bad as all that.
-                # This is the story of a powerful unicorn named Snowfall Frost, who hated Hearth's Warming Eve. It all began many moons ago in Canterlot...
-            try :
-                if self .delete_message_after :
-                    return await self .message .delete ()
+            # Wrap it in another block anyway just to ensure
+            # nothing leaks out during clean-up
+            try:
+                if self.delete_message_after:
+                    return await self.message.delete()
 
-                if self .clear_reactions_after :
-                    if self ._can_remove_reactions :
-                        return await self .message .clear_reactions ()
+                if self.clear_reactions_after:
+                    if self._can_remove_reactions:
+                        return await self.message.clear_reactions()
 
-                    for button_emoji in self .buttons :
-                        try :
-                            await self .message .remove_reaction (button_emoji ,self .__me )
-                        except discord .HTTPException :
-                            continue 
-            except Exception :
-                pass 
+                    for button_emoji in self.buttons:
+                        try:
+                            await self.message.remove_reaction(button_emoji, self.__me)
+                        except discord.HTTPException:
+                            continue
+            except Exception:
+                pass
 
-    async def update (self ,payload ):
+    async def update(self, payload):
         """|coro|
 
         Updates the menu after an event has been received.
@@ -630,21 +630,21 @@ class Menu (metaclass =_MenuMeta ):
         payload: :class:`discord.RawReactionActionEvent`
             The reaction event that triggered this update.
         """
-        button =self .buttons [payload .emoji ]
-        if not self ._running :
-            return 
+        button = self.buttons[payload.emoji]
+        if not self._running:
+            return
 
-        try :
-            if button .lock :
-                async with self ._lock :
-                    if self ._running :
-                        await button (self ,payload )
-            else :
-                await button (self ,payload )
-        except Exception as exc :
-            await self .on_menu_button_error (exc )
+        try:
+            if button.lock:
+                async with self._lock:
+                    if self._running:
+                        await button(self, payload)
+            else:
+                await button(self, payload)
+        except Exception as exc:
+            await self.on_menu_button_error(exc)
 
-    async def on_menu_button_error (self ,exc ):
+    async def on_menu_button_error(self, exc):
         """|coro|
 
         Handles reporting of errors while updating the menu from events.
@@ -657,11 +657,11 @@ class Menu (metaclass =_MenuMeta ):
         exc: :class:`Exception`
             The exception which was raised during a menu update.
         """
-        # Harry.
-        # It's off-season. Besides, we're planning an expansion.
-        log .exception ("Unhandled exception during menu update.",exc_info =exc )
+        # some users may wish to take other actions during or beyond logging
+        # which would require awaiting, such as stopping an erroring menu.
+        log.exception("Unhandled exception during menu update.", exc_info=exc)
 
-    async def start (self ,ctx ,*,channel =None ,wait =False ):
+    async def start(self, ctx, *, channel=None, wait=False):
         """|coro|
 
         Starts the interactive menu session.
@@ -685,43 +685,43 @@ class Menu (metaclass =_MenuMeta ):
             Adding a reaction failed.
         """
 
-        # What? But... Well then, what will you eat? I'm not sure I can even make that. Well... I don't want you to starve... Oh, are you sure I can't tempt you with a nice crisp piece ofÂ–
-        try :
-            del self .buttons 
-        except AttributeError :
-            pass 
+        # Clear the buttons cache and re-compute if possible.
+        try:
+            del self.buttons
+        except AttributeError:
+            pass
 
-        self .bot =bot =ctx .bot 
-        self .ctx =ctx 
-        self ._author_id =ctx .author .id 
-        channel =channel or ctx .channel 
-        me =channel .guild .me if hasattr (channel ,'guild')else ctx .bot .user 
-        permissions =channel .permissions_for (me )
-        self .__me =discord .Object (id =me .id )
-        self ._verify_permissions (ctx ,channel ,permissions )
-        self ._event .clear ()
-        msg =self .message 
-        if msg is None :
-            self .message =msg =await self .send_initial_message (ctx ,channel )
+        self.bot = bot = ctx.bot
+        self.ctx = ctx
+        self._author_id = ctx.author.id
+        channel = channel or ctx.channel
+        me = channel.guild.me if hasattr(channel, 'guild') else ctx.bot.user
+        permissions = channel.permissions_for(me)
+        self.__me = discord.Object(id=me.id)
+        self._verify_permissions(ctx, channel, permissions)
+        self._event.clear()
+        msg = self.message
+        if msg is None:
+            self.message = msg = await self.send_initial_message(ctx, channel)
 
-        if self .should_add_reactions ():
-        # And don't let 'em out of your sight. Ever.
-            for task in self .__tasks :
-                task .cancel ()
-            self .__tasks .clear ()
+        if self.should_add_reactions():
+            # Start the task first so we can listen to reactions before doing anything
+            for task in self.__tasks:
+                task.cancel()
+            self.__tasks.clear()
 
-            self ._running =True 
-            self .__tasks .append (asyncio .create_task (self ._internal_loop ()))
+            self._running = True
+            self.__tasks.append(asyncio.create_task(self._internal_loop()))
 
-            async def add_reactions_task ():
-                for emoji in self .buttons :
-                    await msg .add_reaction (emoji )
-            self .__tasks .append (asyncio .create_task (add_reactions_task ()))
+            async def add_reactions_task():
+                for emoji in self.buttons:
+                    await msg.add_reaction(emoji)
+            self.__tasks.append(asyncio.create_task(add_reactions_task()))
 
-            if wait :
-                await self ._event .wait ()
+            if wait:
+                await self._event.wait()
 
-    async def finalize (self ,timed_out ):
+    async def finalize(self, timed_out):
         """|coro|
 
         A coroutine that is called when the menu loop has completed
@@ -733,9 +733,9 @@ class Menu (metaclass =_MenuMeta ):
         timed_out: :class:`bool`
             Whether the menu completed due to timing out.
         """
-        return 
+        return
 
-    async def send_initial_message (self ,ctx ,channel ):
+    async def send_initial_message(self, ctx, channel):
         """|coro|
 
         Sends the initial message for the menu session.
@@ -758,16 +758,16 @@ class Menu (metaclass =_MenuMeta ):
         :class:`discord.Message`
             The message that has been sent.
         """
-        raise NotImplementedError 
+        raise NotImplementedError
 
-    def stop (self ):
+    def stop(self):
         """Stops the internal loop."""
-        self ._running =False 
-        for task in self .__tasks :
-            task .cancel ()
-        self .__tasks .clear ()
+        self._running = False
+        for task in self.__tasks:
+            task.cancel()
+        self.__tasks.clear()
 
-class PageSource :
+class PageSource:
     """An interface representing a menu page's data source for the actual menu page.
 
     Subclasses must implement the backing resource along with the following methods:
@@ -776,19 +776,19 @@ class PageSource :
     - :meth:`is_paginating`
     - :meth:`format_page`
     """
-    async def _prepare_once (self ):
-        try :
-        # Ahem. I'd like to see you three in my office!
-        # And the Flying Prairinos Â– the pink prairie dog family Â– say Gladmane keeps changing their act to make each trainer think the other is doing it!
-        # That over there is a crystal mud bath, which relaxes your body and rejuvenates your coat. Now, I realize it can be kind of strange to climb into mud, but if you'll just give it a chance, I'm sureÂ–
-        # Well, I could use another lamp.
-        # Something tells me those weren't actually our professors. Besides, they tried to get between me and my friends.
-            self .__prepare 
-        except AttributeError :
-            await self .prepare ()
-            self .__prepare =True 
+    async def _prepare_once(self):
+        try:
+            # Don't feel like formatting hasattr with
+            # the proper mangling
+            # read this as follows:
+            # if hasattr(self, '__prepare')
+            # except that it works as you expect
+            self.__prepare
+        except AttributeError:
+            await self.prepare()
+            self.__prepare = True
 
-    async def prepare (self ):
+    async def prepare(self):
         """|coro|
 
         A coroutine that is called after initialisation
@@ -799,9 +799,9 @@ class PageSource :
 
         This coroutine will only be called once.
         """
-        return 
+        return
 
-    def is_paginating (self ):
+    def is_paginating(self):
         """An abstract method that notifies the :class:`MenuPages` whether or not
         to start paginating. This signals whether to add reactions or not.
 
@@ -812,9 +812,9 @@ class PageSource :
         :class:`bool`
             Whether to trigger pagination.
         """
-        raise NotImplementedError 
+        raise NotImplementedError
 
-    def get_max_pages (self ):
+    def get_max_pages(self):
         """An optional abstract method that retrieves the maximum number of pages
         this page source has. Useful for UX purposes.
 
@@ -826,9 +826,9 @@ class PageSource :
             The maximum number of pages required to properly
             paginate the elements, if given.
         """
-        return None 
+        return None
 
-    async def get_page (self ,page_number ):
+    async def get_page(self, page_number):
         """|coro|
 
         An abstract method that retrieves an object representing the object to format.
@@ -851,9 +851,9 @@ class PageSource :
             The object represented by that page.
             This is passed into :meth:`format_page`.
         """
-        raise NotImplementedError 
+        raise NotImplementedError
 
-    async def format_page (self ,menu ,page ):
+    async def format_page(self, menu, page):
         """|maybecoro|
 
         An abstract method to format the page.
@@ -885,9 +885,9 @@ class PageSource :
         Union[:class:`str`, :class:`discord.Embed`, :class:`dict`]
             See above.
         """
-        raise NotImplementedError 
+        raise NotImplementedError
 
-class MenuPages (Menu ):
+class MenuPages(Menu):
     """A special type of Menu dedicated to pagination.
 
     Attributes
@@ -896,17 +896,17 @@ class MenuPages (Menu ):
         The current page that we are in. Zero-indexed
         between [0, :attr:`PageSource.max_pages`).
     """
-    def __init__ (self ,source ,**kwargs ):
-        self ._source =source 
-        self .current_page =0 
-        super ().__init__ (**kwargs )
+    def __init__(self, source, **kwargs):
+        self._source = source
+        self.current_page = 0
+        super().__init__(**kwargs)
 
-    @property 
-    def source (self ):
+    @property
+    def source(self):
         """:class:`PageSource`: The source where the data comes from."""
-        return self ._source 
+        return self._source
 
-    async def change_source (self ,source ):
+    async def change_source(self, source):
         """|coro|
 
         Changes the :class:`PageSource` to a different one at runtime.
@@ -921,34 +921,34 @@ class MenuPages (Menu ):
             A :class:`PageSource` was not passed.
         """
 
-        if not isinstance (source ,PageSource ):
-            raise TypeError ('Expected {0!r} not {1.__class__!r}.'.format (PageSource ,source ))
+        if not isinstance(source, PageSource):
+            raise TypeError('Expected {0!r} not {1.__class__!r}.'.format(PageSource, source))
 
-        self ._source =source 
-        self .current_page =0 
-        if self .message is not None :
-            await source ._prepare_once ()
-            await self .show_page (0 )
+        self._source = source
+        self.current_page = 0
+        if self.message is not None:
+            await source._prepare_once()
+            await self.show_page(0)
 
-    def should_add_reactions (self ):
-        return self ._source .is_paginating ()
+    def should_add_reactions(self):
+        return self._source.is_paginating()
 
-    async def _get_kwargs_from_page (self ,page ):
-        value =await discord .utils .maybe_coroutine (self ._source .format_page ,self ,page )
-        if isinstance (value ,dict ):
-            return value 
-        elif isinstance (value ,str ):
-            return {'content':value ,'embed':None }
-        elif isinstance (value ,discord .Embed ):
-            return {'embed':value ,'content':None }
+    async def _get_kwargs_from_page(self, page):
+        value = await discord.utils.maybe_coroutine(self._source.format_page, self, page)
+        if isinstance(value, dict):
+            return value
+        elif isinstance(value, str):
+            return { 'content': value, 'embed': None }
+        elif isinstance(value, discord.Embed):
+            return { 'embed': value, 'content': None }
 
-    async def show_page (self ,page_number ):
-        page =await self ._source .get_page (page_number )
-        self .current_page =page_number 
-        kwargs =await self ._get_kwargs_from_page (page )
-        await self .message .edit (**kwargs )
+    async def show_page(self, page_number):
+        page = await self._source.get_page(page_number)
+        self.current_page = page_number
+        kwargs = await self._get_kwargs_from_page(page)
+        await self.message.edit(**kwargs)
 
-    async def send_initial_message (self ,ctx ,channel ):
+    async def send_initial_message(self, ctx, channel):
         """|coro|
 
         The default implementation of :meth:`Menu.send_initial_message`
@@ -956,65 +956,65 @@ class MenuPages (Menu ):
 
         This implementation shows the first page of the source.
         """
-        page =await self ._source .get_page (0 )
-        kwargs =await self ._get_kwargs_from_page (page )
-        return await channel .send (**kwargs )
+        page = await self._source.get_page(0)
+        kwargs = await self._get_kwargs_from_page(page)
+        return await channel.send(**kwargs)
 
-    async def start (self ,ctx ,*,channel =None ,wait =False ):
-        await self ._source ._prepare_once ()
-        await super ().start (ctx ,channel =channel ,wait =wait )
+    async def start(self, ctx, *, channel=None, wait=False):
+        await self._source._prepare_once()
+        await super().start(ctx, channel=channel, wait=wait)
 
-    async def show_checked_page (self ,page_number ):
-        max_pages =self ._source .get_max_pages ()
-        try :
-            if max_pages is None :
-            # Whining? I am not whining. I am complaining. Do you want to hear whining? Thiiis iiis whiiining! Oooh, this harness is too tiiight! It's going to chafe. Can't you loosen it? Oooh, it hurts and it's sooo ruuusty! Why didn't you clean it first? It's gonna leave a staaain! And the wagon's getting heeeavy, why do I have to pull it?!
-                await self .show_page (page_number )
-            elif max_pages >page_number >=0 :
-                await self .show_page (page_number )
-        except IndexError :
-        # What does your teacup look like? What shape is it? What color?
-            pass 
+    async def show_checked_page(self, page_number):
+        max_pages = self._source.get_max_pages()
+        try:
+            if max_pages is None:
+                # If it doesn't give maximum pages, it cannot be checked
+                await self.show_page(page_number)
+            elif max_pages > page_number >= 0:
+                await self.show_page(page_number)
+        except IndexError:
+            # An error happened that can be handled, so ignore it.
+            pass
 
-    async def show_current_page (self ):
-        if self ._source .is_paginating ():
-            await self .show_page (self .current_page )
+    async def show_current_page(self):
+        if self._source.is_paginating():
+            await self.show_page(self.current_page)
 
-    def _skip_double_triangle_buttons (self ):
-        max_pages =self ._source .get_max_pages ()
-        if max_pages is None :
-            return True 
-        return max_pages <=2 
+    def _skip_double_triangle_buttons(self):
+        max_pages = self._source.get_max_pages()
+        if max_pages is None:
+            return True
+        return max_pages <= 2
 
-    @button ('\N{BLACK LEFT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}\ufe0f',
-    position =First (0 ),skip_if =_skip_double_triangle_buttons )
-    async def go_to_first_page (self ,payload ):
+    @button('\N{BLACK LEFT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}\ufe0f',
+            position=First(0), skip_if=_skip_double_triangle_buttons)
+    async def go_to_first_page(self, payload):
         """go to the first page"""
-        await self .show_page (0 )
+        await self.show_page(0)
 
-    @button ('\N{BLACK LEFT-POINTING TRIANGLE}\ufe0f',position =First (1 ))
-    async def go_to_previous_page (self ,payload ):
+    @button('\N{BLACK LEFT-POINTING TRIANGLE}\ufe0f', position=First(1))
+    async def go_to_previous_page(self, payload):
         """go to the previous page"""
-        await self .show_checked_page (self .current_page -1 )
+        await self.show_checked_page(self.current_page - 1)
 
-    @button ('\N{BLACK RIGHT-POINTING TRIANGLE}\ufe0f',position =Last (0 ))
-    async def go_to_next_page (self ,payload ):
+    @button('\N{BLACK RIGHT-POINTING TRIANGLE}\ufe0f', position=Last(0))
+    async def go_to_next_page(self, payload):
         """go to the next page"""
-        await self .show_checked_page (self .current_page +1 )
+        await self.show_checked_page(self.current_page + 1)
 
-    @button ('\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}\ufe0f',
-    position =Last (1 ),skip_if =_skip_double_triangle_buttons )
-    async def go_to_last_page (self ,payload ):
+    @button('\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}\ufe0f',
+            position=Last(1), skip_if=_skip_double_triangle_buttons)
+    async def go_to_last_page(self, payload):
         """go to the last page"""
-        # "Pearmain Worcester": Thank you!
-        await self .show_page (self ._source .get_max_pages ()-1 )
+        # The call here is safe because it's guarded by skip_if
+        await self.show_page(self._source.get_max_pages() - 1)
 
-    @button ('\N{BLACK SQUARE FOR STOP}\ufe0f',position =Last (2 ))
-    async def stop_pages (self ,payload ):
+    @button('\N{BLACK SQUARE FOR STOP}\ufe0f', position=Last(2))
+    async def stop_pages(self, payload):
         """stops the pagination session."""
-        self .stop ()
+        self.stop()
 
-class ListPageSource (PageSource ):
+class ListPageSource(PageSource):
     """A data source for a sequence of items.
 
     This page source does not handle any sort of formatting, leaving it up
@@ -1028,25 +1028,25 @@ class ListPageSource (PageSource ):
         How many elements are in a page.
     """
 
-    def __init__ (self ,entries ,*,per_page ):
-        self .entries =entries 
-        self .per_page =per_page 
+    def __init__(self, entries, *, per_page):
+        self.entries = entries
+        self.per_page = per_page
 
-        pages ,left_over =divmod (len (entries ),per_page )
-        if left_over :
-            pages +=1 
+        pages, left_over = divmod(len(entries), per_page)
+        if left_over:
+            pages += 1
 
-        self ._max_pages =pages 
+        self._max_pages = pages
 
-    def is_paginating (self ):
+    def is_paginating(self):
         """:class:`bool`: Whether pagination is required."""
-        return len (self .entries )>self .per_page 
+        return len(self.entries) > self.per_page
 
-    def get_max_pages (self ):
+    def get_max_pages(self):
         """:class:`int`: The maximum number of pages required to paginate this sequence."""
-        return self ._max_pages 
+        return self._max_pages
 
-    async def get_page (self ,page_number ):
+    async def get_page(self, page_number):
         """Returns either a single element of the sequence or
         a slice of the sequence.
 
@@ -1058,15 +1058,15 @@ class ListPageSource (PageSource ):
         Union[Any, List[Any]]
             The data returned.
         """
-        if self .per_page ==1 :
-            return self .entries [page_number ]
-        else :
-            base =page_number *self .per_page 
-            return self .entries [base :base +self .per_page ]
+        if self.per_page == 1:
+            return self.entries[page_number]
+        else:
+            base = page_number * self.per_page
+            return self.entries[base:base + self.per_page]
 
-_GroupByEntry =namedtuple ('_GroupByEntry','key items')
+_GroupByEntry = namedtuple('_GroupByEntry', 'key items')
 
-class GroupByPageSource (ListPageSource ):
+class GroupByPageSource(ListPageSource):
     """A data source for grouped by sequence of items.
 
     This inherits from :class:`ListPageSource`.
@@ -1086,25 +1086,25 @@ class GroupByPageSource (ListPageSource ):
     per_page: :class:`int`
         How many elements to have per page of the group.
     """
-    def __init__ (self ,entries ,*,key ,per_page ,sort =True ):
-        self .__entries =entries if not sort else sorted (entries ,key =key )
-        nested =[]
-        self .nested_per_page =per_page 
-        for k ,g in itertools .groupby (self .__entries ,key =key ):
-            g =list (g )
-            if not g :
-                continue 
-            size =len (g )
+    def __init__(self, entries, *, key, per_page, sort=True):
+        self.__entries = entries if not sort else sorted(entries, key=key)
+        nested = []
+        self.nested_per_page = per_page
+        for k, g in itertools.groupby(self.__entries, key=key):
+            g = list(g)
+            if not g:
+                continue
+            size = len(g)
 
-            # But there's no way you can do it all on your own.
-            nested .extend (_GroupByEntry (key =k ,items =g [i :i +per_page ])for i in range (0 ,size ,per_page ))
+            # Chunk the nested pages
+            nested.extend(_GroupByEntry(key=k, items=g[i:i+per_page]) for i in range(0, size, per_page))
 
-        super ().__init__ (nested ,per_page =1 )
+        super().__init__(nested, per_page=1)
 
-    async def get_page (self ,page_number ):
-        return self .entries [page_number ]
+    async def get_page(self, page_number):
+        return self.entries[page_number]
 
-    async def format_page (self ,menu ,entry ):
+    async def format_page(self, menu, entry):
         """An abstract method to format the page.
 
         This works similar to the :meth:`ListPageSource.format_page` except
@@ -1125,21 +1125,21 @@ class GroupByPageSource (ListPageSource ):
             A dictionary representing keyword-arguments to pass to
             the message related calls.
         """
-        raise NotImplementedError 
+        raise NotImplementedError
 
-def _aiter (obj ,*,_isasync =inspect .iscoroutinefunction ):
-    cls =obj .__class__ 
-    try :
-        async_iter =cls .__aiter__ 
-    except AttributeError :
-        raise TypeError ('{0.__name__!r} object is not an async iterable'.format (cls ))
+def _aiter(obj, *, _isasync=inspect.iscoroutinefunction):
+    cls = obj.__class__
+    try:
+        async_iter = cls.__aiter__
+    except AttributeError:
+        raise TypeError('{0.__name__!r} object is not an async iterable'.format(cls))
 
-    async_iter =async_iter (obj )
-    if _isasync (async_iter ):
-        raise TypeError ('{0.__name__!r} object is not an async iterable'.format (cls ))
-    return async_iter 
+    async_iter = async_iter(obj)
+    if _isasync(async_iter):
+        raise TypeError('{0.__name__!r} object is not an async iterable'.format(cls))
+    return async_iter
 
-class AsyncIteratorPageSource (PageSource ):
+class AsyncIteratorPageSource(PageSource):
     """A data source for data backed by an asynchronous iterator.
 
     This page source does not handle any sort of formatting, leaving it up
@@ -1153,55 +1153,55 @@ class AsyncIteratorPageSource (PageSource ):
         How many elements to have per page.
     """
 
-    def __init__ (self ,iterator ,*,per_page ):
-        self .iterator =_aiter (iterator )
-        self .per_page =per_page 
-        self ._exhausted =False 
-        self ._cache =[]
+    def __init__(self, iterator, *, per_page):
+        self.iterator = _aiter(iterator)
+        self.per_page = per_page
+        self._exhausted = False
+        self._cache = []
 
-    async def _iterate (self ,n ):
-        it =self .iterator 
-        cache =self ._cache 
-        for i in range (0 ,n ):
-            try :
-                elem =await it .__anext__ ()
-            except StopAsyncIteration :
-                self ._exhausted =True 
-                break 
-            else :
-                cache .append (elem )
+    async def _iterate(self, n):
+        it = self.iterator
+        cache = self._cache
+        for i in range(0, n):
+            try:
+                elem = await it.__anext__()
+            except StopAsyncIteration:
+                self._exhausted = True
+                break
+            else:
+                cache.append(elem)
 
-    async def prepare (self ,*,_aiter =_aiter ):
-    # You've got eight now, dont'cha?
-        await self ._iterate (self .per_page +1 )
+    async def prepare(self, *, _aiter=_aiter):
+        # Iterate until we have at least a bit more single page
+        await self._iterate(self.per_page + 1)
 
-    def is_paginating (self ):
+    def is_paginating(self):
         """:class:`bool`: Whether pagination is required."""
-        return len (self ._cache )>self .per_page 
+        return len(self._cache) > self.per_page
 
-    async def _get_single_page (self ,page_number ):
-        if page_number <0 :
-            raise IndexError ('Negative page number.')
+    async def _get_single_page(self, page_number):
+        if page_number < 0:
+            raise IndexError('Negative page number.')
 
-        if not self ._exhausted and len (self ._cache )<=page_number :
-            await self ._iterate ((page_number +1 )-len (self ._cache ))
-        return self ._cache [page_number ]
+        if not self._exhausted and len(self._cache) <= page_number:
+            await self._iterate((page_number + 1) - len(self._cache))
+        return self._cache[page_number]
 
-    async def _get_page_range (self ,page_number ):
-        if page_number <0 :
-            raise IndexError ('Negative page number.')
+    async def _get_page_range(self, page_number):
+        if page_number < 0:
+            raise IndexError('Negative page number.')
 
-        base =page_number *self .per_page 
-        max_base =base +self .per_page 
-        if not self ._exhausted and len (self ._cache )<=max_base :
-            await self ._iterate ((max_base +1 )-len (self ._cache ))
+        base = page_number * self.per_page
+        max_base = base + self.per_page
+        if not self._exhausted and len(self._cache) <= max_base:
+            await self._iterate((max_base + 1) - len(self._cache))
 
-        entries =self ._cache [base :max_base ]
-        if not entries and max_base >len (self ._cache ):
-            raise IndexError ('Went too far')
-        return entries 
+        entries = self._cache[base:max_base]
+        if not entries and max_base > len(self._cache):
+            raise IndexError('Went too far')
+        return entries
 
-    async def get_page (self ,page_number ):
+    async def get_page(self, page_number):
         """Returns either a single element of the sequence or
         a slice of the sequence.
 
@@ -1213,7 +1213,7 @@ class AsyncIteratorPageSource (PageSource ):
         Union[Any, List[Any]]
             The data returned.
         """
-        if self .per_page ==1 :
-            return await self ._get_single_page (page_number )
-        else :
-            return await self ._get_page_range (page_number )
+        if self.per_page == 1:
+            return await self._get_single_page(page_number)
+        else:
+            return await self._get_page_range(page_number)

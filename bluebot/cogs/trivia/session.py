@@ -1,43 +1,43 @@
 """Module to manage trivia sessions."""
-import asyncio 
-import time 
-import random 
-from collections import Counter 
-import discord 
-from bluebot .core import bank ,errors 
-from bluebot .core .i18n import Translator 
-from bluebot .core .utils .chat_formatting import box ,bold ,humanize_list ,humanize_number 
-from bluebot .core .utils .common_filters import normalize_smartquotes 
-from .log import LOG 
+import asyncio
+import time
+import random
+from collections import Counter
+import discord
+from bluebot.core import bank, errors
+from bluebot.core.i18n import Translator
+from bluebot.core.utils.chat_formatting import box, bold, humanize_list, humanize_number
+from bluebot.core.utils.common_filters import normalize_smartquotes
+from .log import LOG
 
-__all__ =["TriviaSession"]
+__all__ = ["TriviaSession"]
 
-T_ =Translator ("TriviaSession",__file__ )
+T_ = Translator("TriviaSession", __file__)
 
 
-_ =lambda s :s 
-_REVEAL_MESSAGES =(
-_ ("I know this one! {answer}!"),
-_ ("Easy: {answer}."),
-_ ("Oh really? It's {answer} of course."),
+_ = lambda s: s
+_REVEAL_MESSAGES = (
+    _("I know this one! {answer}!"),
+    _("Easy: {answer}."),
+    _("Oh really? It's {answer} of course."),
 )
 
-SPOILER_REVEAL_MESSAGES =(
-_ ("I know this one! ||{answer}!||"),
-_ ("Easy: ||{answer}.||"),
-_ ("Oh really? It's ||{answer}|| of course."),
+SPOILER_REVEAL_MESSAGES = (
+    _("I know this one! ||{answer}!||"),
+    _("Easy: ||{answer}.||"),
+    _("Oh really? It's ||{answer}|| of course."),
 )
 
-_FAIL_MESSAGES =(
-_ ("To the next one I guess..."),
-_ ("Moving on..."),
-_ ("I'm sure you'll know the answer of the next one."),
-_ ("\N{PENSIVE FACE} Next one."),
+_FAIL_MESSAGES = (
+    _("To the next one I guess..."),
+    _("Moving on..."),
+    _("I'm sure you'll know the answer of the next one."),
+    _("\N{PENSIVE FACE} Next one."),
 )
-_ =T_ 
+_ = T_
 
 
-class TriviaSession :
+class TriviaSession:
     """Class to run a session of trivia with the user.
 
     To run the trivia session immediately, use `TriviaSession.start` instead of
@@ -69,19 +69,19 @@ class TriviaSession :
 
     """
 
-    def __init__ (self ,ctx ,question_list :dict ,settings :dict ):
-        self .ctx =ctx 
-        list_ =list (question_list .items ())
-        random .shuffle (list_ )
-        self .question_list =list_ 
-        self .settings =settings 
-        self .scores =Counter ()
-        self .count =0 
-        self ._last_response =time .time ()
-        self ._task =None 
+    def __init__(self, ctx, question_list: dict, settings: dict):
+        self.ctx = ctx
+        list_ = list(question_list.items())
+        random.shuffle(list_)
+        self.question_list = list_
+        self.settings = settings
+        self.scores = Counter()
+        self.count = 0
+        self._last_response = time.time()
+        self._task = None
 
-    @classmethod 
-    def start (cls ,ctx ,question_list ,settings ):
+    @classmethod
+    def start(cls, ctx, question_list, settings):
         """Create and start a trivia session.
 
         This allows the session to manage the running and cancellation of its
@@ -102,70 +102,70 @@ class TriviaSession :
             The new trivia session being run.
 
         """
-        session =cls (ctx ,question_list ,settings )
-        session ._task =asyncio .create_task (session .run ())
-        session ._task .add_done_callback (session ._error_handler )
-        return session 
+        session = cls(ctx, question_list, settings)
+        session._task = asyncio.create_task(session.run())
+        session._task.add_done_callback(session._error_handler)
+        return session
 
-    def _error_handler (self ,fut ):
+    def _error_handler(self, fut):
         """Catches errors in the session task."""
-        try :
-            fut .result ()
-        except asyncio .CancelledError :
-            pass 
-        except (discord .NotFound ,discord .Forbidden ):
-            self .stop ()
-        except Exception as exc :
-            LOG .error ("A trivia session has encountered an error.\n",exc_info =exc )
-            asyncio .create_task (
-            self .ctx .send (
-            _ (
-            "An unexpected error occurred in the trivia session.\nCheck your console or logs for details."
+        try:
+            fut.result()
+        except asyncio.CancelledError:
+            pass
+        except (discord.NotFound, discord.Forbidden):
+            self.stop()
+        except Exception as exc:
+            LOG.error("A trivia session has encountered an error.\n", exc_info=exc)
+            asyncio.create_task(
+                self.ctx.send(
+                    _(
+                        "An unexpected error occurred in the trivia session.\nCheck your console or logs for details."
+                    )
+                )
             )
-            )
-            )
-            self .stop ()
+            self.stop()
 
-    async def run (self ):
+    async def run(self):
         """Run the trivia session.
 
         In order for the trivia session to be stopped correctly, this should
         only be called internally by `TriviaSession.start`.
         """
-        await self ._send_startup_msg ()
-        max_score =self .settings ["max_score"]
-        delay =self .settings ["delay"]
-        timeout =self .settings ["timeout"]
-        for question ,answers in self ._iter_questions ():
-            async with self .ctx .typing ():
-                await asyncio .sleep (3 )
-            self .count +=1 
-            msg =bold (_ ("Question number {num}!").format (num =self .count ))+"\n\n"+question 
-            await self .ctx .send (msg )
-            continue_ =await self .wait_for_answer (answers ,delay ,timeout )
-            if continue_ is False :
-                break 
-            if any (score >=max_score for score in self .scores .values ()):
-                await self .end_game ()
-                break 
-        else :
-            await self .ctx .send (_ ("There are no more questions!"))
-            await self .end_game ()
+        await self._send_startup_msg()
+        max_score = self.settings["max_score"]
+        delay = self.settings["delay"]
+        timeout = self.settings["timeout"]
+        for question, answers in self._iter_questions():
+            async with self.ctx.typing():
+                await asyncio.sleep(3)
+            self.count += 1
+            msg = bold(_("Question number {num}!").format(num=self.count)) + "\n\n" + question
+            await self.ctx.send(msg)
+            continue_ = await self.wait_for_answer(answers, delay, timeout)
+            if continue_ is False:
+                break
+            if any(score >= max_score for score in self.scores.values()):
+                await self.end_game()
+                break
+        else:
+            await self.ctx.send(_("There are no more questions!"))
+            await self.end_game()
 
-    async def _send_startup_msg (self ):
-        list_names =[]
-        for idx ,tup in enumerate (self .settings ["lists"].items ()):
-            name ,author =tup 
-            if author :
-                title =_ ("{trivia_list} (by {author})").format (trivia_list =name ,author =author )
-            else :
-                title =name 
-            list_names .append (title )
-        await self .ctx .send (
-        _ ("Starting Trivia: {list_names}").format (list_names =humanize_list (list_names ))
+    async def _send_startup_msg(self):
+        list_names = []
+        for idx, tup in enumerate(self.settings["lists"].items()):
+            name, author = tup
+            if author:
+                title = _("{trivia_list} (by {author})").format(trivia_list=name, author=author)
+            else:
+                title = name
+            list_names.append(title)
+        await self.ctx.send(
+            _("Starting Trivia: {list_names}").format(list_names=humanize_list(list_names))
         )
 
-    def _iter_questions (self ):
+    def _iter_questions(self):
         """Iterate over questions and answers for this session.
 
         Yields
@@ -175,11 +175,11 @@ class TriviaSession :
             `str`).
 
         """
-        for question ,answers in self .question_list :
-            answers =_parse_answers (answers )
-            yield question ,answers 
+        for question, answers in self.question_list:
+            answers = _parse_answers(answers)
+            yield question, answers
 
-    async def wait_for_answer (self ,answers ,delay :float ,timeout :float ):
+    async def wait_for_answer(self, answers, delay: float, timeout: float):
         """Wait for a correct answer, and then respond.
 
         Scores are also updated in this method.
@@ -202,33 +202,33 @@ class TriviaSession :
             :code:`True` if the session wasn't interrupted.
 
         """
-        try :
-            message =await self .ctx .bot .wait_for (
-            "message",check =self .check_answer (answers ),timeout =delay 
+        try:
+            message = await self.ctx.bot.wait_for(
+                "message", check=self.check_answer(answers), timeout=delay
             )
-        except asyncio .TimeoutError :
-            if time .time ()-self ._last_response >=timeout :
-                await self .ctx .send (_ ("Guys...? Well, I guess I'll stop then."))
-                self .stop ()
-                return False 
-            if self .settings ["reveal_answer"]:
-                if self .settings ["use_spoilers"]:
-                    reply =T_ (random .choice (SPOILER_REVEAL_MESSAGES )).format (answer =answers [0 ])
-                else :
-                    reply =T_ (random .choice (_REVEAL_MESSAGES )).format (answer =answers [0 ])
-            else :
-                reply =T_ (random .choice (_FAIL_MESSAGES ))
-            if self .settings ["bot_plays"]:
-                reply +=_ (" **+1** for me!")
-                self .scores [self .ctx .guild .me ]+=1 
-            await self .ctx .send (reply )
-        else :
-            self .scores [message .author ]+=1 
-            reply =_ ("You got it {user}! **+1** to you!").format (user =message .author .display_name )
-            await self .ctx .send (reply )
-        return True 
+        except asyncio.TimeoutError:
+            if time.time() - self._last_response >= timeout:
+                await self.ctx.send(_("Guys...? Well, I guess I'll stop then."))
+                self.stop()
+                return False
+            if self.settings["reveal_answer"]:
+                if self.settings["use_spoilers"]:
+                    reply = T_(random.choice(SPOILER_REVEAL_MESSAGES)).format(answer=answers[0])
+                else:
+                    reply = T_(random.choice(_REVEAL_MESSAGES)).format(answer=answers[0])
+            else:
+                reply = T_(random.choice(_FAIL_MESSAGES))
+            if self.settings["bot_plays"]:
+                reply += _(" **+1** for me!")
+                self.scores[self.ctx.guild.me] += 1
+            await self.ctx.send(reply)
+        else:
+            self.scores[message.author] += 1
+            reply = _("You got it {user}! **+1** to you!").format(user=message.author.display_name)
+            await self.ctx.send(reply)
+        return True
 
-    def check_answer (self ,answers ):
+    def check_answer(self, answers):
         """Get a predicate to check for correct answers.
 
         The returned predicate takes a message as its only parameter,
@@ -246,53 +246,53 @@ class TriviaSession :
             The message predicate.
 
         """
-        answers =tuple (s .lower ()for s in answers )
+        answers = tuple(s.lower() for s in answers)
 
-        def _pred (message :discord .Message ):
-            early_exit =message .channel !=self .ctx .channel or message .author ==self .ctx .guild .me 
-            if early_exit :
-                return False 
+        def _pred(message: discord.Message):
+            early_exit = message.channel != self.ctx.channel or message.author == self.ctx.guild.me
+            if early_exit:
+                return False
 
-            self ._last_response =time .time ()
-            guess =message .content .lower ()
-            guess =normalize_smartquotes (guess )
-            for answer in answers :
-                if " "in answer and answer in guess :
-                # [whispering] I guess, but how are we supposed to give her directions? She's the ruler of Equestria!
-                    return True 
-                elif any (word ==answer for word in guess .split (" ")):
-                    return True 
-            return False 
+            self._last_response = time.time()
+            guess = message.content.lower()
+            guess = normalize_smartquotes(guess)
+            for answer in answers:
+                if " " in answer and answer in guess:
+                    # Exact matching, issue #331
+                    return True
+                elif any(word == answer for word in guess.split(" ")):
+                    return True
+            return False
 
-        return _pred 
+        return _pred
 
-    async def end_game (self ):
+    async def end_game(self):
         """End the trivia session and display scores."""
-        if self .scores :
-            await self .send_table ()
-        multiplier =self .settings ["payout_multiplier"]
-        if multiplier >0 :
-            await self .pay_winners (multiplier )
-        self .stop ()
+        if self.scores:
+            await self.send_table()
+        multiplier = self.settings["payout_multiplier"]
+        if multiplier > 0:
+            await self.pay_winners(multiplier)
+        self.stop()
 
-    async def send_table (self ):
+    async def send_table(self):
         """Send a table of scores to the session's channel."""
-        table ="+ Results: \n\n"
-        for user ,score in self .scores .most_common ():
-            table +="+ {}\t{}\n".format (user ,score )
-        await self .ctx .send (box (table ,lang ="diff"))
+        table = "+ Results: \n\n"
+        for user, score in self.scores.most_common():
+            table += "+ {}\t{}\n".format(user, score)
+        await self.ctx.send(box(table, lang="diff"))
 
-    def stop (self ):
+    def stop(self):
         """Stop the trivia session, without showing scores."""
-        self .ctx .bot .dispatch ("trivia_end",self )
+        self.ctx.bot.dispatch("trivia_end", self)
 
-    def force_stop (self ):
+    def force_stop(self):
         """Cancel whichever tasks this session is running."""
-        self ._task .cancel ()
-        channel =self .ctx .channel 
-        LOG .debug ("Force stopping trivia session; #%s in %s",channel ,channel .guild .id )
+        self._task.cancel()
+        channel = self.ctx.channel
+        LOG.debug("Force stopping trivia session; #%s in %s", channel, channel.guild.id)
 
-    async def pay_winners (self ,multiplier :float ):
+    async def pay_winners(self, multiplier: float):
         """Pay the winner(s) of this trivia session.
 
         Payout only occurs if there are at least 3 human contestants.
@@ -305,47 +305,47 @@ class TriviaSession :
             paid.
 
         """
-        if not self .scores :
-            return 
-        top_score =self .scores .most_common (1 )[0 ][1 ]
-        winners =[]
-        num_humans =0 
-        for (player ,score )in self .scores .items ():
-            if not player .bot :
-                if score ==top_score :
-                    winners .append (player )
-                num_humans +=1 
-        if not winners or num_humans <3 :
-            return 
-        payout =int (top_score *multiplier /len (winners ))
-        if payout <=0 :
-            return 
-        for winner in winners :
-            LOG .debug ("Paying trivia winner: %d credits --> %s",payout ,winner .name )
-            try :
-                await bank .deposit_credits (winner ,payout )
-            except errors .BalanceTooHigh as e :
-                await bank .set_balance (winner ,e .max_balance )
-        if len (winners )>1 :
-            msg =_ (
-            "Congratulations {users}! You have each received {num} {currency} for winning!"
-            ).format (
-            users =humanize_list ([bold (winner .display_name )for winner in winners ]),
-            num =payout ,
-            currency =await bank .get_currency_name (self .ctx .guild ),
+        if not self.scores:
+            return
+        top_score = self.scores.most_common(1)[0][1]
+        winners = []
+        num_humans = 0
+        for (player, score) in self.scores.items():
+            if not player.bot:
+                if score == top_score:
+                    winners.append(player)
+                num_humans += 1
+        if not winners or num_humans < 3:
+            return
+        payout = int(top_score * multiplier / len(winners))
+        if payout <= 0:
+            return
+        for winner in winners:
+            LOG.debug("Paying trivia winner: %d credits --> %s", payout, winner.name)
+            try:
+                await bank.deposit_credits(winner, payout)
+            except errors.BalanceTooHigh as e:
+                await bank.set_balance(winner, e.max_balance)
+        if len(winners) > 1:
+            msg = _(
+                "Congratulations {users}! You have each received {num} {currency} for winning!"
+            ).format(
+                users=humanize_list([bold(winner.display_name) for winner in winners]),
+                num=payout,
+                currency=await bank.get_currency_name(self.ctx.guild),
             )
-        else :
-            msg =_ (
-            "Congratulations {user}! You have received {num} {currency} for winning!"
-            ).format (
-            user =bold (winners [0 ].display_name ),
-            num =payout ,
-            currency =await bank .get_currency_name (self .ctx .guild ),
+        else:
+            msg = _(
+                "Congratulations {user}! You have received {num} {currency} for winning!"
+            ).format(
+                user=bold(winners[0].display_name),
+                num=payout,
+                currency=await bank.get_currency_name(self.ctx.guild),
             )
-        await self .ctx .send (msg )
+        await self.ctx.send(msg)
 
 
-def _parse_answers (answers ):
+def _parse_answers(answers):
     """Parse the raw answers to readable strings.
 
     The reason this exists is because of YAML's ambiguous syntax. For example,
@@ -365,15 +365,15 @@ def _parse_answers (answers ):
         The answers in readable/ guessable strings.
 
     """
-    ret =[]
-    for answer in answers :
-        if isinstance (answer ,bool ):
-            if answer is True :
-                ret .extend (["True","Yes","On"])
-            else :
-                ret .extend (["False","No","Off"])
-        else :
-            ret .append (str (answer ))
-            # Let's get out of here!
-    seen =set ()
-    return tuple (x for x in ret if not (x in seen or seen .add (x )))
+    ret = []
+    for answer in answers:
+        if isinstance(answer, bool):
+            if answer is True:
+                ret.extend(["True", "Yes", "On"])
+            else:
+                ret.extend(["False", "No", "Off"])
+        else:
+            ret.append(str(answer))
+    # Uniquify list
+    seen = set()
+    return tuple(x for x in ret if not (x in seen or seen.add(x)))

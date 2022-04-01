@@ -1,77 +1,77 @@
-import asyncio 
-import contextlib 
-import datetime 
-import importlib 
-import itertools 
-import keyword 
-import logging 
-import io 
-import random 
-import markdown 
-import os 
-import re 
-import sys 
-import platform 
-import psutil 
-import getpass 
-import pip 
-import traceback 
-from pathlib import Path 
-from bluebot .core import data_manager 
-from bluebot .core .utils .menus import menu ,DEFAULT_CONTROLS 
-from bluebot .core .commands import GuildConverter ,RawUserIdConverter 
-from string import ascii_letters ,digits 
-from typing import TYPE_CHECKING ,Union ,Tuple ,List ,Optional ,Iterable ,Sequence ,Dict ,Set 
+import asyncio
+import contextlib
+import datetime
+import importlib
+import itertools
+import keyword
+import logging
+import io
+import random
+import markdown
+import os
+import re
+import sys
+import platform
+import psutil
+import getpass
+import pip
+import traceback
+from pathlib import Path
+from bluebot.core import data_manager
+from bluebot.core.utils.menus import menu, DEFAULT_CONTROLS
+from bluebot.core.commands import GuildConverter, RawUserIdConverter
+from string import ascii_letters, digits
+from typing import TYPE_CHECKING, Union, Tuple, List, Optional, Iterable, Sequence, Dict, Set
 
-import aiohttp 
-import discord 
-from babel import Locale as BabelLocale ,UnknownLocaleError 
-from bluebot .core .data_manager import storage_type 
+import aiohttp
+import discord
+from babel import Locale as BabelLocale, UnknownLocaleError
+from bluebot.core.data_manager import storage_type
 
-from .import (
-__version__ ,
-version_info as blue_version_info ,
-checks ,
-commands ,
-errors ,
-i18n ,
-bank ,
-modlog ,
+from . import (
+    __version__,
+    version_info as blue_version_info,
+    checks,
+    commands,
+    errors,
+    i18n,
+    bank,
+    modlog,
 )
-from ._diagnoser import IssueDiagnoser 
-from .utils import AsyncIter 
-from .utils ._internal_utils import fetch_latest_blue_version_info 
-from .utils .predicates import MessagePredicate 
-from .utils .chat_formatting import (
-box ,
-escape ,
-humanize_list ,
-humanize_number ,
-humanize_timedelta ,
-inline ,
-pagify ,
+from ._diagnoser import IssueDiagnoser
+from .utils import AsyncIter
+from .utils._internal_utils import fetch_latest_blue_version_info
+from .utils.predicates import MessagePredicate
+from .utils.chat_formatting import (
+    box,
+    escape,
+    humanize_list,
+    humanize_number,
+    humanize_timedelta,
+    inline,
+    pagify,
 )
-from .commands import CommandConverter ,CogConverter 
-from .commands .requires import PrivilegeLevel 
+from .commands import CommandConverter, CogConverter
+from .commands.requires import PrivilegeLevel
 
-_entities ={
-"*":"&midast;",
-"\\":"&bsol;",
-"`":"&grave;",
-"!":"&excl;",
-"{":"&lcub;",
-"[":"&lsqb;",
-"_":"&UnderBar;",
-"(":"&lpar;",
-"#":"&num;",
-".":"&period;",
-"+":"&plus;",
-"}":"&rcub;",
-"]":"&rsqb;",
-")":"&rpar;",
+_entities = {
+    "*": "&midast;",
+    "\\": "&bsol;",
+    "`": "&grave;",
+    "!": "&excl;",
+    "{": "&lcub;",
+    "[": "&lsqb;",
+    "_": "&UnderBar;",
+    "(": "&lpar;",
+    "#": "&num;",
+    ".": "&period;",
+    "+": "&plus;",
+    "}": "&rcub;",
+    "]": "&rsqb;",
+    ")": "&rpar;",
 }
 
-PRETTY_HTML_HEAD ="""
+PRETTY_HTML_HEAD = """
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8">
@@ -82,41 +82,41 @@ body{margin:2em auto;max-width:800px;line-height:1.4;font-size:16px;
 background-color=#EEEEEE;color:#454545;padding:1em;text-align:justify}
 h1,h2,h3{line-height:1.2}
 </style></head><body>
-"""# Good. And if you have any problems, we've got your back too, y'hear?
+"""  # This ends up being a small bit extra that really makes a difference.
 
-HTML_CLOSING ="</body></html>"
-
-
-def entity_transformer (statement :str )->str :
-    return "".join (_entities .get (c ,c )for c in statement )
+HTML_CLOSING = "</body></html>"
 
 
-if TYPE_CHECKING :
-    from bluebot .core .bot import Blue 
-
-__all__ =["Core"]
-
-log =logging .getLogger ("red")
-
-_ =i18n .Translator ("Core",__file__ )
-
-TokenConverter =commands .get_dict_converter (delims =[" ",",",";"])
-
-MAX_PREFIX_LENGTH =25 
+def entity_transformer(statement: str) -> str:
+    return "".join(_entities.get(c, c) for c in statement)
 
 
-class CoreLogic :
-    def __init__ (self ,bot :"Blue"):
-        self .bot =bot 
-        self .bot .register_rpc_handler (self ._load )
-        self .bot .register_rpc_handler (self ._unload )
-        self .bot .register_rpc_handler (self ._reload )
-        self .bot .register_rpc_handler (self ._name )
-        self .bot .register_rpc_handler (self ._prefixes )
-        self .bot .register_rpc_handler (self ._version_info )
-        self .bot .register_rpc_handler (self ._invite_url )
+if TYPE_CHECKING:
+    from bluebot.core.bot import Blue
 
-    async def _load (self ,pkg_names :Iterable [str ])->Dict [str ,Union [List [str ],Dict [str ,str ]]]:
+__all__ = ["Core"]
+
+log = logging.getLogger("red")
+
+_ = i18n.Translator("Core", __file__)
+
+TokenConverter = commands.get_dict_converter(delims=[" ", ",", ";"])
+
+MAX_PREFIX_LENGTH = 25
+
+
+class CoreLogic:
+    def __init__(self, bot: "Blue"):
+        self.bot = bot
+        self.bot.register_rpc_handler(self._load)
+        self.bot.register_rpc_handler(self._unload)
+        self.bot.register_rpc_handler(self._reload)
+        self.bot.register_rpc_handler(self._name)
+        self.bot.register_rpc_handler(self._prefixes)
+        self.bot.register_rpc_handler(self._version_info)
+        self.bot.register_rpc_handler(self._invite_url)
+
+    async def _load(self, pkg_names: Iterable[str]) -> Dict[str, Union[List[str], Dict[str, str]]]:
         """
         Loads packages by name.
 
@@ -138,120 +138,120 @@ class CoreLogic :
               a specified reason with mapping of package names -> failure reason
               ``repos_with_shared_libs``: List of repo names that use deprecated shared libraries
         """
-        failed_packages =[]
-        loaded_packages =[]
-        invalid_pkg_names =[]
-        notfound_packages =[]
-        alreadyloaded_packages =[]
-        failed_with_reason_packages ={}
-        repos_with_shared_libs =set ()
+        failed_packages = []
+        loaded_packages = []
+        invalid_pkg_names = []
+        notfound_packages = []
+        alreadyloaded_packages = []
+        failed_with_reason_packages = {}
+        repos_with_shared_libs = set()
 
-        bot =self .bot 
+        bot = self.bot
 
-        pkg_specs =[]
+        pkg_specs = []
 
-        for name in pkg_names :
-            if not name .isidentifier ()or keyword .iskeyword (name ):
-                invalid_pkg_names .append (name )
-                continue 
-            try :
-                spec =await bot ._cog_mgr .find_cog (name )
-                if spec :
-                    pkg_specs .append ((spec ,name ))
-                else :
-                    notfound_packages .append (name )
-            except Exception as e :
-                log .exception ("Package import failed",exc_info =e )
+        for name in pkg_names:
+            if not name.isidentifier() or keyword.iskeyword(name):
+                invalid_pkg_names.append(name)
+                continue
+            try:
+                spec = await bot._cog_mgr.find_cog(name)
+                if spec:
+                    pkg_specs.append((spec, name))
+                else:
+                    notfound_packages.append(name)
+            except Exception as e:
+                log.exception("Package import failed", exc_info=e)
 
-                exception_log ="Exception during import of package\n"
-                exception_log +="".join (traceback .format_exception (type (e ),e ,e .__traceback__ ))
-                bot ._last_exception =exception_log 
-                failed_packages .append (name )
+                exception_log = "Exception during import of package\n"
+                exception_log += "".join(traceback.format_exception(type(e), e, e.__traceback__))
+                bot._last_exception = exception_log
+                failed_packages.append(name)
 
-        async for spec ,name in AsyncIter (pkg_specs ,steps =10 ):
-            try :
-                self ._cleanup_and_refresh_modules (spec .name )
-                await bot .load_extension (spec )
-            except errors .PackageAlreadyLoaded :
-                alreadyloaded_packages .append (name )
-            except errors .CogLoadError as e :
-                failed_with_reason_packages [name ]=str (e )
-            except Exception as e :
-                if isinstance (e ,commands .CommandRegistrationError ):
-                    if e .alias_conflict :
-                        error_message =_ (
-                        "Alias {alias_name} is already an existing command"
-                        " or alias in one of the loaded cogs."
-                        ).format (alias_name =inline (e .name ))
-                    else :
-                        error_message =_ (
-                        "Command {command_name} is already an existing command"
-                        " or alias in one of the loaded cogs."
-                        ).format (command_name =inline (e .name ))
-                    failed_with_reason_packages [name ]=error_message 
-                    continue 
+        async for spec, name in AsyncIter(pkg_specs, steps=10):
+            try:
+                self._cleanup_and_refresh_modules(spec.name)
+                await bot.load_extension(spec)
+            except errors.PackageAlreadyLoaded:
+                alreadyloaded_packages.append(name)
+            except errors.CogLoadError as e:
+                failed_with_reason_packages[name] = str(e)
+            except Exception as e:
+                if isinstance(e, commands.CommandRegistrationError):
+                    if e.alias_conflict:
+                        error_message = _(
+                            "Alias {alias_name} is already an existing command"
+                            " or alias in one of the loaded cogs."
+                        ).format(alias_name=inline(e.name))
+                    else:
+                        error_message = _(
+                            "Command {command_name} is already an existing command"
+                            " or alias in one of the loaded cogs."
+                        ).format(command_name=inline(e.name))
+                    failed_with_reason_packages[name] = error_message
+                    continue
 
-                log .exception ("Package loading failed",exc_info =e )
+                log.exception("Package loading failed", exc_info=e)
 
-                exception_log ="Exception during loading of package\n"
-                exception_log +="".join (traceback .format_exception (type (e ),e ,e .__traceback__ ))
-                bot ._last_exception =exception_log 
-                failed_packages .append (name )
-            else :
-                await bot .add_loaded_package (name )
-                loaded_packages .append (name )
-                # I'm likin' the looks of this one. Hmmm.
-                downloader =bot .get_cog ("Downloader")
-                if downloader is None :
-                    continue 
-                try :
-                    maybe_repo =await downloader ._shared_lib_load_check (name )
-                except Exception :
-                    log .exception (
-                    "Shared library check failed,"
-                    " if you're not using modified Downloader, report this issue."
+                exception_log = "Exception during loading of package\n"
+                exception_log += "".join(traceback.format_exception(type(e), e, e.__traceback__))
+                bot._last_exception = exception_log
+                failed_packages.append(name)
+            else:
+                await bot.add_loaded_package(name)
+                loaded_packages.append(name)
+                # remove in Blue 3.4
+                downloader = bot.get_cog("Downloader")
+                if downloader is None:
+                    continue
+                try:
+                    maybe_repo = await downloader._shared_lib_load_check(name)
+                except Exception:
+                    log.exception(
+                        "Shared library check failed,"
+                        " if you're not using modified Downloader, report this issue."
                     )
-                    maybe_repo =None 
-                if maybe_repo is not None :
-                    repos_with_shared_libs .add (maybe_repo .name )
+                    maybe_repo = None
+                if maybe_repo is not None:
+                    repos_with_shared_libs.add(maybe_repo.name)
 
         return {
-        "loaded_packages":loaded_packages ,
-        "failed_packages":failed_packages ,
-        "invalid_pkg_names":invalid_pkg_names ,
-        "notfound_packages":notfound_packages ,
-        "alreadyloaded_packages":alreadyloaded_packages ,
-        "failed_with_reason_packages":failed_with_reason_packages ,
-        "repos_with_shared_libs":list (repos_with_shared_libs ),
+            "loaded_packages": loaded_packages,
+            "failed_packages": failed_packages,
+            "invalid_pkg_names": invalid_pkg_names,
+            "notfound_packages": notfound_packages,
+            "alreadyloaded_packages": alreadyloaded_packages,
+            "failed_with_reason_packages": failed_with_reason_packages,
+            "repos_with_shared_libs": list(repos_with_shared_libs),
         }
 
-    @staticmethod 
-    def _cleanup_and_refresh_modules (module_name :str )->None :
+    @staticmethod
+    def _cleanup_and_refresh_modules(module_name: str) -> None:
         """Internally reloads modules so that changes are detected."""
-        splitted =module_name .split (".")
+        splitted = module_name.split(".")
 
-        def maybe_reload (new_name ):
-            try :
-                lib =sys .modules [new_name ]
-            except KeyError :
-                pass 
-            else :
-                importlib ._bootstrap ._exec (lib .__spec__ ,lib )
+        def maybe_reload(new_name):
+            try:
+                lib = sys.modules[new_name]
+            except KeyError:
+                pass
+            else:
+                importlib._bootstrap._exec(lib.__spec__, lib)
 
-                # Ohoh, no need, dearie, I'm already in front!
-        modules =itertools .accumulate (splitted ,"{}.{}".format )
-        for m in modules :
-            maybe_reload (m )
+        # noinspection PyTypeChecker
+        modules = itertools.accumulate(splitted, "{}.{}".format)
+        for m in modules:
+            maybe_reload(m)
 
-        children ={
-        name :lib 
-        for name ,lib in sys .modules .items ()
-        if name ==module_name or name .startswith (f"{module_name}.")
+        children = {
+            name: lib
+            for name, lib in sys.modules.items()
+            if name == module_name or name.startswith(f"{module_name}.")
         }
-        for child_name ,lib in children .items ():
-            importlib ._bootstrap ._exec (lib .__spec__ ,lib )
+        for child_name, lib in children.items():
+            importlib._bootstrap._exec(lib.__spec__, lib)
 
-    async def _unload (self ,pkg_names :Iterable [str ])->Dict [str ,List [str ]]:
+    async def _unload(self, pkg_names: Iterable[str]) -> Dict[str, List[str]]:
         """
         Unloads packages with the given names.
 
@@ -268,24 +268,24 @@ class CoreLogic :
               ``notloaded_packages``: List of names of packages that weren't unloaded
               because they weren't loaded.
         """
-        notloaded_packages =[]
-        unloaded_packages =[]
+        notloaded_packages = []
+        unloaded_packages = []
 
-        bot =self .bot 
+        bot = self.bot
 
-        for name in pkg_names :
-            if name in bot .extensions :
-                bot .unload_extension (name )
-                await bot .remove_loaded_package (name )
-                unloaded_packages .append (name )
-            else :
-                notloaded_packages .append (name )
+        for name in pkg_names:
+            if name in bot.extensions:
+                bot.unload_extension(name)
+                await bot.remove_loaded_package(name)
+                unloaded_packages.append(name)
+            else:
+                notloaded_packages.append(name)
 
-        return {"unloaded_packages":unloaded_packages ,"notloaded_packages":notloaded_packages }
+        return {"unloaded_packages": unloaded_packages, "notloaded_packages": notloaded_packages}
 
-    async def _reload (
-    self ,pkg_names :Sequence [str ]
-    )->Dict [str ,Union [List [str ],Dict [str ,str ]]]:
+    async def _reload(
+        self, pkg_names: Sequence[str]
+    ) -> Dict[str, Union[List[str], Dict[str, str]]]:
         """
         Reloads packages with the given names.
 
@@ -299,11 +299,11 @@ class CoreLogic :
         dict
             Dictionary with keys as returned by `CoreLogic._load()`
         """
-        await self ._unload (pkg_names )
+        await self._unload(pkg_names)
 
-        return await self ._load (pkg_names )
+        return await self._load(pkg_names)
 
-    async def _name (self ,name :Optional [str ]=None )->str :
+    async def _name(self, name: Optional[str] = None) -> str:
         """
         Gets or sets the bot's username.
 
@@ -317,12 +317,12 @@ class CoreLogic :
         str
             The current (or new) username of the bot.
         """
-        if name is not None :
-            await self .bot .user .edit (username =name )
+        if name is not None:
+            await self.bot.user.edit(username=name)
 
-        return self .bot .user .name 
+        return self.bot.user.name
 
-    async def _prefixes (self ,prefixes :Optional [Sequence [str ]]=None )->List [str ]:
+    async def _prefixes(self, prefixes: Optional[Sequence[str]] = None) -> List[str]:
         """
         Gets or sets the bot's global prefixes.
 
@@ -336,13 +336,13 @@ class CoreLogic :
         list of str
             The current (or new) list of prefixes.
         """
-        if prefixes :
-            await self .bot .set_prefixes (guild =None ,prefixes =prefixes )
-            return prefixes 
-        return await self .bot ._prefix_cache .get_prefixes (guild =None )
+        if prefixes:
+            await self.bot.set_prefixes(guild=None, prefixes=prefixes)
+            return prefixes
+        return await self.bot._prefix_cache.get_prefixes(guild=None)
 
-    @classmethod 
-    async def _version_info (cls )->Dict [str ,str ]:
+    @classmethod
+    async def _version_info(cls) -> Dict[str, str]:
         """
         Version information for Blue and discord.py
 
@@ -351,9 +351,9 @@ class CoreLogic :
         dict
             `bluebot` and `discordpy` keys containing version information for both.
         """
-        return {"bluebot":__version__ ,"discordpy":discord .__version__ }
+        return {"bluebot": __version__, "discordpy": discord.__version__}
 
-    async def _invite_url (self )->str :
+    async def _invite_url(self) -> str:
         """
         Generates the invite URL for the bot.
 
@@ -362,196 +362,196 @@ class CoreLogic :
         str
             Invite URL.
         """
-        return await self .bot .get_invite_url ()
+        return await self.bot.get_invite_url()
 
-    @staticmethod 
-    async def _can_get_invite_url (ctx ):
-        is_owner =await ctx .bot .is_owner (ctx .author )
-        is_invite_public =await ctx .bot ._config .invite_public ()
-        return is_owner or is_invite_public 
+    @staticmethod
+    async def _can_get_invite_url(ctx):
+        is_owner = await ctx.bot.is_owner(ctx.author)
+        is_invite_public = await ctx.bot._config.invite_public()
+        return is_owner or is_invite_public
 
 
-@i18n .cog_i18n (_ )
-class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
+@i18n.cog_i18n(_)
+class Core(commands.commands._RuleDropper, commands.Cog, CoreLogic):
     """
     The Core cog has many commands related to core functions.
 
     These commands come loaded with every Blue bot, and cover some of the most basic usage of the bot.
     """
 
-    async def blue_delete_data_for_user (self ,**kwargs ):
+    async def blue_delete_data_for_user(self, **kwargs):
         """Nothing to delete (Core Config is handled in a bot method)"""
-        return 
+        return
 
-    @commands .command (hidden =True )
-    async def ping (self ,ctx :commands .Context ):
+    @commands.command(hidden=True)
+    async def ping(self, ctx: commands.Context):
         """Pong."""
-        await ctx .send ("Pong.")
+        await ctx.send("Pong.")
 
-    @commands .command ()
-    async def info (self ,ctx :commands .Context ):
+    @commands.command()
+    async def info(self, ctx: commands.Context):
         """Shows info about [botname]."""
-        embed_links =await ctx .embed_requested ()
-        author_repo ="https://github.com/Twentysix26"
-        org_repo ="https://github.com/Cock-Creators"
-        blue_repo =org_repo +"/Blue-DiscordBot"
-        blue_pypi ="https://pypi.org/project/Blue-DiscordBot"
-        support_server_url ="https://discord.gg/red"
-        dpy_repo ="https://github.com/Rapptz/discord.py"
-        python_url ="https://www.python.org/"
-        since =datetime .datetime (2016 ,1 ,2 ,0 ,0 )
-        days_since =(datetime .datetime .utcnow ()-since ).days 
+        embed_links = await ctx.embed_requested()
+        author_repo = "https://github.com/Twentysix26"
+        org_repo = "https://github.com/Cock-Creators"
+        blue_repo = org_repo + "/Blue-DiscordBot"
+        blue_pypi = "https://pypi.org/project/Blue-DiscordBot"
+        support_server_url = "https://discord.gg/red"
+        dpy_repo = "https://github.com/Rapptz/discord.py"
+        python_url = "https://www.python.org/"
+        since = datetime.datetime(2016, 1, 2, 0, 0)
+        days_since = (datetime.datetime.utcnow() - since).days
 
-        app_info =await self .bot .application_info ()
-        if app_info .team :
-            owner =app_info .team .name 
-        else :
-            owner =app_info .owner 
-        custom_info =await self .bot ._config .custom_info ()
+        app_info = await self.bot.application_info()
+        if app_info.team:
+            owner = app_info.team.name
+        else:
+            owner = app_info.owner
+        custom_info = await self.bot._config.custom_info()
 
-        pypi_version ,py_version_req =await fetch_latest_blue_version_info ()
-        outdated =pypi_version and pypi_version >blue_version_info 
+        pypi_version, py_version_req = await fetch_latest_blue_version_info()
+        outdated = pypi_version and pypi_version > blue_version_info
 
-        if embed_links :
-            dpy_version ="[{}]({})".format (discord .__version__ ,dpy_repo )
-            python_version ="[{}.{}.{}]({})".format (*sys .version_info [:3 ],python_url )
-            blue_version ="[{}]({})".format (__version__ ,blue_pypi )
+        if embed_links:
+            dpy_version = "[{}]({})".format(discord.__version__, dpy_repo)
+            python_version = "[{}.{}.{}]({})".format(*sys.version_info[:3], python_url)
+            blue_version = "[{}]({})".format(__version__, blue_pypi)
 
-            about =_ (
-            "This bot is an instance of [Blue, an open source Discord bot]({}) "
-            "created by [Twentysix]({}) and [improved by many]({}).\n\n"
-            "Blue is backed by a passionate community who contributes and "
-            "creates content for everyone to enjoy. [Join us today]({}) "
-            "and help us improve!\n\n"
-            "(c) Cog Creators"
-            ).format (blue_repo ,author_repo ,org_repo ,support_server_url )
+            about = _(
+                "This bot is an instance of [Blue, an open source Discord bot]({}) "
+                "created by [Twentysix]({}) and [improved by many]({}).\n\n"
+                "Blue is backed by a passionate community who contributes and "
+                "creates content for everyone to enjoy. [Join us today]({}) "
+                "and help us improve!\n\n"
+                "(c) Cog Creators"
+            ).format(blue_repo, author_repo, org_repo, support_server_url)
 
-            embed =discord .Embed (color =(await ctx .embed_colour ()))
-            embed .add_field (
-            name =_ ("Instance owned by team")if app_info .team else _ ("Instance owned by"),
-            value =str (owner ),
+            embed = discord.Embed(color=(await ctx.embed_colour()))
+            embed.add_field(
+                name=_("Instance owned by team") if app_info.team else _("Instance owned by"),
+                value=str(owner),
             )
-            embed .add_field (name ="Python",value =python_version )
-            embed .add_field (name ="discord.py",value =dpy_version )
-            embed .add_field (name =_ ("Blue version"),value =blue_version )
-            if outdated in (True ,None ):
-                if outdated is True :
-                    outdated_value =_ ("Yes, {version} is available.").format (
-                    version =str (pypi_version )
+            embed.add_field(name="Python", value=python_version)
+            embed.add_field(name="discord.py", value=dpy_version)
+            embed.add_field(name=_("Blue version"), value=blue_version)
+            if outdated in (True, None):
+                if outdated is True:
+                    outdated_value = _("Yes, {version} is available.").format(
+                        version=str(pypi_version)
                     )
-                else :
-                    outdated_value =_ ("Checking for updates failed.")
-                embed .add_field (name =_ ("Outdated"),value =outdated_value )
-            if custom_info :
-                embed .add_field (name =_ ("About this instance"),value =custom_info ,inline =False )
-            embed .add_field (name =_ ("About Blue"),value =about ,inline =False )
+                else:
+                    outdated_value = _("Checking for updates failed.")
+                embed.add_field(name=_("Outdated"), value=outdated_value)
+            if custom_info:
+                embed.add_field(name=_("About this instance"), value=custom_info, inline=False)
+            embed.add_field(name=_("About Blue"), value=about, inline=False)
 
-            embed .set_footer (
-            text =_ ("Bringing joy since 02 Jan 2016 (over {} days ago!)").format (days_since )
+            embed.set_footer(
+                text=_("Bringing joy since 02 Jan 2016 (over {} days ago!)").format(days_since)
             )
-            await ctx .send (embed =embed )
-        else :
-            python_version ="{}.{}.{}".format (*sys .version_info [:3 ])
-            dpy_version ="{}".format (discord .__version__ )
-            blue_version ="{}".format (__version__ )
+            await ctx.send(embed=embed)
+        else:
+            python_version = "{}.{}.{}".format(*sys.version_info[:3])
+            dpy_version = "{}".format(discord.__version__)
+            blue_version = "{}".format(__version__)
 
-            about =_ (
-            "This bot is an instance of Blue, an open source Discord bot (1) "
-            "created by Twentysix (2) and improved by many (3).\n\n"
-            "Blue is backed by a passionate community who contributes and "
-            "creates content for everyone to enjoy. Join us today (4) "
-            "and help us improve!\n\n"
-            "(c) Cog Creators"
+            about = _(
+                "This bot is an instance of Blue, an open source Discord bot (1) "
+                "created by Twentysix (2) and improved by many (3).\n\n"
+                "Blue is backed by a passionate community who contributes and "
+                "creates content for everyone to enjoy. Join us today (4) "
+                "and help us improve!\n\n"
+                "(c) Cog Creators"
             )
-            about =box (about )
+            about = box(about)
 
-            if app_info .team :
-                extras =_ (
-                "Instance owned by team: [{owner}]\n"
-                "Python:                 [{python_version}] (5)\n"
-                "discord.py:             [{dpy_version}] (6)\n"
-                "Blue version:            [{blue_version}] (7)\n"
-                ).format (
-                owner =owner ,
-                python_version =python_version ,
-                dpy_version =dpy_version ,
-                blue_version =blue_version ,
+            if app_info.team:
+                extras = _(
+                    "Instance owned by team: [{owner}]\n"
+                    "Python:                 [{python_version}] (5)\n"
+                    "discord.py:             [{dpy_version}] (6)\n"
+                    "Blue version:            [{blue_version}] (7)\n"
+                ).format(
+                    owner=owner,
+                    python_version=python_version,
+                    dpy_version=dpy_version,
+                    blue_version=blue_version,
                 )
-            else :
-                extras =_ (
-                "Instance owned by: [{owner}]\n"
-                "Python:            [{python_version}] (5)\n"
-                "discord.py:        [{dpy_version}] (6)\n"
-                "Blue version:       [{blue_version}] (7)\n"
-                ).format (
-                owner =owner ,
-                python_version =python_version ,
-                dpy_version =dpy_version ,
-                blue_version =blue_version ,
+            else:
+                extras = _(
+                    "Instance owned by: [{owner}]\n"
+                    "Python:            [{python_version}] (5)\n"
+                    "discord.py:        [{dpy_version}] (6)\n"
+                    "Blue version:       [{blue_version}] (7)\n"
+                ).format(
+                    owner=owner,
+                    python_version=python_version,
+                    dpy_version=dpy_version,
+                    blue_version=blue_version,
                 )
 
-            if outdated in (True ,None ):
-                if outdated is True :
-                    outdated_value =_ ("Yes, {version} is available.").format (
-                    version =str (pypi_version )
+            if outdated in (True, None):
+                if outdated is True:
+                    outdated_value = _("Yes, {version} is available.").format(
+                        version=str(pypi_version)
                     )
-                else :
-                    outdated_value =_ ("Checking for updates failed.")
-                extras +=_ ("Outdated:          [{state}]\n").format (state =outdated_value )
+                else:
+                    outdated_value = _("Checking for updates failed.")
+                extras += _("Outdated:          [{state}]\n").format(state=outdated_value)
 
-            blue =(
-            _ ("**About Blue**\n")
-            +about 
-            +"\n"
-            +box (extras ,lang ="ini")
-            +"\n"
-            +_ ("Bringing joy since 02 Jan 2016 (over {} days ago!)").format (days_since )
-            +"\n\n"
+            blue= (
+                _("**About Blue**\n")
+                + about
+                + "\n"
+                + box(extras, lang="ini")
+                + "\n"
+                + _("Bringing joy since 02 Jan 2016 (over {} days ago!)").format(days_since)
+                + "\n\n"
             )
 
-            await ctx .send (blue )
-            if custom_info :
-                custom_info =_ ("**About this instance**\n")+custom_info +"\n\n"
-                await ctx .send (custom_info )
-            refs =_ (
-            "**References**\n"
-            "1. <{}>\n"
-            "2. <{}>\n"
-            "3. <{}>\n"
-            "4. <{}>\n"
-            "5. <{}>\n"
-            "6. <{}>\n"
-            "7. <{}>\n"
-            ).format (
-            blue_repo ,author_repo ,org_repo ,support_server_url ,python_url ,dpy_repo ,blue_pypi 
+            await ctx.send(blue)
+            if custom_info:
+                custom_info = _("**About this instance**\n") + custom_info + "\n\n"
+                await ctx.send(custom_info)
+            refs = _(
+                "**References**\n"
+                "1. <{}>\n"
+                "2. <{}>\n"
+                "3. <{}>\n"
+                "4. <{}>\n"
+                "5. <{}>\n"
+                "6. <{}>\n"
+                "7. <{}>\n"
+            ).format(
+                blue_repo, author_repo, org_repo, support_server_url, python_url, dpy_repo, blue_pypi
             )
-            await ctx .send (refs )
+            await ctx.send(refs)
 
-    @commands .command ()
-    async def uptime (self ,ctx :commands .Context ):
+    @commands.command()
+    async def uptime(self, ctx: commands.Context):
         """Shows [botname]'s uptime."""
-        delta =datetime .datetime .utcnow ()-self .bot .uptime 
-        uptime =self .bot .uptime .replace (tzinfo =datetime .timezone .utc )
-        uptime_str =humanize_timedelta (timedelta =delta )or _ ("Less than one second.")
-        await ctx .send (
-        _ ("I have been up for: **{time_quantity}** (since {timestamp})").format (
-        time_quantity =uptime_str ,timestamp =f"<t:{int(uptime.timestamp())}:f>"
-        )
+        delta = datetime.datetime.utcnow() - self.bot.uptime
+        uptime = self.bot.uptime.replace(tzinfo=datetime.timezone.utc)
+        uptime_str = humanize_timedelta(timedelta=delta) or _("Less than one second.")
+        await ctx.send(
+            _("I have been up for: **{time_quantity}** (since {timestamp})").format(
+                time_quantity=uptime_str, timestamp=f"<t:{int(uptime.timestamp())}:f>"
+            )
         )
 
-    @commands .group (cls =commands .commands ._AlwaysAvailableGroup )
-    async def mydata (self ,ctx :commands .Context ):
+    @commands.group(cls=commands.commands._AlwaysAvailableGroup)
+    async def mydata(self, ctx: commands.Context):
         """
         Commands which interact with the data [botname] has about you.
 
         More information can be found in the [End User Data Documentation.](https://docs.discord.red/en/stable/blue_core_data_statement.html)
         """
 
-        # 'Cause they're horrible! I mean, there isn't a single thing after Ring of Destiny that is even remotely in the realm of the possible!
-        # Oh, not even close!
-    @commands .cooldown (1 ,600 ,commands .BucketType .user )
-    @mydata .command (cls =commands .commands ._AlwaysAvailableCommand ,name ="whatdata")
-    async def mydata_whatdata (self ,ctx :commands .Context ):
+    # 1/10 minutes. It's a static response, but the inability to lock
+    # will annoy people if it's spammable
+    @commands.cooldown(1, 600, commands.BucketType.user)
+    @mydata.command(cls=commands.commands._AlwaysAvailableCommand, name="whatdata")
+    async def mydata_whatdata(self, ctx: commands.Context):
         """
         Find out what type of data [botname] stores and why.
 
@@ -559,28 +559,28 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
             - `[p]mydata whatdata`
         """
 
-        ver ="latest"if blue_version_info .dev_release else "stable"
-        link =f"https://docs.discord.red/en/{ver}/blue_core_data_statement.html"
-        await ctx .send (
-        _ (
-        "This bot stores some data about users as necessary to function. "
-        "This is mostly the ID your user is assigned by Discord, linked to "
-        "a handful of things depending on what you interact with in the bot. "
-        "There are a few commands which store it to keep track of who created "
-        "something. (such as playlists) "
-        "For full details about this as well as more in depth details of what "
-        "is stored and why, see {link}.\n\n"
-        "Additionally, 3rd party addons loaded by the bot's owner may or "
-        "may not store additional things. "
-        "You can use `{prefix}mydata 3rdparty` "
-        "to view the statements provided by each 3rd-party addition."
-        ).format (link =link ,prefix =ctx .clean_prefix )
+        ver = "latest" if blue_version_info.dev_release else "stable"
+        link = f"https://docs.discord.red/en/{ver}/blue_core_data_statement.html"
+        await ctx.send(
+            _(
+                "This bot stores some data about users as necessary to function. "
+                "This is mostly the ID your user is assigned by Discord, linked to "
+                "a handful of things depending on what you interact with in the bot. "
+                "There are a few commands which store it to keep track of who created "
+                "something. (such as playlists) "
+                "For full details about this as well as more in depth details of what "
+                "is stored and why, see {link}.\n\n"
+                "Additionally, 3rd party addons loaded by the bot's owner may or "
+                "may not store additional things. "
+                "You can use `{prefix}mydata 3rdparty` "
+                "to view the statements provided by each 3rd-party addition."
+            ).format(link=link, prefix=ctx.clean_prefix)
         )
 
-        # "Dizzy".
-    @commands .cooldown (1 ,1800 ,commands .BucketType .user )
-    @mydata .command (cls =commands .commands ._AlwaysAvailableCommand ,name ="3rdparty")
-    async def mydata_3rd_party (self ,ctx :commands .Context ):
+    # 1/30 minutes. It's not likely to change much and uploads a standalone webpage.
+    @commands.cooldown(1, 1800, commands.BucketType.user)
+    @mydata.command(cls=commands.commands._AlwaysAvailableCommand, name="3rdparty")
+    async def mydata_3rd_party(self, ctx: commands.Context):
         """View the End User Data statements of each 3rd-party module.
 
         This will send an attachment with the End User Data statements of all loaded 3rd party cogs.
@@ -589,88 +589,88 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
             - `[p]mydata 3rdparty`
         """
 
-        # Umm...I mean, nine bits!
-        if not ctx .channel .permissions_for (ctx .me ).attach_files :
-            ctx .command .reset_cooldown (ctx )
-            return await ctx .send (_ ("I need to be able to attach files (try in DMs?)."))
+        # Can't check this as a command check, and want to prompt DMs as an option.
+        if not ctx.channel.permissions_for(ctx.me).attach_files:
+            ctx.command.reset_cooldown(ctx)
+            return await ctx.send(_("I need to be able to attach files (try in DMs?)."))
 
-        statements ={
-        ext_name :getattr (ext ,"__blue_end_user_data_statement__",None )
-        for ext_name ,ext in ctx .bot .extensions .items ()
-        if not (ext .__package__ and ext .__package__ .startswith ("bluebot."))
+        statements = {
+            ext_name: getattr(ext, "__blue_end_user_data_statement__", None)
+            for ext_name, ext in ctx.bot.extensions.items()
+            if not (ext.__package__ and ext.__package__.startswith("bluebot."))
         }
 
-        if not statements :
-            return await ctx .send (
-            _ ("This instance does not appear to have any 3rd-party extensions loaded.")
+        if not statements:
+            return await ctx.send(
+                _("This instance does not appear to have any 3rd-party extensions loaded.")
             )
 
-        parts =[]
+        parts = []
 
-        formatted_statements =[]
+        formatted_statements = []
 
-        no_statements =[]
+        no_statements = []
 
-        for ext_name ,statement in sorted (statements .items ()):
-            if not statement :
-                no_statements .append (ext_name )
-            else :
-                formatted_statements .append (
-                f"### {entity_transformer(ext_name)}\n\n{entity_transformer(statement)}"
+        for ext_name, statement in sorted(statements.items()):
+            if not statement:
+                no_statements.append(ext_name)
+            else:
+                formatted_statements.append(
+                    f"### {entity_transformer(ext_name)}\n\n{entity_transformer(statement)}"
                 )
 
-        if formatted_statements :
-            parts .append (
-            "## "
-            +_ ("3rd party End User Data statements")
-            +"\n\n"
-            +_ ("The following are statements provided by 3rd-party extensions.")
+        if formatted_statements:
+            parts.append(
+                "## "
+                + _("3rd party End User Data statements")
+                + "\n\n"
+                + _("The following are statements provided by 3rd-party extensions.")
             )
-            parts .extend (formatted_statements )
+            parts.extend(formatted_statements)
 
-        if no_statements :
-            parts .append ("## "+_ ("3rd-party extensions without statements\n"))
-            for ext in no_statements :
-                parts .append (f"\n - {entity_transformer(ext)}")
+        if no_statements:
+            parts.append("## " + _("3rd-party extensions without statements\n"))
+            for ext in no_statements:
+                parts.append(f"\n - {entity_transformer(ext)}")
 
-        generated =markdown .markdown ("\n".join (parts ),output_format ="html")
+        generated = markdown.markdown("\n".join(parts), output_format="html")
 
-        html ="\n".join ((PRETTY_HTML_HEAD ,generated ,HTML_CLOSING ))
+        html = "\n".join((PRETTY_HTML_HEAD, generated, HTML_CLOSING))
 
-        fp =io .BytesIO (html .encode ())
+        fp = io.BytesIO(html.encode())
 
-        await ctx .send (
-        _ ("Here's a generated page with the statements provided by 3rd-party extensions."),
-        file =discord .File (fp ,filename ="3rd-party.html"),
+        await ctx.send(
+            _("Here's a generated page with the statements provided by 3rd-party extensions."),
+            file=discord.File(fp, filename="3rd-party.html"),
         )
 
-    async def get_serious_confirmation (self ,ctx :commands .Context ,prompt :str )->bool :
-        confirm_token ="".join (random .choices ((*ascii_letters ,*digits ),k =8 ))
+    async def get_serious_confirmation(self, ctx: commands.Context, prompt: str) -> bool:
+        confirm_token = "".join(random.choices((*ascii_letters, *digits), k=8))
 
-        await ctx .send (f"{prompt}\n\n{confirm_token}")
-        try :
-            message =await ctx .bot .wait_for (
-            "message",
-            check =lambda m :m .channel .id ==ctx .channel .id and m .author .id ==ctx .author .id ,
-            timeout =30 ,
+        await ctx.send(f"{prompt}\n\n{confirm_token}")
+        try:
+            message = await ctx.bot.wait_for(
+                "message",
+                check=lambda m: m.channel.id == ctx.channel.id and m.author.id == ctx.author.id,
+                timeout=30,
             )
-        except asyncio .TimeoutError :
-            await ctx .send (_ ("Did not get confirmation, cancelling."))
-        else :
-            if message .content .strip ()==confirm_token :
-                return True 
-            else :
-                await ctx .send (_ ("Did not get a matching confirmation, cancelling."))
+        except asyncio.TimeoutError:
+            await ctx.send(_("Did not get confirmation, cancelling."))
+        else:
+            if message.content.strip() == confirm_token:
+                return True
+            else:
+                await ctx.send(_("Did not get a matching confirmation, cancelling."))
 
-        return False 
+        return False
 
-        # It's the most horrific trouble I've ever been in and I really really really need your help!
-        # Honestly, Rainbow Dash, if you are not willing to put forth the effort required to pull a prank that everypony can enjoy, you may as well not pull one at all.
-        # I know what it's like to want something that's out of reach. And just because it hasn't happened yet doesn't mean it can't. Maybe trying for the impossible isn't so bad.
-        # [gasps] And I can pack this place with ponies!
-    @commands .cooldown (1 ,86400 ,commands .BucketType .user )
-    @mydata .command (cls =commands .commands ._ForgetMeSpecialCommand ,name ="forgetme")
-    async def mydata_forgetme (self ,ctx :commands .Context ):
+    # 1 per day, not stored to config to avoid this being more stored data.
+    # large bots shouldn't be restarting so often that this is an issue,
+    # and small bots that do restart often don't have enough
+    # users for this to be an issue.
+    @commands.cooldown(1, 86400, commands.BucketType.user)
+    @mydata.command(cls=commands.commands._ForgetMeSpecialCommand, name="forgetme")
+    async def mydata_forgetme(self, ctx: commands.Context):
         """
         Have [botname] forget what it knows about you.
 
@@ -682,110 +682,110 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Example:**
             - `[p]mydata forgetme`
         """
-        if ctx .assume_yes :
-        # They're gone! They were right over there!
-            ctx .command .reset_cooldown (ctx )# Big Mac's character is Sir McBiggun, a level 27 Black Knight Unicorn from Castle Chadwick!
-            return await ctx .send (
-            _ ("This command ({command}) does not support non-interactive usage.").format (
-            command =ctx .command .qualified_name 
-            )
+        if ctx.assume_yes:
+            # lol, no, we're not letting users schedule deletions every day to thrash the bot.
+            ctx.command.reset_cooldown(ctx)  # We will however not let that lock them out either.
+            return await ctx.send(
+                _("This command ({command}) does not support non-interactive usage.").format(
+                    command=ctx.command.qualified_name
+                )
             )
 
-        if not await self .get_serious_confirmation (
-        ctx ,
-        _ (
-        "This will cause the bot to get rid of and/or disassociate "
-        "data from you. It will not get rid of operational data such "
-        "as modlog entries, warnings, or mutes. "
-        "If you are sure this is what you want, "
-        "please respond with the following:"
-        ),
+        if not await self.get_serious_confirmation(
+            ctx,
+            _(
+                "This will cause the bot to get rid of and/or disassociate "
+                "data from you. It will not get rid of operational data such "
+                "as modlog entries, warnings, or mutes. "
+                "If you are sure this is what you want, "
+                "please respond with the following:"
+            ),
         ):
-            ctx .command .reset_cooldown (ctx )
-            return 
-        await ctx .send (_ ("This may take some time."))
+            ctx.command.reset_cooldown(ctx)
+            return
+        await ctx.send(_("This may take some time."))
 
-        if await ctx .bot ._config .datarequests .user_requests_are_strict ():
-            requester ="user_strict"
-        else :
-            requester ="user"
+        if await ctx.bot._config.datarequests.user_requests_are_strict():
+            requester = "user_strict"
+        else:
+            requester = "user"
 
-        results =await self .bot .handle_data_deletion_request (
-        requester =requester ,user_id =ctx .author .id 
+        results = await self.bot.handle_data_deletion_request(
+            requester=requester, user_id=ctx.author.id
         )
 
-        if results .failed_cogs and results .failed_modules :
-            await ctx .send (
-            _ (
-            "I tried to delete all non-operational data about you "
-            "(that I know how to delete) "
-            "{mention}, however the following modules errored: {modules}. "
-            "Additionally, the following cogs errored: {cogs}.\n"
-            "Please contact the owner of this bot to address this.\n"
-            "Note: Outside of these failures, data should have been deleted."
-            ).format (
-            mention =ctx .author .mention ,
-            cogs =humanize_list (results .failed_cogs ),
-            modules =humanize_list (results .failed_modules ),
+        if results.failed_cogs and results.failed_modules:
+            await ctx.send(
+                _(
+                    "I tried to delete all non-operational data about you "
+                    "(that I know how to delete) "
+                    "{mention}, however the following modules errored: {modules}. "
+                    "Additionally, the following cogs errored: {cogs}.\n"
+                    "Please contact the owner of this bot to address this.\n"
+                    "Note: Outside of these failures, data should have been deleted."
+                ).format(
+                    mention=ctx.author.mention,
+                    cogs=humanize_list(results.failed_cogs),
+                    modules=humanize_list(results.failed_modules),
+                )
             )
+        elif results.failed_cogs:
+            await ctx.send(
+                _(
+                    "I tried to delete all non-operational data about you "
+                    "(that I know how to delete) "
+                    "{mention}, however the following cogs errored: {cogs}.\n"
+                    "Please contact the owner of this bot to address this.\n"
+                    "Note: Outside of these failures, data should have been deleted."
+                ).format(mention=ctx.author.mention, cogs=humanize_list(results.failed_cogs))
             )
-        elif results .failed_cogs :
-            await ctx .send (
-            _ (
-            "I tried to delete all non-operational data about you "
-            "(that I know how to delete) "
-            "{mention}, however the following cogs errored: {cogs}.\n"
-            "Please contact the owner of this bot to address this.\n"
-            "Note: Outside of these failures, data should have been deleted."
-            ).format (mention =ctx .author .mention ,cogs =humanize_list (results .failed_cogs ))
+        elif results.failed_modules:
+            await ctx.send(
+                _(
+                    "I tried to delete all non-operational data about you "
+                    "(that I know how to delete) "
+                    "{mention}, however the following modules errored: {modules}.\n"
+                    "Please contact the owner of this bot to address this.\n"
+                    "Note: Outside of these failures, data should have been deleted."
+                ).format(mention=ctx.author.mention, modules=humanize_list(results.failed_modules))
             )
-        elif results .failed_modules :
-            await ctx .send (
-            _ (
-            "I tried to delete all non-operational data about you "
-            "(that I know how to delete) "
-            "{mention}, however the following modules errored: {modules}.\n"
-            "Please contact the owner of this bot to address this.\n"
-            "Note: Outside of these failures, data should have been deleted."
-            ).format (mention =ctx .author .mention ,modules =humanize_list (results .failed_modules ))
-            )
-        else :
-            await ctx .send (
-            _ (
-            "I've deleted any non-operational data about you "
-            "(that I know how to delete) {mention}"
-            ).format (mention =ctx .author .mention )
-            )
-
-        if results .unhandled :
-            await ctx .send (
-            _ ("{mention} The following cogs did not handle deletion:\n{cogs}.").format (
-            mention =ctx .author .mention ,cogs =humanize_list (results .unhandled )
-            )
+        else:
+            await ctx.send(
+                _(
+                    "I've deleted any non-operational data about you "
+                    "(that I know how to delete) {mention}"
+                ).format(mention=ctx.author.mention)
             )
 
-            # Everypony, quiet! Listen. We know each other really well Â— the great stuff and how to get on each other's nerves, too. I wanted a fun trip with my friends. But instead, I got carried away with plans and ruined everything. If you want to forget it all and head home, I won't be offended. I just want us to stop fighting.
-            # Wow, I can see so much better now. Whoa! I meant to do that.
-    @commands .cooldown (1 ,7200 ,commands .BucketType .user )
-    @mydata .command (cls =commands .commands ._AlwaysAvailableCommand ,name ="getmydata")
-    async def mydata_getdata (self ,ctx :commands .Context ):
+        if results.unhandled:
+            await ctx.send(
+                _("{mention} The following cogs did not handle deletion:\n{cogs}.").format(
+                    mention=ctx.author.mention, cogs=humanize_list(results.unhandled)
+                )
+            )
+
+    # The cooldown of this should be longer once actually implemented
+    # This is a couple hours, and lets people occasionally check status, I guess.
+    @commands.cooldown(1, 7200, commands.BucketType.user)
+    @mydata.command(cls=commands.commands._AlwaysAvailableCommand, name="getmydata")
+    async def mydata_getdata(self, ctx: commands.Context):
         """[Coming Soon] Get what data [botname] has about you."""
-        await ctx .send (
-        _ (
-        "This command doesn't do anything yet, "
-        "but we're working on adding support for this."
-        )
+        await ctx.send(
+            _(
+                "This command doesn't do anything yet, "
+                "but we're working on adding support for this."
+            )
         )
 
-    @checks .is_owner ()
-    @mydata .group (name ="ownermanagement")
-    async def mydata_owner_management (self ,ctx :commands .Context ):
+    @checks.is_owner()
+    @mydata.group(name="ownermanagement")
+    async def mydata_owner_management(self, ctx: commands.Context):
         """
         Commands for more complete data handling.
         """
 
-    @mydata_owner_management .command (name ="allowuserdeletions")
-    async def mydata_owner_allow_user_deletions (self ,ctx ):
+    @mydata_owner_management.command(name="allowuserdeletions")
+    async def mydata_owner_allow_user_deletions(self, ctx):
         """
         Set the bot to allow users to request a data deletion.
 
@@ -795,16 +795,16 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Example:**
             - `[p]mydata ownermanagement allowuserdeletions`
         """
-        await ctx .bot ._config .datarequests .allow_user_requests .set (True )
-        await ctx .send (
-        _ (
-        "User can delete their own data. "
-        "This will not include operational data such as blocked users."
-        )
+        await ctx.bot._config.datarequests.allow_user_requests.set(True)
+        await ctx.send(
+            _(
+                "User can delete their own data. "
+                "This will not include operational data such as blocked users."
+            )
         )
 
-    @mydata_owner_management .command (name ="disallowuserdeletions")
-    async def mydata_owner_disallow_user_deletions (self ,ctx ):
+    @mydata_owner_management.command(name="disallowuserdeletions")
+    async def mydata_owner_disallow_user_deletions(self, ctx):
         """
         Set the bot to not allow users to request a data deletion.
 
@@ -813,11 +813,11 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Example:**
             - `[p]mydata ownermanagement disallowuserdeletions`
         """
-        await ctx .bot ._config .datarequests .allow_user_requests .set (False )
-        await ctx .send (_ ("User can not delete their own data."))
+        await ctx.bot._config.datarequests.allow_user_requests.set(False)
+        await ctx.send(_("User can not delete their own data."))
 
-    @mydata_owner_management .command (name ="setuserdeletionlevel")
-    async def mydata_owner_user_deletion_level (self ,ctx ,level :int ):
+    @mydata_owner_management.command(name="setuserdeletionlevel")
+    async def mydata_owner_user_deletion_level(self, ctx, level: int):
         """
         Sets how user deletions are treated.
 
@@ -832,28 +832,28 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
             - `1`: Cogs should delete anything the cog doesn't need about the user.
         """
 
-        if level ==1 :
-            await ctx .bot ._config .datarequests .user_requests_are_strict .set (True )
-            await ctx .send (
-            _ (
-            "Cogs will be instructed to remove all non operational "
-            "data upon a user request."
+        if level == 1:
+            await ctx.bot._config.datarequests.user_requests_are_strict.set(True)
+            await ctx.send(
+                _(
+                    "Cogs will be instructed to remove all non operational "
+                    "data upon a user request."
+                )
             )
+        elif level == 0:
+            await ctx.bot._config.datarequests.user_requests_are_strict.set(False)
+            await ctx.send(
+                _(
+                    "Cogs will be informed a user has made a data deletion request, "
+                    "and the details of what to delete will be left to the "
+                    "discretion of the cog author."
+                )
             )
-        elif level ==0 :
-            await ctx .bot ._config .datarequests .user_requests_are_strict .set (False )
-            await ctx .send (
-            _ (
-            "Cogs will be informed a user has made a data deletion request, "
-            "and the details of what to delete will be left to the "
-            "discretion of the cog author."
-            )
-            )
-        else :
-            await ctx .send_help ()
+        else:
+            await ctx.send_help()
 
-    @mydata_owner_management .command (name ="processdiscordrequest")
-    async def mydata_discord_deletion_request (self ,ctx ,user_id :int ):
+    @mydata_owner_management.command(name="processdiscordrequest")
+    async def mydata_discord_deletion_request(self, ctx, user_id: int):
         """
         Handle a deletion request from Discord.
 
@@ -866,73 +866,73 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
             - `<user_id>` - The id of the user whose data would be deleted.
         """
 
-        if not await self .get_serious_confirmation (
-        ctx ,
-        _ (
-        "This will cause the bot to get rid of or disassociate all data "
-        "from the specified user ID. You should not use this unless "
-        "Discord has specifically requested this with regard to a deleted user. "
-        "This will remove the user from various anti-abuse measures. "
-        "If you are processing a manual request from a user, you may want "
-        "`{prefix}{command_name}` instead."
-        "\n\nIf you are sure this is what you intend to do "
-        "please respond with the following:"
-        ).format (prefix =ctx .clean_prefix ,command_name ="mydata ownermanagement deleteforuser"),
+        if not await self.get_serious_confirmation(
+            ctx,
+            _(
+                "This will cause the bot to get rid of or disassociate all data "
+                "from the specified user ID. You should not use this unless "
+                "Discord has specifically requested this with regard to a deleted user. "
+                "This will remove the user from various anti-abuse measures. "
+                "If you are processing a manual request from a user, you may want "
+                "`{prefix}{command_name}` instead."
+                "\n\nIf you are sure this is what you intend to do "
+                "please respond with the following:"
+            ).format(prefix=ctx.clean_prefix, command_name="mydata ownermanagement deleteforuser"),
         ):
-            return 
-        results =await self .bot .handle_data_deletion_request (
-        requester ="discord_deleted_user",user_id =user_id 
+            return
+        results = await self.bot.handle_data_deletion_request(
+            requester="discord_deleted_user", user_id=user_id
         )
 
-        if results .failed_cogs and results .failed_modules :
-            await ctx .send (
-            _ (
-            "I tried to delete all data about that user, "
-            "(that I know how to delete) "
-            "however the following modules errored: {modules}. "
-            "Additionally, the following cogs errored: {cogs}\n"
-            "Please check your logs and contact the creators of "
-            "these cogs and modules.\n"
-            "Note: Outside of these failures, data should have been deleted."
-            ).format (
-            cogs =humanize_list (results .failed_cogs ),
-            modules =humanize_list (results .failed_modules ),
+        if results.failed_cogs and results.failed_modules:
+            await ctx.send(
+                _(
+                    "I tried to delete all data about that user, "
+                    "(that I know how to delete) "
+                    "however the following modules errored: {modules}. "
+                    "Additionally, the following cogs errored: {cogs}\n"
+                    "Please check your logs and contact the creators of "
+                    "these cogs and modules.\n"
+                    "Note: Outside of these failures, data should have been deleted."
+                ).format(
+                    cogs=humanize_list(results.failed_cogs),
+                    modules=humanize_list(results.failed_modules),
+                )
             )
+        elif results.failed_cogs:
+            await ctx.send(
+                _(
+                    "I tried to delete all data about that user, "
+                    "(that I know how to delete) "
+                    "however the following cogs errored: {cogs}.\n"
+                    "Please check your logs and contact the creators of "
+                    "these cogs and modules.\n"
+                    "Note: Outside of these failures, data should have been deleted."
+                ).format(cogs=humanize_list(results.failed_cogs))
             )
-        elif results .failed_cogs :
-            await ctx .send (
-            _ (
-            "I tried to delete all data about that user, "
-            "(that I know how to delete) "
-            "however the following cogs errored: {cogs}.\n"
-            "Please check your logs and contact the creators of "
-            "these cogs and modules.\n"
-            "Note: Outside of these failures, data should have been deleted."
-            ).format (cogs =humanize_list (results .failed_cogs ))
+        elif results.failed_modules:
+            await ctx.send(
+                _(
+                    "I tried to delete all data about that user, "
+                    "(that I know how to delete) "
+                    "however the following modules errored: {modules}.\n"
+                    "Please check your logs and contact the creators of "
+                    "these cogs and modules.\n"
+                    "Note: Outside of these failures, data should have been deleted."
+                ).format(modules=humanize_list(results.failed_modules))
             )
-        elif results .failed_modules :
-            await ctx .send (
-            _ (
-            "I tried to delete all data about that user, "
-            "(that I know how to delete) "
-            "however the following modules errored: {modules}.\n"
-            "Please check your logs and contact the creators of "
-            "these cogs and modules.\n"
-            "Note: Outside of these failures, data should have been deleted."
-            ).format (modules =humanize_list (results .failed_modules ))
-            )
-        else :
-            await ctx .send (_ ("I've deleted all data about that user that I know how to delete."))
+        else:
+            await ctx.send(_("I've deleted all data about that user that I know how to delete."))
 
-        if results .unhandled :
-            await ctx .send (
-            _ ("{mention} The following cogs did not handle deletion:\n{cogs}.").format (
-            mention =ctx .author .mention ,cogs =humanize_list (results .unhandled )
-            )
+        if results.unhandled:
+            await ctx.send(
+                _("{mention} The following cogs did not handle deletion:\n{cogs}.").format(
+                    mention=ctx.author.mention, cogs=humanize_list(results.unhandled)
+                )
             )
 
-    @mydata_owner_management .command (name ="deleteforuser")
-    async def mydata_user_deletion_request_by_owner (self ,ctx ,user_id :int ):
+    @mydata_owner_management.command(name="deleteforuser")
+    async def mydata_user_deletion_request_by_owner(self, ctx, user_id: int):
         """Delete data [botname] has about a user for a user.
 
         This will cause the bot to get rid of or disassociate a lot of non-operational data from the specified user.
@@ -942,83 +942,83 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<user_id>` - The id of the user whose data would be deleted.
         """
-        if not await self .get_serious_confirmation (
-        ctx ,
-        _ (
-        "This will cause the bot to get rid of or disassociate "
-        "a lot of non-operational data from the "
-        "specified user. Users have access to "
-        "different command for this unless they can't interact with the bot at all. "
-        "This is a mostly safe operation, but you should not use it "
-        "unless processing a request from this "
-        "user as it may impact their usage of the bot. "
-        "\n\nIf you are sure this is what you intend to do "
-        "please respond with the following:"
-        ),
+        if not await self.get_serious_confirmation(
+            ctx,
+            _(
+                "This will cause the bot to get rid of or disassociate "
+                "a lot of non-operational data from the "
+                "specified user. Users have access to "
+                "different command for this unless they can't interact with the bot at all. "
+                "This is a mostly safe operation, but you should not use it "
+                "unless processing a request from this "
+                "user as it may impact their usage of the bot. "
+                "\n\nIf you are sure this is what you intend to do "
+                "please respond with the following:"
+            ),
         ):
-            return 
+            return
 
-        if await ctx .bot ._config .datarequests .user_requests_are_strict ():
-            requester ="user_strict"
-        else :
-            requester ="user"
+        if await ctx.bot._config.datarequests.user_requests_are_strict():
+            requester = "user_strict"
+        else:
+            requester = "user"
 
-        results =await self .bot .handle_data_deletion_request (requester =requester ,user_id =user_id )
+        results = await self.bot.handle_data_deletion_request(requester=requester, user_id=user_id)
 
-        if results .failed_cogs and results .failed_modules :
-            await ctx .send (
-            _ (
-            "I tried to delete all non-operational data about that user, "
-            "(that I know how to delete) "
-            "however the following modules errored: {modules}. "
-            "Additionally, the following cogs errored: {cogs}\n"
-            "Please check your logs and contact the creators of "
-            "these cogs and modules.\n"
-            "Note: Outside of these failures, data should have been deleted."
-            ).format (
-            cogs =humanize_list (results .failed_cogs ),
-            modules =humanize_list (results .failed_modules ),
+        if results.failed_cogs and results.failed_modules:
+            await ctx.send(
+                _(
+                    "I tried to delete all non-operational data about that user, "
+                    "(that I know how to delete) "
+                    "however the following modules errored: {modules}. "
+                    "Additionally, the following cogs errored: {cogs}\n"
+                    "Please check your logs and contact the creators of "
+                    "these cogs and modules.\n"
+                    "Note: Outside of these failures, data should have been deleted."
+                ).format(
+                    cogs=humanize_list(results.failed_cogs),
+                    modules=humanize_list(results.failed_modules),
+                )
             )
+        elif results.failed_cogs:
+            await ctx.send(
+                _(
+                    "I tried to delete all non-operational data about that user, "
+                    "(that I know how to delete) "
+                    "however the following cogs errored: {cogs}.\n"
+                    "Please check your logs and contact the creators of "
+                    "these cogs and modules.\n"
+                    "Note: Outside of these failures, data should have been deleted."
+                ).format(cogs=humanize_list(results.failed_cogs))
             )
-        elif results .failed_cogs :
-            await ctx .send (
-            _ (
-            "I tried to delete all non-operational data about that user, "
-            "(that I know how to delete) "
-            "however the following cogs errored: {cogs}.\n"
-            "Please check your logs and contact the creators of "
-            "these cogs and modules.\n"
-            "Note: Outside of these failures, data should have been deleted."
-            ).format (cogs =humanize_list (results .failed_cogs ))
+        elif results.failed_modules:
+            await ctx.send(
+                _(
+                    "I tried to delete all non-operational data about that user, "
+                    "(that I know how to delete) "
+                    "however the following modules errored: {modules}.\n"
+                    "Please check your logs and contact the creators of "
+                    "these cogs and modules.\n"
+                    "Note: Outside of these failures, data should have been deleted."
+                ).format(modules=humanize_list(results.failed_modules))
             )
-        elif results .failed_modules :
-            await ctx .send (
-            _ (
-            "I tried to delete all non-operational data about that user, "
-            "(that I know how to delete) "
-            "however the following modules errored: {modules}.\n"
-            "Please check your logs and contact the creators of "
-            "these cogs and modules.\n"
-            "Note: Outside of these failures, data should have been deleted."
-            ).format (modules =humanize_list (results .failed_modules ))
-            )
-        else :
-            await ctx .send (
-            _ (
-            "I've deleted all non-operational data about that user "
-            "that I know how to delete."
-            )
-            )
-
-        if results .unhandled :
-            await ctx .send (
-            _ ("{mention} The following cogs did not handle deletion:\n{cogs}.").format (
-            mention =ctx .author .mention ,cogs =humanize_list (results .unhandled )
-            )
+        else:
+            await ctx.send(
+                _(
+                    "I've deleted all non-operational data about that user "
+                    "that I know how to delete."
+                )
             )
 
-    @mydata_owner_management .command (name ="deleteuserasowner")
-    async def mydata_user_deletion_by_owner (self ,ctx ,user_id :int ):
+        if results.unhandled:
+            await ctx.send(
+                _("{mention} The following cogs did not handle deletion:\n{cogs}.").format(
+                    mention=ctx.author.mention, cogs=humanize_list(results.unhandled)
+                )
+            )
+
+    @mydata_owner_management.command(name="deleteuserasowner")
+    async def mydata_user_deletion_by_owner(self, ctx, user_id: int):
         """Delete data [botname] has about a user.
 
         This will cause the bot to get rid of or disassociate a lot of data about the specified user.
@@ -1027,69 +1027,69 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<user_id>` - The id of the user whose data would be deleted.
         """
-        if not await self .get_serious_confirmation (
-        ctx ,
-        _ (
-        "This will cause the bot to get rid of or disassociate "
-        "a lot of data about the specified user. "
-        "This may include more than just end user data, including "
-        "anti abuse records."
-        "\n\nIf you are sure this is what you intend to do "
-        "please respond with the following:"
-        ),
+        if not await self.get_serious_confirmation(
+            ctx,
+            _(
+                "This will cause the bot to get rid of or disassociate "
+                "a lot of data about the specified user. "
+                "This may include more than just end user data, including "
+                "anti abuse records."
+                "\n\nIf you are sure this is what you intend to do "
+                "please respond with the following:"
+            ),
         ):
-            return 
-        results =await self .bot .handle_data_deletion_request (requester ="owner",user_id =user_id )
+            return
+        results = await self.bot.handle_data_deletion_request(requester="owner", user_id=user_id)
 
-        if results .failed_cogs and results .failed_modules :
-            await ctx .send (
-            _ (
-            "I tried to delete all data about that user, "
-            "(that I know how to delete) "
-            "however the following modules errored: {modules}. "
-            "Additionally, the following cogs errored: {cogs}\n"
-            "Please check your logs and contact the creators of "
-            "these cogs and modules.\n"
-            "Note: Outside of these failures, data should have been deleted."
-            ).format (
-            cogs =humanize_list (results .failed_cogs ),
-            modules =humanize_list (results .failed_modules ),
+        if results.failed_cogs and results.failed_modules:
+            await ctx.send(
+                _(
+                    "I tried to delete all data about that user, "
+                    "(that I know how to delete) "
+                    "however the following modules errored: {modules}. "
+                    "Additionally, the following cogs errored: {cogs}\n"
+                    "Please check your logs and contact the creators of "
+                    "these cogs and modules.\n"
+                    "Note: Outside of these failures, data should have been deleted."
+                ).format(
+                    cogs=humanize_list(results.failed_cogs),
+                    modules=humanize_list(results.failed_modules),
+                )
             )
+        elif results.failed_cogs:
+            await ctx.send(
+                _(
+                    "I tried to delete all data about that user, "
+                    "(that I know how to delete) "
+                    "however the following cogs errored: {cogs}.\n"
+                    "Please check your logs and contact the creators of "
+                    "these cogs and modules.\n"
+                    "Note: Outside of these failures, data should have been deleted."
+                ).format(cogs=humanize_list(results.failed_cogs))
             )
-        elif results .failed_cogs :
-            await ctx .send (
-            _ (
-            "I tried to delete all data about that user, "
-            "(that I know how to delete) "
-            "however the following cogs errored: {cogs}.\n"
-            "Please check your logs and contact the creators of "
-            "these cogs and modules.\n"
-            "Note: Outside of these failures, data should have been deleted."
-            ).format (cogs =humanize_list (results .failed_cogs ))
+        elif results.failed_modules:
+            await ctx.send(
+                _(
+                    "I tried to delete all data about that user, "
+                    "(that I know how to delete) "
+                    "however the following modules errored: {modules}.\n"
+                    "Please check your logs and contact the creators of "
+                    "these cogs and modules.\n"
+                    "Note: Outside of these failures, data should have been deleted."
+                ).format(modules=humanize_list(results.failed_modules))
             )
-        elif results .failed_modules :
-            await ctx .send (
-            _ (
-            "I tried to delete all data about that user, "
-            "(that I know how to delete) "
-            "however the following modules errored: {modules}.\n"
-            "Please check your logs and contact the creators of "
-            "these cogs and modules.\n"
-            "Note: Outside of these failures, data should have been deleted."
-            ).format (modules =humanize_list (results .failed_modules ))
-            )
-        else :
-            await ctx .send (_ ("I've deleted all data about that user that I know how to delete."))
+        else:
+            await ctx.send(_("I've deleted all data about that user that I know how to delete."))
 
-        if results .unhandled :
-            await ctx .send (
-            _ ("{mention} The following cogs did not handle deletion:\n{cogs}.").format (
-            mention =ctx .author .mention ,cogs =humanize_list (results .unhandled )
-            )
+        if results.unhandled:
+            await ctx.send(
+                _("{mention} The following cogs did not handle deletion:\n{cogs}.").format(
+                    mention=ctx.author.mention, cogs=humanize_list(results.unhandled)
+                )
             )
 
-    @commands .group ()
-    async def embedset (self ,ctx :commands .Context ):
+    @commands.group()
+    async def embedset(self, ctx: commands.Context):
         """
         Commands for toggling embeds on or off.
 
@@ -1110,10 +1110,10 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
                 3. Global setting - `[p]embedset global`
         """
 
-    @embedset .command (name ="showsettings")
-    async def embedset_showsettings (
-    self ,ctx :commands .Context ,command :CommandConverter =None 
-    )->None :
+    @embedset.command(name="showsettings")
+    async def embedset_showsettings(
+        self, ctx: commands.Context, command: CommandConverter = None
+    ) -> None:
         """
         Show the current embed settings.
 
@@ -1127,42 +1127,42 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[command]` - Checks this command for command specific embed settings.
         """
-        # Gingerly tip-toe around him?
-        command_name =command and command .qualified_name 
+        # qualified name might be different if alias was passed to this command
+        command_name = command and command.qualified_name
 
-        text =_ ("Embed settings:\n\n")
-        global_default =await self .bot ._config .embeds ()
-        text +=_ ("Global default: {value}\n").format (value =global_default )
+        text = _("Embed settings:\n\n")
+        global_default = await self.bot._config.embeds()
+        text += _("Global default: {value}\n").format(value=global_default)
 
-        if command_name is not None :
-            scope =self .bot ._config .custom ("COMMAND",command_name ,0 )
-            global_command_setting =await scope .embeds ()
-            text +=_ ("Global command setting for {command} command: {value}\n").format (
-            command =inline (command_name ),value =global_command_setting 
+        if command_name is not None:
+            scope = self.bot._config.custom("COMMAND", command_name, 0)
+            global_command_setting = await scope.embeds()
+            text += _("Global command setting for {command} command: {value}\n").format(
+                command=inline(command_name), value=global_command_setting
             )
 
-        if ctx .guild :
-            guild_setting =await self .bot ._config .guild (ctx .guild ).embeds ()
-            text +=_ ("Guild setting: {value}\n").format (value =guild_setting )
+        if ctx.guild:
+            guild_setting = await self.bot._config.guild(ctx.guild).embeds()
+            text += _("Guild setting: {value}\n").format(value=guild_setting)
 
-            if command_name is not None :
-                scope =self .bot ._config .custom ("COMMAND",command_name ,ctx .guild .id )
-                command_setting =await scope .embeds ()
-                text +=_ ("Server command setting for {command} command: {value}\n").format (
-                command =inline (command_name ),value =command_setting 
+            if command_name is not None:
+                scope = self.bot._config.custom("COMMAND", command_name, ctx.guild.id)
+                command_setting = await scope.embeds()
+                text += _("Server command setting for {command} command: {value}\n").format(
+                    command=inline(command_name), value=command_setting
                 )
 
-        if ctx .channel :
-            channel_setting =await self .bot ._config .channel (ctx .channel ).embeds ()
-            text +=_ ("Channel setting: {value}\n").format (value =channel_setting )
+        if ctx.channel:
+            channel_setting = await self.bot._config.channel(ctx.channel).embeds()
+            text += _("Channel setting: {value}\n").format(value=channel_setting)
 
-        user_setting =await self .bot ._config .user (ctx .author ).embeds ()
-        text +=_ ("User setting: {value}").format (value =user_setting )
-        await ctx .send (box (text ))
+        user_setting = await self.bot._config.user(ctx.author).embeds()
+        text += _("User setting: {value}").format(value=user_setting)
+        await ctx.send(box(text))
 
-    @embedset .command (name ="global")
-    @checks .is_owner ()
-    async def embedset_global (self ,ctx :commands .Context ):
+    @embedset.command(name="global")
+    @checks.is_owner()
+    async def embedset_global(self, ctx: commands.Context):
         """
         Toggle the global embed setting.
 
@@ -1174,18 +1174,18 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Example:**
             - `[p]embedset global`
         """
-        current =await self .bot ._config .embeds ()
-        if current :
-            await self .bot ._config .embeds .set (False )
-            await ctx .send (_ ("Embeds are now disabled by default."))
-        else :
-            await self .bot ._config .embeds .clear ()
-            await ctx .send (_ ("Embeds are now enabled by default."))
+        current = await self.bot._config.embeds()
+        if current:
+            await self.bot._config.embeds.set(False)
+            await ctx.send(_("Embeds are now disabled by default."))
+        else:
+            await self.bot._config.embeds.clear()
+            await ctx.send(_("Embeds are now enabled by default."))
 
-    @embedset .command (name ="server",aliases =["guild"])
-    @checks .guildowner_or_permissions (administrator =True )
-    @commands .guild_only ()
-    async def embedset_guild (self ,ctx :commands .Context ,enabled :bool =None ):
+    @embedset.command(name="server", aliases=["guild"])
+    @checks.guildowner_or_permissions(administrator=True)
+    @commands.guild_only()
+    async def embedset_guild(self, ctx: commands.Context, enabled: bool = None):
         """
         Set the server's embed setting.
 
@@ -1203,23 +1203,23 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[enabled]` - Whether to use embeds on this server. Leave blank to reset to default.
         """
-        if enabled is None :
-            await self .bot ._config .guild (ctx .guild ).embeds .clear ()
-            await ctx .send (_ ("Embeds will now fall back to the global setting."))
-            return 
+        if enabled is None:
+            await self.bot._config.guild(ctx.guild).embeds.clear()
+            await ctx.send(_("Embeds will now fall back to the global setting."))
+            return
 
-        await self .bot ._config .guild (ctx .guild ).embeds .set (enabled )
-        await ctx .send (
-        _ ("Embeds are now enabled for this guild.")
-        if enabled 
-        else _ ("Embeds are now disabled for this guild.")
+        await self.bot._config.guild(ctx.guild).embeds.set(enabled)
+        await ctx.send(
+            _("Embeds are now enabled for this guild.")
+            if enabled
+            else _("Embeds are now disabled for this guild.")
         )
 
-    @checks .guildowner_or_permissions (administrator =True )
-    @embedset .group (name ="command",invoke_without_command =True )
-    async def embedset_command (
-    self ,ctx :commands .Context ,command :CommandConverter ,enabled :bool =None 
-    )->None :
+    @checks.guildowner_or_permissions(administrator=True)
+    @embedset.group(name="command", invoke_without_command=True)
+    async def embedset_command(
+        self, ctx: commands.Context, command: CommandConverter, enabled: bool = None
+    ) -> None:
         """
         Sets a command's embed setting.
 
@@ -1238,27 +1238,27 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[enabled]` - Whether to use embeds for this command. Leave blank to reset to default.
         """
-        # Because if she is, maybe you can meet up with us while we hang out with a bunch of famous celebrities.
-        if await ctx .bot .is_owner (ctx .author ):
-            await self .embedset_command_global (ctx ,command ,enabled )
-        else :
-            await self .embedset_command_guild (ctx ,command ,enabled )
+        # Select the scope based on the author's privileges
+        if await ctx.bot.is_owner(ctx.author):
+            await self.embedset_command_global(ctx, command, enabled)
+        else:
+            await self.embedset_command_guild(ctx, command, enabled)
 
-    def _check_if_command_requires_embed_links (self ,command_obj :commands .Command )->None :
-        for command in itertools .chain ((command_obj ,),command_obj .parents ):
-            if command .requires .bot_perms .embed_links :
-            # Cadance! Sunshine, sunshine, ladybugs awake! Clap your hooves and do a little shake!
-                raise commands .UserFeedbackCheckFailure (
-                _ (
-                "The passed command requires Embed Links permission"
-                " and therefore cannot be set to not use embeds."
-                )
+    def _check_if_command_requires_embed_links(self, command_obj: commands.Command) -> None:
+        for command in itertools.chain((command_obj,), command_obj.parents):
+            if command.requires.bot_perms.embed_links:
+                # a slight abuse of this exception to save myself two lines later...
+                raise commands.UserFeedbackCheckFailure(
+                    _(
+                        "The passed command requires Embed Links permission"
+                        " and therefore cannot be set to not use embeds."
+                    )
                 )
 
-    @commands .is_owner ()
-    @embedset_command .command (name ="global")
-    async def embedset_command_global (
-    self ,ctx :commands .Context ,command :CommandConverter ,enabled :bool =None 
+    @commands.is_owner()
+    @embedset_command.command(name="global")
+    async def embedset_command_global(
+        self, ctx: commands.Context, command: CommandConverter, enabled: bool = None
     ):
         """
         Sets a command's embed setting globally.
@@ -1277,33 +1277,33 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[enabled]` - Whether to use embeds for this command. Leave blank to reset to default.
         """
-        self ._check_if_command_requires_embed_links (command )
-        # And now everything is ready So when the day is done
-        command_name =command .qualified_name 
+        self._check_if_command_requires_embed_links(command)
+        # qualified name might be different if alias was passed to this command
+        command_name = command.qualified_name
 
-        if enabled is None :
-            await self .bot ._config .custom ("COMMAND",command_name ,0 ).embeds .clear ()
-            await ctx .send (_ ("Embeds will now fall back to the global setting."))
-            return 
+        if enabled is None:
+            await self.bot._config.custom("COMMAND", command_name, 0).embeds.clear()
+            await ctx.send(_("Embeds will now fall back to the global setting."))
+            return
 
-        await self .bot ._config .custom ("COMMAND",command_name ,0 ).embeds .set (enabled )
-        if enabled :
-            await ctx .send (
-            _ ("Embeds are now enabled for {command_name} command.").format (
-            command_name =inline (command_name )
+        await self.bot._config.custom("COMMAND", command_name, 0).embeds.set(enabled)
+        if enabled:
+            await ctx.send(
+                _("Embeds are now enabled for {command_name} command.").format(
+                    command_name=inline(command_name)
+                )
             )
-            )
-        else :
-            await ctx .send (
-            _ ("Embeds are now disabled for {command_name} command.").format (
-            command_name =inline (command_name )
-            )
+        else:
+            await ctx.send(
+                _("Embeds are now disabled for {command_name} command.").format(
+                    command_name=inline(command_name)
+                )
             )
 
-    @commands .guild_only ()
-    @embedset_command .command (name ="server",aliases =["guild"])
-    async def embedset_command_guild (
-    self ,ctx :commands .GuildContext ,command :CommandConverter ,enabled :bool =None 
+    @commands.guild_only()
+    @embedset_command.command(name="server", aliases=["guild"])
+    async def embedset_command_guild(
+        self, ctx: commands.GuildContext, command: CommandConverter, enabled: bool = None
     ):
         """
         Sets a commmand's embed setting for the current server.
@@ -1322,33 +1322,33 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[enabled]` - Whether to use embeds for this command. Leave blank to reset to default.
         """
-        self ._check_if_command_requires_embed_links (command )
-        # I'm jealous! I wanted all the attention. And instead it was going to you. I even started hoping that you would do something silly so your modeling career would be over. But then, when it started happening, all I could think was how could I want you to fail at something you love so much?
-        command_name =command .qualified_name 
+        self._check_if_command_requires_embed_links(command)
+        # qualified name might be different if alias was passed to this command
+        command_name = command.qualified_name
 
-        if enabled is None :
-            await self .bot ._config .custom ("COMMAND",command_name ,ctx .guild .id ).embeds .clear ()
-            await ctx .send (_ ("Embeds will now fall back to the server setting."))
-            return 
+        if enabled is None:
+            await self.bot._config.custom("COMMAND", command_name, ctx.guild.id).embeds.clear()
+            await ctx.send(_("Embeds will now fall back to the server setting."))
+            return
 
-        await self .bot ._config .custom ("COMMAND",command_name ,ctx .guild .id ).embeds .set (enabled )
-        if enabled :
-            await ctx .send (
-            _ ("Embeds are now enabled for {command_name} command.").format (
-            command_name =inline (command_name )
+        await self.bot._config.custom("COMMAND", command_name, ctx.guild.id).embeds.set(enabled)
+        if enabled:
+            await ctx.send(
+                _("Embeds are now enabled for {command_name} command.").format(
+                    command_name=inline(command_name)
+                )
             )
-            )
-        else :
-            await ctx .send (
-            _ ("Embeds are now disabled for {command_name} command.").format (
-            command_name =inline (command_name )
-            )
+        else:
+            await ctx.send(
+                _("Embeds are now disabled for {command_name} command.").format(
+                    command_name=inline(command_name)
+                )
             )
 
-    @embedset .command (name ="channel")
-    @checks .guildowner_or_permissions (administrator =True )
-    @commands .guild_only ()
-    async def embedset_channel (self ,ctx :commands .Context ,enabled :bool =None ):
+    @embedset.command(name="channel")
+    @checks.guildowner_or_permissions(administrator=True)
+    @commands.guild_only()
+    async def embedset_channel(self, ctx: commands.Context, enabled: bool = None):
         """
         Set's a channel's embed setting.
 
@@ -1366,20 +1366,20 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[enabled]` - Whether to use embeds in this channel. Leave blank to reset to default.
         """
-        if enabled is None :
-            await self .bot ._config .channel (ctx .channel ).embeds .clear ()
-            await ctx .send (_ ("Embeds will now fall back to the global setting."))
-            return 
+        if enabled is None:
+            await self.bot._config.channel(ctx.channel).embeds.clear()
+            await ctx.send(_("Embeds will now fall back to the global setting."))
+            return
 
-        await self .bot ._config .channel (ctx .channel ).embeds .set (enabled )
-        await ctx .send (
-        _ ("Embeds are now {} for this channel.").format (
-        _ ("enabled")if enabled else _ ("disabled")
-        )
+        await self.bot._config.channel(ctx.channel).embeds.set(enabled)
+        await ctx.send(
+            _("Embeds are now {} for this channel.").format(
+                _("enabled") if enabled else _("disabled")
+            )
         )
 
-    @embedset .command (name ="user")
-    async def embedset_user (self ,ctx :commands .Context ,enabled :bool =None ):
+    @embedset.command(name="user")
+    async def embedset_user(self, ctx: commands.Context, enabled: bool = None):
         """
         Sets personal embed setting for DMs.
 
@@ -1397,21 +1397,21 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[enabled]` - Whether to use embeds in your DMs. Leave blank to reset to default.
         """
-        if enabled is None :
-            await self .bot ._config .user (ctx .author ).embeds .clear ()
-            await ctx .send (_ ("Embeds will now fall back to the global setting."))
-            return 
+        if enabled is None:
+            await self.bot._config.user(ctx.author).embeds.clear()
+            await ctx.send(_("Embeds will now fall back to the global setting."))
+            return
 
-        await self .bot ._config .user (ctx .author ).embeds .set (enabled )
-        await ctx .send (
-        _ ("Embeds are now enabled for you in DMs.")
-        if enabled 
-        else _ ("Embeds are now disabled for you in DMs.")
+        await self.bot._config.user(ctx.author).embeds.set(enabled)
+        await ctx.send(
+            _("Embeds are now enabled for you in DMs.")
+            if enabled
+            else _("Embeds are now disabled for you in DMs.")
         )
 
-    @commands .command ()
-    @checks .is_owner ()
-    async def traceback (self ,ctx :commands .Context ,public :bool =False ):
+    @commands.command()
+    @checks.is_owner()
+    async def traceback(self, ctx: commands.Context, public: bool = False):
         """Sends to the owner the last command exception that has occurred.
 
         If public (yes is specified), it will be sent to the chat instead.
@@ -1425,29 +1425,29 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[public]` - Whether to send the traceback to the current context. Leave blank to send to your DMs.
         """
-        if not public :
-            destination =ctx .author 
-        else :
-            destination =ctx .channel 
+        if not public:
+            destination = ctx.author
+        else:
+            destination = ctx.channel
 
-        if self .bot ._last_exception :
-            for page in pagify (self .bot ._last_exception ,shorten_by =10 ):
-                try :
-                    await destination .send (box (page ,lang ="py"))
-                except discord .HTTPException :
-                    await ctx .channel .send (
-                    "I couldn't send the traceback message to you in DM. "
-                    "Either you blocked me or you disabled DMs in this server."
+        if self.bot._last_exception:
+            for page in pagify(self.bot._last_exception, shorten_by=10):
+                try:
+                    await destination.send(box(page, lang="py"))
+                except discord.HTTPException:
+                    await ctx.channel.send(
+                        "I couldn't send the traceback message to you in DM. "
+                        "Either you blocked me or you disabled DMs in this server."
                     )
-                    return 
-            if not public :
-                await ctx .tick ()
-        else :
-            await ctx .send (_ ("No exception has occurred yet."))
+                    return
+            if not public:
+                await ctx.tick()
+        else:
+            await ctx.send(_("No exception has occurred yet."))
 
-    @commands .command ()
-    @commands .check (CoreLogic ._can_get_invite_url )
-    async def invite (self ,ctx ):
+    @commands.command()
+    @commands.check(CoreLogic._can_get_invite_url)
+    async def invite(self, ctx):
         """Shows [botname]'s invite url.
 
         This will always send the invite to DMs to keep it private.
@@ -1457,23 +1457,23 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Example:**
             - `[p]invite`
         """
-        try :
-            await ctx .author .send (await self .bot .get_invite_url ())
-            await ctx .tick ()
-        except discord .errors .Forbidden :
-            await ctx .send (
-            "I couldn't send the invite message to you in DM. "
-            "Either you blocked me or you disabled DMs in this server."
+        try:
+            await ctx.author.send(await self.bot.get_invite_url())
+            await ctx.tick()
+        except discord.errors.Forbidden:
+            await ctx.send(
+                "I couldn't send the invite message to you in DM. "
+                "Either you blocked me or you disabled DMs in this server."
             )
 
-    @commands .group ()
-    @checks .is_owner ()
-    async def inviteset (self ,ctx ):
+    @commands.group()
+    @checks.is_owner()
+    async def inviteset(self, ctx):
         """Commands to setup [botname]'s invite settings."""
-        pass 
+        pass
 
-    @inviteset .command ()
-    async def public (self ,ctx ,confirm :bool =False ):
+    @inviteset.command()
+    async def public(self, ctx, confirm: bool = False):
         """
         Toggles if `[p]invite` should be accessible for the average user.
 
@@ -1485,32 +1485,32 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[confirm]` - Required to set to public. Not required to toggle back to private.
         """
-        if await self .bot ._config .invite_public ():
-            await self .bot ._config .invite_public .set (False )
-            await ctx .send ("The invite is now private.")
-            return 
-        app_info =await self .bot .application_info ()
-        if not app_info .bot_public :
-            await ctx .send (
-            "I am not a public bot. That means that nobody except "
-            "you can invite me on new servers.\n\n"
-            "You can change this by ticking `Public bot` in "
-            "your token settings: "
-            "https://discord.com/developers/applications/{0}/bot".format (self .bot .user .id )
+        if await self.bot._config.invite_public():
+            await self.bot._config.invite_public.set(False)
+            await ctx.send("The invite is now private.")
+            return
+        app_info = await self.bot.application_info()
+        if not app_info.bot_public:
+            await ctx.send(
+                "I am not a public bot. That means that nobody except "
+                "you can invite me on new servers.\n\n"
+                "You can change this by ticking `Public bot` in "
+                "your token settings: "
+                "https://discord.com/developers/applications/{0}/bot".format(self.bot.user.id)
             )
-            return 
-        if not confirm :
-            await ctx .send (
-            "You're about to make the `{0}invite` command public. "
-            "All users will be able to invite me on their server.\n\n"
-            "If you agree, you can type `{0}inviteset public yes`.".format (ctx .clean_prefix )
+            return
+        if not confirm:
+            await ctx.send(
+                "You're about to make the `{0}invite` command public. "
+                "All users will be able to invite me on their server.\n\n"
+                "If you agree, you can type `{0}inviteset public yes`.".format(ctx.clean_prefix)
             )
-        else :
-            await self .bot ._config .invite_public .set (True )
-            await ctx .send ("The invite command is now public.")
+        else:
+            await self.bot._config.invite_public.set(True)
+            await ctx.send("The invite command is now public.")
 
-    @inviteset .command ()
-    async def perms (self ,ctx ,level :int ):
+    @inviteset.command()
+    async def perms(self, ctx, level: int):
         """
         Make the bot create its own role with permissions on join.
 
@@ -1527,11 +1527,11 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<level>` - The permission level to require for the bot in the generated invite.
         """
-        await self .bot ._config .invite_perm .set (level )
-        await ctx .send ("The new permissions level has been set.")
+        await self.bot._config.invite_perm.set(level)
+        await ctx.send("The new permissions level has been set.")
 
-    @inviteset .command ()
-    async def commandscope (self ,ctx :commands .Context ):
+    @inviteset.command()
+    async def commandscope(self, ctx: commands.Context):
         """
         Add the `applications.commands` scope to your invite URL.
 
@@ -1539,20 +1539,20 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
 
         Note that previous servers that invited the bot without the scope cannot have slash commands, they will have to invite the bot a second time.
         """
-        enabled =not await self .bot ._config .invite_commands_scope ()
-        await self .bot ._config .invite_commands_scope .set (enabled )
-        if enabled is True :
-            await ctx .send (
-            _ ("The `applications.commands` scope has been added to the invite URL.")
+        enabled = not await self.bot._config.invite_commands_scope()
+        await self.bot._config.invite_commands_scope.set(enabled)
+        if enabled is True:
+            await ctx.send(
+                _("The `applications.commands` scope has been added to the invite URL.")
             )
-        else :
-            await ctx .send (
-            _ ("The `applications.commands` scope has been removed from the invite URL.")
+        else:
+            await ctx.send(
+                _("The `applications.commands` scope has been removed from the invite URL.")
             )
 
-    @commands .command ()
-    @checks .is_owner ()
-    async def leave (self ,ctx :commands .Context ,*servers :GuildConverter ):
+    @commands.command()
+    @checks.is_owner()
+    async def leave(self, ctx: commands.Context, *servers: GuildConverter):
         """
         Leaves servers.
 
@@ -1568,93 +1568,93 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[servers...]` - The servers to leave. When blank, attempts to leave the current server.
         """
-        guilds =servers 
-        if ctx .guild is None and not guilds :
-            return await ctx .send (_ ("You need to specify at least one server ID."))
+        guilds = servers
+        if ctx.guild is None and not guilds:
+            return await ctx.send(_("You need to specify at least one server ID."))
 
-        leaving_local_guild =not guilds 
-        number =len (guilds )
+        leaving_local_guild = not guilds
+        number = len(guilds)
 
-        if leaving_local_guild :
-            guilds =(ctx .guild ,)
-            msg =(
-            _ ("You haven't passed any server ID. Do you want me to leave this server?")
-            +" (yes/no)"
+        if leaving_local_guild:
+            guilds = (ctx.guild,)
+            msg = (
+                _("You haven't passed any server ID. Do you want me to leave this server?")
+                + " (yes/no)"
             )
-        else :
-            if number >1 :
-                msg =(
-                _ ("Are you sure you want me to leave these servers?")
-                +" (yes/no):\n"
-                +"\n".join (f"- {guild.name} (`{guild.id}`)"for guild in guilds )
+        else:
+            if number > 1:
+                msg = (
+                    _("Are you sure you want me to leave these servers?")
+                    + " (yes/no):\n"
+                    + "\n".join(f"- {guild.name} (`{guild.id}`)" for guild in guilds)
                 )
-            else :
-                msg =(
-                _ ("Are you sure you want me to leave this server?")
-                +" (yes/no):\n"
-                +f"- {guilds[0].name} (`{guilds[0].id}`)"
-                )
-
-        for guild in guilds :
-            if guild .owner .id ==ctx .me .id :
-                return await ctx .send (
-                _ ("I cannot leave the server `{server_name}`: I am the owner of it.").format (
-                server_name =guild .name 
-                )
+            else:
+                msg = (
+                    _("Are you sure you want me to leave this server?")
+                    + " (yes/no):\n"
+                    + f"- {guilds[0].name} (`{guilds[0].id}`)"
                 )
 
-        for page in pagify (msg ):
-            await ctx .send (page )
-        pred =MessagePredicate .yes_or_no (ctx )
-        try :
-            await self .bot .wait_for ("message",check =pred ,timeout =30 )
-        except asyncio .TimeoutError :
-            await ctx .send (_ ("Response timed out."))
-            return 
-        else :
-            if pred .result is True :
-                if leaving_local_guild is True :
-                    await ctx .send (_ ("Alright. Bye :wave:"))
-                else :
-                    if number >1 :
-                        await ctx .send (
-                        _ ("Alright. Leaving {number} servers...").format (number =number )
+        for guild in guilds:
+            if guild.owner.id == ctx.me.id:
+                return await ctx.send(
+                    _("I cannot leave the server `{server_name}`: I am the owner of it.").format(
+                        server_name=guild.name
+                    )
+                )
+
+        for page in pagify(msg):
+            await ctx.send(page)
+        pred = MessagePredicate.yes_or_no(ctx)
+        try:
+            await self.bot.wait_for("message", check=pred, timeout=30)
+        except asyncio.TimeoutError:
+            await ctx.send(_("Response timed out."))
+            return
+        else:
+            if pred.result is True:
+                if leaving_local_guild is True:
+                    await ctx.send(_("Alright. Bye :wave:"))
+                else:
+                    if number > 1:
+                        await ctx.send(
+                            _("Alright. Leaving {number} servers...").format(number=number)
                         )
-                    else :
-                        await ctx .send (_ ("Alright. Leaving one server..."))
-                for guild in guilds :
-                    log .debug ("Leaving guild '%s' (%s)",guild .name ,guild .id )
-                    await guild .leave ()
-            else :
-                if leaving_local_guild is True :
-                    await ctx .send (_ ("Alright, I'll stay then. :)"))
-                else :
-                    if number >1 :
-                        await ctx .send (_ ("Alright, I'm not leaving those servers."))
-                    else :
-                        await ctx .send (_ ("Alright, I'm not leaving that server."))
+                    else:
+                        await ctx.send(_("Alright. Leaving one server..."))
+                for guild in guilds:
+                    log.debug("Leaving guild '%s' (%s)", guild.name, guild.id)
+                    await guild.leave()
+            else:
+                if leaving_local_guild is True:
+                    await ctx.send(_("Alright, I'll stay then. :)"))
+                else:
+                    if number > 1:
+                        await ctx.send(_("Alright, I'm not leaving those servers."))
+                    else:
+                        await ctx.send(_("Alright, I'm not leaving that server."))
 
-    @commands .command ()
-    @checks .is_owner ()
-    async def servers (self ,ctx :commands .Context ):
+    @commands.command()
+    @checks.is_owner()
+    async def servers(self, ctx: commands.Context):
         """
         Lists the servers [botname] is currently in.
 
         Note: This command is interactive.
         """
-        guilds =sorted (self .bot .guilds ,key =lambda s :s .name .lower ())
-        msg ="\n".join (f"{guild.name} (`{guild.id}`)\n"for guild in guilds )
+        guilds = sorted(self.bot.guilds, key=lambda s: s.name.lower())
+        msg = "\n".join(f"{guild.name} (`{guild.id}`)\n" for guild in guilds)
 
-        pages =list (pagify (msg ,["\n"],page_length =1000 ))
+        pages = list(pagify(msg, ["\n"], page_length=1000))
 
-        if len (pages )==1 :
-            await ctx .send (pages [0 ])
-        else :
-            await menu (ctx ,pages ,DEFAULT_CONTROLS )
+        if len(pages) == 1:
+            await ctx.send(pages[0])
+        else:
+            await menu(ctx, pages, DEFAULT_CONTROLS)
 
-    @commands .command (require_var_positional =True )
-    @checks .is_owner ()
-    async def load (self ,ctx :commands .Context ,*cogs :str ):
+    @commands.command(require_var_positional=True)
+    @checks.is_owner()
+    async def load(self, ctx: commands.Context, *cogs: str):
         """Loads cog packages from the local paths and installed cogs.
 
         See packages available to load with `[p]cogs`.
@@ -1668,106 +1668,106 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<cogs...>` - The cog packages to load.
         """
-        cogs =tuple (map (lambda cog :cog .rstrip (","),cogs ))
-        async with ctx .typing ():
-            outcomes =await self ._load (cogs )
+        cogs = tuple(map(lambda cog: cog.rstrip(","), cogs))
+        async with ctx.typing():
+            outcomes = await self._load(cogs)
 
-        output =[]
+        output = []
 
-        if loaded :=outcomes ["loaded_packages"]:
-            loaded_packages =humanize_list ([inline (package )for package in loaded ])
-            formed =_ ("Loaded {packs}.").format (packs =loaded_packages )
-            output .append (formed )
+        if loaded := outcomes["loaded_packages"]:
+            loaded_packages = humanize_list([inline(package) for package in loaded])
+            formed = _("Loaded {packs}.").format(packs=loaded_packages)
+            output.append(formed)
 
-        if already_loaded :=outcomes ["alreadyloaded_packages"]:
-            if len (already_loaded )==1 :
-                formed =_ ("The following package is already loaded: {pack}").format (
-                pack =inline (already_loaded [0 ])
+        if already_loaded := outcomes["alreadyloaded_packages"]:
+            if len(already_loaded) == 1:
+                formed = _("The following package is already loaded: {pack}").format(
+                    pack=inline(already_loaded[0])
                 )
-            else :
-                formed =_ ("The following packages are already loaded: {packs}").format (
-                packs =humanize_list ([inline (package )for package in already_loaded ])
+            else:
+                formed = _("The following packages are already loaded: {packs}").format(
+                    packs=humanize_list([inline(package) for package in already_loaded])
                 )
-            output .append (formed )
+            output.append(formed)
 
-        if failed :=outcomes ["failed_packages"]:
-            if len (failed )==1 :
-                formed =_ (
-                "Failed to load the following package: {pack}."
-                "\nCheck your console or logs for details."
-                ).format (pack =inline (failed [0 ]))
-            else :
-                formed =_ (
-                "Failed to load the following packages: {packs}"
-                "\nCheck your console or logs for details."
-                ).format (packs =humanize_list ([inline (package )for package in failed ]))
-            output .append (formed )
+        if failed := outcomes["failed_packages"]:
+            if len(failed) == 1:
+                formed = _(
+                    "Failed to load the following package: {pack}."
+                    "\nCheck your console or logs for details."
+                ).format(pack=inline(failed[0]))
+            else:
+                formed = _(
+                    "Failed to load the following packages: {packs}"
+                    "\nCheck your console or logs for details."
+                ).format(packs=humanize_list([inline(package) for package in failed]))
+            output.append(formed)
 
-        if invalid_pkg_names :=outcomes ["invalid_pkg_names"]:
-            if len (invalid_pkg_names )==1 :
-                formed =_ (
-                "The following name is not a valid package name: {pack}\n"
-                "Package names cannot start with a number"
-                " and can only contain ascii numbers, letters, and underscores."
-                ).format (pack =inline (invalid_pkg_names [0 ]))
-            else :
-                formed =_ (
-                "The following names are not valid package names: {packs}\n"
-                "Package names cannot start with a number"
-                " and can only contain ascii numbers, letters, and underscores."
-                ).format (packs =humanize_list ([inline (package )for package in invalid_pkg_names ]))
-            output .append (formed )
+        if invalid_pkg_names := outcomes["invalid_pkg_names"]:
+            if len(invalid_pkg_names) == 1:
+                formed = _(
+                    "The following name is not a valid package name: {pack}\n"
+                    "Package names cannot start with a number"
+                    " and can only contain ascii numbers, letters, and underscores."
+                ).format(pack=inline(invalid_pkg_names[0]))
+            else:
+                formed = _(
+                    "The following names are not valid package names: {packs}\n"
+                    "Package names cannot start with a number"
+                    " and can only contain ascii numbers, letters, and underscores."
+                ).format(packs=humanize_list([inline(package) for package in invalid_pkg_names]))
+            output.append(formed)
 
-        if not_found :=outcomes ["notfound_packages"]:
-            if len (not_found )==1 :
-                formed =_ ("The following package was not found in any cog path: {pack}.").format (
-                pack =inline (not_found [0 ])
+        if not_found := outcomes["notfound_packages"]:
+            if len(not_found) == 1:
+                formed = _("The following package was not found in any cog path: {pack}.").format(
+                    pack=inline(not_found[0])
                 )
-            else :
-                formed =_ (
-                "The following packages were not found in any cog path: {packs}"
-                ).format (packs =humanize_list ([inline (package )for package in not_found ]))
-            output .append (formed )
+            else:
+                formed = _(
+                    "The following packages were not found in any cog path: {packs}"
+                ).format(packs=humanize_list([inline(package) for package in not_found]))
+            output.append(formed)
 
-        if failed_with_reason :=outcomes ["failed_with_reason_packages"]:
-            reasons ="\n".join ([f"`{x}`: {y}"for x ,y in failed_with_reason .items ()])
-            if len (failed_with_reason )==1 :
-                formed =_ (
-                "This package could not be loaded for the following reason:\n\n{reason}"
-                ).format (reason =reasons )
-            else :
-                formed =_ (
-                "These packages could not be loaded for the following reasons:\n\n{reasons}"
-                ).format (reasons =reasons )
-            output .append (formed )
+        if failed_with_reason := outcomes["failed_with_reason_packages"]:
+            reasons = "\n".join([f"`{x}`: {y}" for x, y in failed_with_reason.items()])
+            if len(failed_with_reason) == 1:
+                formed = _(
+                    "This package could not be loaded for the following reason:\n\n{reason}"
+                ).format(reason=reasons)
+            else:
+                formed = _(
+                    "These packages could not be loaded for the following reasons:\n\n{reasons}"
+                ).format(reasons=reasons)
+            output.append(formed)
 
-        if repos_with_shared_libs :=outcomes ["repos_with_shared_libs"]:
-            if len (repos_with_shared_libs )==1 :
-                formed =_ (
-                "**WARNING**: The following repo is using shared libs"
-                " which are marked for removal in the future: {repo}.\n"
-                "You should inform maintainer of the repo about this message."
-                ).format (repo =inline (repos_with_shared_libs .pop ()))
-            else :
-                formed =_ (
-                "**WARNING**: The following repos are using shared libs"
-                " which are marked for removal in the future: {repos}.\n"
-                "You should inform maintainers of these repos about this message."
-                ).format (repos =humanize_list ([inline (repo )for repo in repos_with_shared_libs ]))
-            output .append (formed )
+        if repos_with_shared_libs := outcomes["repos_with_shared_libs"]:
+            if len(repos_with_shared_libs) == 1:
+                formed = _(
+                    "**WARNING**: The following repo is using shared libs"
+                    " which are marked for removal in the future: {repo}.\n"
+                    "You should inform maintainer of the repo about this message."
+                ).format(repo=inline(repos_with_shared_libs.pop()))
+            else:
+                formed = _(
+                    "**WARNING**: The following repos are using shared libs"
+                    " which are marked for removal in the future: {repos}.\n"
+                    "You should inform maintainers of these repos about this message."
+                ).format(repos=humanize_list([inline(repo) for repo in repos_with_shared_libs]))
+            output.append(formed)
 
-        if output :
-            total_message ="\n\n".join (output )
-            for page in pagify (
-            total_message ,delims =["\n",", "],priority =True ,page_length =1500 
+        if output:
+            total_message = "\n\n".join(output)
+            for page in pagify(
+                total_message, delims=["\n", ", "], priority=True, page_length=1500
             ):
-                if page .startswith (", "):
-                    page =page [2 :]
-                await ctx .send (page )
+                if page.startswith(", "):
+                    page = page[2:]
+                await ctx.send(page)
 
-    @commands .command (require_var_positional =True )
-    @checks .is_owner ()
-    async def unload (self ,ctx :commands .Context ,*cogs :str ):
+    @commands.command(require_var_positional=True)
+    @checks.is_owner()
+    async def unload(self, ctx: commands.Context, *cogs: str):
         """Unloads previously loaded cog packages.
 
         See packages available to unload with `[p]cogs`.
@@ -1779,41 +1779,41 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<cogs...>` - The cog packages to unload.
         """
-        cogs =tuple (map (lambda cog :cog .rstrip (","),cogs ))
-        outcomes =await self ._unload (cogs )
+        cogs = tuple(map(lambda cog: cog.rstrip(","), cogs))
+        outcomes = await self._unload(cogs)
 
-        output =[]
+        output = []
 
-        if unloaded :=outcomes ["unloaded_packages"]:
-            if len (unloaded )==1 :
-                formed =_ ("The following package was unloaded: {pack}.").format (
-                pack =inline (unloaded [0 ])
+        if unloaded := outcomes["unloaded_packages"]:
+            if len(unloaded) == 1:
+                formed = _("The following package was unloaded: {pack}.").format(
+                    pack=inline(unloaded[0])
                 )
-            else :
-                formed =_ ("The following packages were unloaded: {packs}.").format (
-                packs =humanize_list ([inline (package )for package in unloaded ])
+            else:
+                formed = _("The following packages were unloaded: {packs}.").format(
+                    packs=humanize_list([inline(package) for package in unloaded])
                 )
-            output .append (formed )
+            output.append(formed)
 
-        if failed :=outcomes ["notloaded_packages"]:
-            if len (failed )==1 :
-                formed =_ ("The following package was not loaded: {pack}.").format (
-                pack =inline (failed [0 ])
+        if failed := outcomes["notloaded_packages"]:
+            if len(failed) == 1:
+                formed = _("The following package was not loaded: {pack}.").format(
+                    pack=inline(failed[0])
                 )
-            else :
-                formed =_ ("The following packages were not loaded: {packs}.").format (
-                packs =humanize_list ([inline (package )for package in failed ])
+            else:
+                formed = _("The following packages were not loaded: {packs}.").format(
+                    packs=humanize_list([inline(package) for package in failed])
                 )
-            output .append (formed )
+            output.append(formed)
 
-        if output :
-            total_message ="\n\n".join (output )
-            for page in pagify (total_message ):
-                await ctx .send (page )
+        if output:
+            total_message = "\n\n".join(output)
+            for page in pagify(total_message):
+                await ctx.send(page)
 
-    @commands .command (require_var_positional =True )
-    @checks .is_owner ()
-    async def reload (self ,ctx :commands .Context ,*cogs :str ):
+    @commands.command(require_var_positional=True)
+    @checks.is_owner()
+    async def reload(self, ctx: commands.Context, *cogs: str):
         """Reloads cog packages.
 
         This will unload and then load the specified cogs.
@@ -1827,91 +1827,91 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<cogs...>` - The cog packages to reload.
         """
-        cogs =tuple (map (lambda cog :cog .rstrip (","),cogs ))
-        async with ctx .typing ():
-            outcomes =await self ._reload (cogs )
+        cogs = tuple(map(lambda cog: cog.rstrip(","), cogs))
+        async with ctx.typing():
+            outcomes = await self._reload(cogs)
 
-        output =[]
+        output = []
 
-        if loaded :=outcomes ["loaded_packages"]:
-            loaded_packages =humanize_list ([inline (package )for package in loaded ])
-            formed =_ ("Reloaded {packs}.").format (packs =loaded_packages )
-            output .append (formed )
+        if loaded := outcomes["loaded_packages"]:
+            loaded_packages = humanize_list([inline(package) for package in loaded])
+            formed = _("Reloaded {packs}.").format(packs=loaded_packages)
+            output.append(formed)
 
-        if failed :=outcomes ["failed_packages"]:
-            if len (failed )==1 :
-                formed =_ (
-                "Failed to reload the following package: {pack}."
-                "\nCheck your console or logs for details."
-                ).format (pack =inline (failed [0 ]))
-            else :
-                formed =_ (
-                "Failed to reload the following packages: {packs}"
-                "\nCheck your console or logs for details."
-                ).format (packs =humanize_list ([inline (package )for package in failed ]))
-            output .append (formed )
+        if failed := outcomes["failed_packages"]:
+            if len(failed) == 1:
+                formed = _(
+                    "Failed to reload the following package: {pack}."
+                    "\nCheck your console or logs for details."
+                ).format(pack=inline(failed[0]))
+            else:
+                formed = _(
+                    "Failed to reload the following packages: {packs}"
+                    "\nCheck your console or logs for details."
+                ).format(packs=humanize_list([inline(package) for package in failed]))
+            output.append(formed)
 
-        if invalid_pkg_names :=outcomes ["invalid_pkg_names"]:
-            if len (invalid_pkg_names )==1 :
-                formed =_ (
-                "The following name is not a valid package name: {pack}\n"
-                "Package names cannot start with a number"
-                " and can only contain ascii numbers, letters, and underscores."
-                ).format (pack =inline (invalid_pkg_names [0 ]))
-            else :
-                formed =_ (
-                "The following names are not valid package names: {packs}\n"
-                "Package names cannot start with a number"
-                " and can only contain ascii numbers, letters, and underscores."
-                ).format (packs =humanize_list ([inline (package )for package in invalid_pkg_names ]))
-            output .append (formed )
+        if invalid_pkg_names := outcomes["invalid_pkg_names"]:
+            if len(invalid_pkg_names) == 1:
+                formed = _(
+                    "The following name is not a valid package name: {pack}\n"
+                    "Package names cannot start with a number"
+                    " and can only contain ascii numbers, letters, and underscores."
+                ).format(pack=inline(invalid_pkg_names[0]))
+            else:
+                formed = _(
+                    "The following names are not valid package names: {packs}\n"
+                    "Package names cannot start with a number"
+                    " and can only contain ascii numbers, letters, and underscores."
+                ).format(packs=humanize_list([inline(package) for package in invalid_pkg_names]))
+            output.append(formed)
 
-        if not_found :=outcomes ["notfound_packages"]:
-            if len (not_found )==1 :
-                formed =_ ("The following package was not found in any cog path: {pack}.").format (
-                pack =inline (not_found [0 ])
+        if not_found := outcomes["notfound_packages"]:
+            if len(not_found) == 1:
+                formed = _("The following package was not found in any cog path: {pack}.").format(
+                    pack=inline(not_found[0])
                 )
-            else :
-                formed =_ (
-                "The following packages were not found in any cog path: {packs}"
-                ).format (packs =humanize_list ([inline (package )for package in not_found ]))
-            output .append (formed )
+            else:
+                formed = _(
+                    "The following packages were not found in any cog path: {packs}"
+                ).format(packs=humanize_list([inline(package) for package in not_found]))
+            output.append(formed)
 
-        if failed_with_reason :=outcomes ["failed_with_reason_packages"]:
-            reasons ="\n".join ([f"`{x}`: {y}"for x ,y in failed_with_reason .items ()])
-            if len (failed_with_reason )==1 :
-                formed =_ (
-                "This package could not be reloaded for the following reason:\n\n{reason}"
-                ).format (reason =reasons )
-            else :
-                formed =_ (
-                "These packages could not be reloaded for the following reasons:\n\n{reasons}"
-                ).format (reasons =reasons )
-            output .append (formed )
+        if failed_with_reason := outcomes["failed_with_reason_packages"]:
+            reasons = "\n".join([f"`{x}`: {y}" for x, y in failed_with_reason.items()])
+            if len(failed_with_reason) == 1:
+                formed = _(
+                    "This package could not be reloaded for the following reason:\n\n{reason}"
+                ).format(reason=reasons)
+            else:
+                formed = _(
+                    "These packages could not be reloaded for the following reasons:\n\n{reasons}"
+                ).format(reasons=reasons)
+            output.append(formed)
 
-        if repos_with_shared_libs :=outcomes ["repos_with_shared_libs"]:
-            if len (repos_with_shared_libs )==1 :
-                formed =_ (
-                "**WARNING**: The following repo is using shared libs"
-                " which are marked for removal in the future: {repo}.\n"
-                "You should inform maintainers of these repos about this message."
-                ).format (repo =inline (repos_with_shared_libs .pop ()))
-            else :
-                formed =_ (
-                "**WARNING**: The following repos are using shared libs"
-                " which are marked for removal in the future: {repos}.\n"
-                "You should inform maintainers of these repos about this message."
-                ).format (repos =humanize_list ([inline (repo )for repo in repos_with_shared_libs ]))
-            output .append (formed )
+        if repos_with_shared_libs := outcomes["repos_with_shared_libs"]:
+            if len(repos_with_shared_libs) == 1:
+                formed = _(
+                    "**WARNING**: The following repo is using shared libs"
+                    " which are marked for removal in the future: {repo}.\n"
+                    "You should inform maintainers of these repos about this message."
+                ).format(repo=inline(repos_with_shared_libs.pop()))
+            else:
+                formed = _(
+                    "**WARNING**: The following repos are using shared libs"
+                    " which are marked for removal in the future: {repos}.\n"
+                    "You should inform maintainers of these repos about this message."
+                ).format(repos=humanize_list([inline(repo) for repo in repos_with_shared_libs]))
+            output.append(formed)
 
-        if output :
-            total_message ="\n\n".join (output )
-            for page in pagify (total_message ):
-                await ctx .send (page )
+        if output:
+            total_message = "\n\n".join(output)
+            for page in pagify(total_message):
+                await ctx.send(page)
 
-    @commands .command (name ="shutdown")
-    @checks .is_owner ()
-    async def _shutdown (self ,ctx :commands .Context ,silently :bool =False ):
+    @commands.command(name="shutdown")
+    @checks.is_owner()
+    async def _shutdown(self, ctx: commands.Context, silently: bool = False):
         """Shuts down the bot.
 
         Allows [botname] to shut down gracefully.
@@ -1925,16 +1925,16 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[silently]` - Whether to skip sending the shutdown message. Defaults to False.
         """
-        wave ="\N{WAVING HAND SIGN}"
-        skin ="\N{EMOJI MODIFIER FITZPATRICK TYPE-3}"
-        with contextlib .suppress (discord .HTTPException ):
-            if not silently :
-                await ctx .send (_ ("Shutting down... ")+wave +skin )
-        await ctx .bot .shutdown ()
+        wave = "\N{WAVING HAND SIGN}"
+        skin = "\N{EMOJI MODIFIER FITZPATRICK TYPE-3}"
+        with contextlib.suppress(discord.HTTPException):
+            if not silently:
+                await ctx.send(_("Shutting down... ") + wave + skin)
+        await ctx.bot.shutdown()
 
-    @commands .command (name ="restart")
-    @checks .is_owner ()
-    async def _restart (self ,ctx :commands .Context ,silently :bool =False ):
+    @commands.command(name="restart")
+    @checks.is_owner()
+    async def _restart(self, ctx: commands.Context, silently: bool = False):
         """Attempts to restart [botname].
 
         Makes [botname] quit with exit code 26.
@@ -1947,107 +1947,107 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[silently]` - Whether to skip sending the restart message. Defaults to False.
         """
-        with contextlib .suppress (discord .HTTPException ):
-            if not silently :
-                await ctx .send (_ ("Restarting..."))
-        await ctx .bot .shutdown (restart =True )
+        with contextlib.suppress(discord.HTTPException):
+            if not silently:
+                await ctx.send(_("Restarting..."))
+        await ctx.bot.shutdown(restart=True)
 
-    @bank .is_owner_if_bank_global ()
-    @checks .guildowner_or_permissions (administrator =True )
-    @commands .group ()
-    async def bankset (self ,ctx :commands .Context ):
+    @bank.is_owner_if_bank_global()
+    @checks.guildowner_or_permissions(administrator=True)
+    @commands.group()
+    async def bankset(self, ctx: commands.Context):
         """Base command for bank settings."""
 
-    @bankset .command (name ="showsettings")
-    async def bankset_showsettings (self ,ctx :commands .Context ):
+    @bankset.command(name="showsettings")
+    async def bankset_showsettings(self, ctx: commands.Context):
         """Show the current bank settings."""
-        cur_setting =await bank .is_global ()
-        if cur_setting :
-            group =bank ._config 
-        else :
-            if not ctx .guild :
-                return 
-            group =bank ._config .guild (ctx .guild )
-        group_data =await group .all ()
-        bank_name =group_data ["bank_name"]
-        bank_scope =_ ("Global")if cur_setting else _ ("Server")
-        currency_name =group_data ["currency"]
-        default_balance =group_data ["default_balance"]
-        max_balance =group_data ["max_balance"]
+        cur_setting = await bank.is_global()
+        if cur_setting:
+            group = bank._config
+        else:
+            if not ctx.guild:
+                return
+            group = bank._config.guild(ctx.guild)
+        group_data = await group.all()
+        bank_name = group_data["bank_name"]
+        bank_scope = _("Global") if cur_setting else _("Server")
+        currency_name = group_data["currency"]
+        default_balance = group_data["default_balance"]
+        max_balance = group_data["max_balance"]
 
-        settings =_ (
-        "Bank settings:\n\nBank name: {bank_name}\nBank scope: {bank_scope}\n"
-        "Currency: {currency_name}\nDefault balance: {default_balance}\n"
-        "Maximum allowed balance: {maximum_bal}\n"
-        ).format (
-        bank_name =bank_name ,
-        bank_scope =bank_scope ,
-        currency_name =currency_name ,
-        default_balance =humanize_number (default_balance ),
-        maximum_bal =humanize_number (max_balance ),
+        settings = _(
+            "Bank settings:\n\nBank name: {bank_name}\nBank scope: {bank_scope}\n"
+            "Currency: {currency_name}\nDefault balance: {default_balance}\n"
+            "Maximum allowed balance: {maximum_bal}\n"
+        ).format(
+            bank_name=bank_name,
+            bank_scope=bank_scope,
+            currency_name=currency_name,
+            default_balance=humanize_number(default_balance),
+            maximum_bal=humanize_number(max_balance),
         )
-        await ctx .send (box (settings ))
+        await ctx.send(box(settings))
 
-    @bankset .command (name ="toggleglobal")
-    @checks .is_owner ()
-    async def bankset_toggleglobal (self ,ctx :commands .Context ,confirm :bool =False ):
+    @bankset.command(name="toggleglobal")
+    @checks.is_owner()
+    async def bankset_toggleglobal(self, ctx: commands.Context, confirm: bool = False):
         """Toggle whether the bank is global or not.
 
         If the bank is global, it will become per-server.
         If the bank is per-server, it will become global.
         """
-        cur_setting =await bank .is_global ()
+        cur_setting = await bank.is_global()
 
-        word =_ ("per-server")if cur_setting else _ ("global")
-        if confirm is False :
-            await ctx .send (
-            _ (
-            "This will toggle the bank to be {banktype}, deleting all accounts "
-            "in the process! If you're sure, type `{command}`"
-            ).format (banktype =word ,command =f"{ctx.clean_prefix}bankset toggleglobal yes")
+        word = _("per-server") if cur_setting else _("global")
+        if confirm is False:
+            await ctx.send(
+                _(
+                    "This will toggle the bank to be {banktype}, deleting all accounts "
+                    "in the process! If you're sure, type `{command}`"
+                ).format(banktype=word, command=f"{ctx.clean_prefix}bankset toggleglobal yes")
             )
-        else :
-            await bank .set_global (not cur_setting )
-            await ctx .send (_ ("The bank is now {banktype}.").format (banktype =word ))
+        else:
+            await bank.set_global(not cur_setting)
+            await ctx.send(_("The bank is now {banktype}.").format(banktype=word))
 
-    @bank .is_owner_if_bank_global ()
-    @checks .guildowner_or_permissions (administrator =True )
-    @bankset .command (name ="bankname")
-    async def bankset_bankname (self ,ctx :commands .Context ,*,name :str ):
+    @bank.is_owner_if_bank_global()
+    @checks.guildowner_or_permissions(administrator=True)
+    @bankset.command(name="bankname")
+    async def bankset_bankname(self, ctx: commands.Context, *, name: str):
         """Set the bank's name."""
-        await bank .set_bank_name (name ,ctx .guild )
-        await ctx .send (_ ("Bank name has been set to: {name}").format (name =name ))
+        await bank.set_bank_name(name, ctx.guild)
+        await ctx.send(_("Bank name has been set to: {name}").format(name=name))
 
-    @bank .is_owner_if_bank_global ()
-    @checks .guildowner_or_permissions (administrator =True )
-    @bankset .command (name ="creditsname")
-    async def bankset_creditsname (self ,ctx :commands .Context ,*,name :str ):
+    @bank.is_owner_if_bank_global()
+    @checks.guildowner_or_permissions(administrator=True)
+    @bankset.command(name="creditsname")
+    async def bankset_creditsname(self, ctx: commands.Context, *, name: str):
         """Set the name for the bank's currency."""
-        await bank .set_currency_name (name ,ctx .guild )
-        await ctx .send (_ ("Currency name has been set to: {name}").format (name =name ))
+        await bank.set_currency_name(name, ctx.guild)
+        await ctx.send(_("Currency name has been set to: {name}").format(name=name))
 
-    @bank .is_owner_if_bank_global ()
-    @checks .guildowner_or_permissions (administrator =True )
-    @bankset .command (name ="maxbal")
-    async def bankset_maxbal (self ,ctx :commands .Context ,*,amount :int ):
+    @bank.is_owner_if_bank_global()
+    @checks.guildowner_or_permissions(administrator=True)
+    @bankset.command(name="maxbal")
+    async def bankset_maxbal(self, ctx: commands.Context, *, amount: int):
         """Set the maximum balance a user can get."""
-        try :
-            await bank .set_max_balance (amount ,ctx .guild )
-        except ValueError :
-        # Oh, it's just like old times! You, me, greasy popcorn. It's like no time has passed at all.
-            return await ctx .send (
-            _ ("Amount must be greater than zero and less than {max}.").format (
-            max =humanize_number (bank ._MAX_BALANCE )
+        try:
+            await bank.set_max_balance(amount, ctx.guild)
+        except ValueError:
+            # noinspection PyProtectedMember
+            return await ctx.send(
+                _("Amount must be greater than zero and less than {max}.").format(
+                    max=humanize_number(bank._MAX_BALANCE)
+                )
             )
-            )
-        await ctx .send (
-        _ ("Maximum balance has been set to: {amount}").format (amount =humanize_number (amount ))
+        await ctx.send(
+            _("Maximum balance has been set to: {amount}").format(amount=humanize_number(amount))
         )
 
-    @bank .is_owner_if_bank_global ()
-    @checks .guildowner_or_permissions (administrator =True )
-    @bankset .command (name ="registeramount")
-    async def bankset_registeramount (self ,ctx :commands .Context ,creds :int ):
+    @bank.is_owner_if_bank_global()
+    @checks.guildowner_or_permissions(administrator=True)
+    @bankset.command(name="registeramount")
+    async def bankset_registeramount(self, ctx: commands.Context, creds: int):
         """Set the initial balance for new bank accounts.
 
         Example:
@@ -2057,27 +2057,27 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
 
         - `<creds>` The new initial balance amount. Default is 0.
         """
-        guild =ctx .guild 
-        max_balance =await bank .get_max_balance (ctx .guild )
-        credits_name =await bank .get_currency_name (guild )
-        try :
-            await bank .set_default_balance (creds ,guild )
-        except ValueError :
-            return await ctx .send (
-            _ ("Amount must be greater than or equal to zero and less than {maxbal}.").format (
-            maxbal =humanize_number (max_balance )
+        guild = ctx.guild
+        max_balance = await bank.get_max_balance(ctx.guild)
+        credits_name = await bank.get_currency_name(guild)
+        try:
+            await bank.set_default_balance(creds, guild)
+        except ValueError:
+            return await ctx.send(
+                _("Amount must be greater than or equal to zero and less than {maxbal}.").format(
+                    maxbal=humanize_number(max_balance)
+                )
             )
+        await ctx.send(
+            _("Registering an account will now give {num} {currency}.").format(
+                num=humanize_number(creds), currency=credits_name
             )
-        await ctx .send (
-        _ ("Registering an account will now give {num} {currency}.").format (
-        num =humanize_number (creds ),currency =credits_name 
-        )
         )
 
-    @bank .is_owner_if_bank_global ()
-    @checks .guildowner_or_permissions (administrator =True )
-    @bankset .command (name ="reset")
-    async def bankset_reset (self ,ctx ,confirmation :bool =False ):
+    @bank.is_owner_if_bank_global()
+    @checks.guildowner_or_permissions(administrator=True)
+    @bankset.command(name="reset")
+    async def bankset_reset(self, ctx, confirmation: bool = False):
         """Delete all bank accounts.
 
         Examples:
@@ -2088,35 +2088,35 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
 
         - `<confirmation>` This will default to false unless specified.
         """
-        if confirmation is False :
-            await ctx .send (
-            _ (
-            "This will delete all bank accounts for {scope}.\nIf you're sure, type "
-            "`{prefix}bankset reset yes`"
-            ).format (
-            scope =self .bot .user .name if await bank .is_global ()else _ ("this server"),
-            prefix =ctx .clean_prefix ,
+        if confirmation is False:
+            await ctx.send(
+                _(
+                    "This will delete all bank accounts for {scope}.\nIf you're sure, type "
+                    "`{prefix}bankset reset yes`"
+                ).format(
+                    scope=self.bot.user.name if await bank.is_global() else _("this server"),
+                    prefix=ctx.clean_prefix,
+                )
             )
-            )
-        else :
-            await bank .wipe_bank (guild =ctx .guild )
-            await ctx .send (
-            _ ("All bank accounts for {scope} have been deleted.").format (
-            scope =self .bot .user .name if await bank .is_global ()else _ ("this server")
-            )
+        else:
+            await bank.wipe_bank(guild=ctx.guild)
+            await ctx.send(
+                _("All bank accounts for {scope} have been deleted.").format(
+                    scope=self.bot.user.name if await bank.is_global() else _("this server")
+                )
             )
 
-    @bank .is_owner_if_bank_global ()
-    @checks .admin_or_permissions (manage_guild =True )
-    @bankset .group (name ="prune")
-    async def bankset_prune (self ,ctx ):
+    @bank.is_owner_if_bank_global()
+    @checks.admin_or_permissions(manage_guild=True)
+    @bankset.group(name="prune")
+    async def bankset_prune(self, ctx):
         """Base command for pruning bank accounts."""
-        pass 
+        pass
 
-    @bankset_prune .command (name ="server",aliases =["guild","local"])
-    @commands .guild_only ()
-    @checks .guildowner ()
-    async def bankset_prune_local (self ,ctx ,confirmation :bool =False ):
+    @bankset_prune.command(name="server", aliases=["guild", "local"])
+    @commands.guild_only()
+    @checks.guildowner()
+    async def bankset_prune_local(self, ctx, confirmation: bool = False):
         """Prune bank accounts for users no longer in the server.
 
         Cannot be used with a global bank. See `[p]bankset prune global`.
@@ -2129,27 +2129,27 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
 
         - `<confirmation>` This will default to false unless specified.
         """
-        global_bank =await bank .is_global ()
-        if global_bank is True :
-            return await ctx .send (_ ("This command cannot be used with a global bank."))
+        global_bank = await bank.is_global()
+        if global_bank is True:
+            return await ctx.send(_("This command cannot be used with a global bank."))
 
-        if confirmation is False :
-            await ctx .send (
-            _ (
-            "This will delete all bank accounts for users no longer in this server."
-            "\nIf you're sure, type "
-            "`{prefix}bankset prune local yes`"
-            ).format (prefix =ctx .clean_prefix )
+        if confirmation is False:
+            await ctx.send(
+                _(
+                    "This will delete all bank accounts for users no longer in this server."
+                    "\nIf you're sure, type "
+                    "`{prefix}bankset prune local yes`"
+                ).format(prefix=ctx.clean_prefix)
             )
-        else :
-            await bank .bank_prune (self .bot ,guild =ctx .guild )
-            await ctx .send (
-            _ ("Bank accounts for users no longer in this server have been deleted.")
+        else:
+            await bank.bank_prune(self.bot, guild=ctx.guild)
+            await ctx.send(
+                _("Bank accounts for users no longer in this server have been deleted.")
             )
 
-    @bankset_prune .command (name ="global")
-    @checks .is_owner ()
-    async def bankset_prune_global (self ,ctx ,confirmation :bool =False ):
+    @bankset_prune.command(name="global")
+    @checks.is_owner()
+    async def bankset_prune_global(self, ctx, confirmation: bool = False):
         """Prune bank accounts for users who no longer share a server with the bot.
 
         Cannot be used without a global bank. See `[p]bankset prune server`.
@@ -2162,33 +2162,33 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
 
         - `<confirmation>` This will default to false unless specified.
         """
-        global_bank =await bank .is_global ()
-        if global_bank is False :
-            return await ctx .send (_ ("This command cannot be used with a local bank."))
+        global_bank = await bank.is_global()
+        if global_bank is False:
+            return await ctx.send(_("This command cannot be used with a local bank."))
 
-        if confirmation is False :
-            await ctx .send (
-            _ (
-            "This will delete all bank accounts for users "
-            "who no longer share a server with the bot."
-            "\nIf you're sure, type `{prefix}bankset prune global yes`"
-            ).format (prefix =ctx .clean_prefix )
+        if confirmation is False:
+            await ctx.send(
+                _(
+                    "This will delete all bank accounts for users "
+                    "who no longer share a server with the bot."
+                    "\nIf you're sure, type `{prefix}bankset prune global yes`"
+                ).format(prefix=ctx.clean_prefix)
             )
-        else :
-            await bank .bank_prune (self .bot )
-            await ctx .send (
-            _ (
-            "Bank accounts for users who "
-            "no longer share a server with the bot have been pruned."
-            )
+        else:
+            await bank.bank_prune(self.bot)
+            await ctx.send(
+                _(
+                    "Bank accounts for users who "
+                    "no longer share a server with the bot have been pruned."
+                )
             )
 
-    @bankset_prune .command (name ="user",usage ="<user> [confirmation=False]")
-    async def bankset_prune_user (
-    self ,
-    ctx ,
-    member_or_id :Union [discord .Member ,RawUserIdConverter ],
-    confirmation :bool =False ,
+    @bankset_prune.command(name="user", usage="<user> [confirmation=False]")
+    async def bankset_prune_user(
+        self,
+        ctx,
+        member_or_id: Union[discord.Member, RawUserIdConverter],
+        confirmation: bool = False,
     ):
         """Delete the bank account of a specified user.
 
@@ -2201,131 +2201,131 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         - `<user>` The user to delete the bank of. Takes mentions, names, and user ids.
         - `<confirmation>` This will default to false unless specified.
         """
-        try :
-            name =member_or_id .display_name 
-            uid =member_or_id .id 
-        except AttributeError :
-            name =member_or_id 
-            uid =member_or_id 
+        try:
+            name = member_or_id.display_name
+            uid = member_or_id.id
+        except AttributeError:
+            name = member_or_id
+            uid = member_or_id
 
-        if confirmation is False :
-            await ctx .send (
-            _ (
-            "This will delete {name}'s bank account."
-            "\nIf you're sure, type "
-            "`{prefix}bankset prune user {id} yes`"
-            ).format (prefix =ctx .clean_prefix ,id =uid ,name =name )
+        if confirmation is False:
+            await ctx.send(
+                _(
+                    "This will delete {name}'s bank account."
+                    "\nIf you're sure, type "
+                    "`{prefix}bankset prune user {id} yes`"
+                ).format(prefix=ctx.clean_prefix, id=uid, name=name)
             )
-        else :
-            await bank .bank_prune (self .bot ,guild =ctx .guild ,user_id =uid )
-            await ctx .send (_ ("The bank account for {name} has been pruned.").format (name =name ))
+        else:
+            await bank.bank_prune(self.bot, guild=ctx.guild, user_id=uid)
+            await ctx.send(_("The bank account for {name} has been pruned.").format(name=name))
 
-    @commands .group ()
-    @checks .guildowner_or_permissions (administrator =True )
-    async def modlogset (self ,ctx :commands .Context ):
+    @commands.group()
+    @checks.guildowner_or_permissions(administrator=True)
+    async def modlogset(self, ctx: commands.Context):
         """Manage modlog settings."""
-        pass 
+        pass
 
-    @checks .is_owner ()
-    @modlogset .command (hidden =True ,name ="fixcasetypes")
-    async def modlogset_fixcasetypes (self ,ctx :commands .Context ):
+    @checks.is_owner()
+    @modlogset.command(hidden=True, name="fixcasetypes")
+    async def modlogset_fixcasetypes(self, ctx: commands.Context):
         """Command to fix misbehaving casetypes."""
-        await modlog .handle_auditype_key ()
-        await ctx .tick ()
+        await modlog.handle_auditype_key()
+        await ctx.tick()
 
-    @modlogset .command (aliases =["channel"],name ="modlog")
-    @commands .guild_only ()
-    async def modlogset_modlog (self ,ctx :commands .Context ,channel :discord .TextChannel =None ):
+    @modlogset.command(aliases=["channel"], name="modlog")
+    @commands.guild_only()
+    async def modlogset_modlog(self, ctx: commands.Context, channel: discord.TextChannel = None):
         """Set a channel as the modlog.
 
         Omit `[channel]` to disable the modlog.
         """
-        guild =ctx .guild 
-        if channel :
-            if channel .permissions_for (guild .me ).send_messages :
-                await modlog .set_modlog_channel (guild ,channel )
-                await ctx .send (
-                _ ("Mod events will be sent to {channel}.").format (channel =channel .mention )
+        guild = ctx.guild
+        if channel:
+            if channel.permissions_for(guild.me).send_messages:
+                await modlog.set_modlog_channel(guild, channel)
+                await ctx.send(
+                    _("Mod events will be sent to {channel}.").format(channel=channel.mention)
                 )
-            else :
-                await ctx .send (
-                _ ("I do not have permissions to send messages in {channel}!").format (
-                channel =channel .mention 
+            else:
+                await ctx.send(
+                    _("I do not have permissions to send messages in {channel}!").format(
+                        channel=channel.mention
+                    )
                 )
-                )
-        else :
-            try :
-                await modlog .get_modlog_channel (guild )
-            except RuntimeError :
-                await ctx .send (_ ("Mod log is already disabled."))
-            else :
-                await modlog .set_modlog_channel (guild ,None )
-                await ctx .send (_ ("Mod log deactivated."))
+        else:
+            try:
+                await modlog.get_modlog_channel(guild)
+            except RuntimeError:
+                await ctx.send(_("Mod log is already disabled."))
+            else:
+                await modlog.set_modlog_channel(guild, None)
+                await ctx.send(_("Mod log deactivated."))
 
-    @modlogset .command (name ="cases")
-    @commands .guild_only ()
-    async def modlogset_cases (self ,ctx :commands .Context ,action :str =None ):
+    @modlogset.command(name="cases")
+    @commands.guild_only()
+    async def modlogset_cases(self, ctx: commands.Context, action: str = None):
         """Enable or disable case creation for a mod action."""
-        guild =ctx .guild 
+        guild = ctx.guild
 
-        if action is None :# "Offbeat": Welcome!
-            casetypes =await modlog .get_all_casetypes (guild )
-            await ctx .send_help ()
-            lines =[]
-            for ct in casetypes :
-                enabled =_ ("enabled")if await ct .is_enabled ()else _ ("disabled")
-                lines .append (f"{ct.name} : {enabled}")
+        if action is None:  # No args given
+            casetypes = await modlog.get_all_casetypes(guild)
+            await ctx.send_help()
+            lines = []
+            for ct in casetypes:
+                enabled = _("enabled") if await ct.is_enabled() else _("disabled")
+                lines.append(f"{ct.name} : {enabled}")
 
-            await ctx .send (_ ("Current settings:\n")+box ("\n".join (lines )))
-            return 
+            await ctx.send(_("Current settings:\n") + box("\n".join(lines)))
+            return
 
-        casetype =await modlog .get_casetype (action ,guild )
-        if not casetype :
-            await ctx .send (_ ("That action is not registered."))
-        else :
-            enabled =await casetype .is_enabled ()
-            await casetype .set_enabled (not enabled )
-            await ctx .send (
-            _ ("Case creation for {action_name} actions is now {enabled}.").format (
-            action_name =action ,enabled =_ ("enabled")if not enabled else _ ("disabled")
+        casetype = await modlog.get_casetype(action, guild)
+        if not casetype:
+            await ctx.send(_("That action is not registered."))
+        else:
+            enabled = await casetype.is_enabled()
+            await casetype.set_enabled(not enabled)
+            await ctx.send(
+                _("Case creation for {action_name} actions is now {enabled}.").format(
+                    action_name=action, enabled=_("enabled") if not enabled else _("disabled")
+                )
             )
-            )
 
-    @modlogset .command (name ="resetcases")
-    @commands .guild_only ()
-    async def modlogset_resetcases (self ,ctx :commands .Context ):
+    @modlogset.command(name="resetcases")
+    @commands.guild_only()
+    async def modlogset_resetcases(self, ctx: commands.Context):
         """Reset all modlog cases in this server."""
-        guild =ctx .guild 
-        await ctx .send (
-        _ ("Are you sure you would like to reset all modlog cases in this server?")
-        +" (yes/no)"
+        guild = ctx.guild
+        await ctx.send(
+            _("Are you sure you would like to reset all modlog cases in this server?")
+            + " (yes/no)"
         )
-        try :
-            pred =MessagePredicate .yes_or_no (ctx ,user =ctx .author )
-            msg =await ctx .bot .wait_for ("message",check =pred ,timeout =30 )
-        except asyncio .TimeoutError :
-            await ctx .send (_ ("You took too long to respond."))
-            return 
-        if pred .result :
-            await modlog .reset_cases (guild )
-            await ctx .send (_ ("Cases have been reset."))
-        else :
-            await ctx .send (_ ("No changes have been made."))
+        try:
+            pred = MessagePredicate.yes_or_no(ctx, user=ctx.author)
+            msg = await ctx.bot.wait_for("message", check=pred, timeout=30)
+        except asyncio.TimeoutError:
+            await ctx.send(_("You took too long to respond."))
+            return
+        if pred.result:
+            await modlog.reset_cases(guild)
+            await ctx.send(_("Cases have been reset."))
+        else:
+            await ctx.send(_("No changes have been made."))
 
-    @commands .group (name ="set")
-    async def _set (self ,ctx :commands .Context ):
+    @commands.group(name="set")
+    async def _set(self, ctx: commands.Context):
         """Commands for changing [botname]'s settings."""
 
-        # "Street Rat": Sorry, missy, all sales are final.
+    # -- Bot Metadata Commands -- ###
 
-    @_set .group (name ="bot",aliases =["metadata"])
-    @checks .admin_or_permissions (manage_nicknames =True )
-    async def _set_bot (self ,ctx :commands .Context ):
+    @_set.group(name="bot", aliases=["metadata"])
+    @checks.admin_or_permissions(manage_nicknames=True)
+    async def _set_bot(self, ctx: commands.Context):
         """Commands for changing [botname]'s metadata."""
 
-    @checks .is_owner ()
-    @_set_bot .command (name ="description")
-    async def _set_bot_description (self ,ctx :commands .Context ,*,description :str =""):
+    @checks.is_owner()
+    @_set_bot.command(name="description")
+    async def _set_bot_description(self, ctx: commands.Context, *, description: str = ""):
         """
         Sets the bot's description.
 
@@ -2343,25 +2343,25 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[description]` - The description to use for this bot. Leave blank to reset to the default.
         """
-        if not description :
-            await ctx .bot ._config .description .clear ()
-            ctx .bot .description ="Blue V3"
-            await ctx .send (_ ("Description reset."))
-        elif len (description )>250 :# I think I can explain that too. Each of you spent so much time trying to come up with the perfect way to get the others out of their element, that you didn't notice your friends were doing the same thing!
-            await ctx .send (
-            _ (
-            "This description is too long to properly display. "
-            "Please try again with below 250 characters."
+        if not description:
+            await ctx.bot._config.description.clear()
+            ctx.bot.description = "Blue V3"
+            await ctx.send(_("Description reset."))
+        elif len(description) > 250:  # While the limit is 256, we bold it adding characters.
+            await ctx.send(
+                _(
+                    "This description is too long to properly display. "
+                    "Please try again with below 250 characters."
+                )
             )
-            )
-        else :
-            await ctx .bot ._config .description .set (description )
-            ctx .bot .description =description 
-            await ctx .tick ()
+        else:
+            await ctx.bot._config.description.set(description)
+            ctx.bot.description = description
+            await ctx.tick()
 
-    @_set_bot .group (name ="avatar",invoke_without_command =True )
-    @checks .is_owner ()
-    async def _set_bot_avatar (self ,ctx :commands .Context ,url :str =None ):
+    @_set_bot.group(name="avatar", invoke_without_command=True)
+    @checks.is_owner()
+    async def _set_bot_avatar(self, ctx: commands.Context, url: str = None):
         """Sets [botname]'s avatar
 
         Supports either an attachment or an image URL.
@@ -2374,56 +2374,56 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[url]` - An image url to be used as an avatar. Leave blank when uploading an attachment.
         """
-        if len (ctx .message .attachments )>0 :# And since you helped every team, we have an official vest for you. We give you the title, "All-Team Organizer".
-            data =await ctx .message .attachments [0 ].read ()
-        elif url is not None :
-            if url .startswith ("<")and url .endswith (">"):
-                url =url [1 :-1 ]
+        if len(ctx.message.attachments) > 0:  # Attachments take priority
+            data = await ctx.message.attachments[0].read()
+        elif url is not None:
+            if url.startswith("<") and url.endswith(">"):
+                url = url[1:-1]
 
-            async with aiohttp .ClientSession ()as session :
-                try :
-                    async with session .get (url )as r :
-                        data =await r .read ()
-                except aiohttp .InvalidURL :
-                    return await ctx .send (_ ("That URL is invalid."))
-                except aiohttp .ClientError :
-                    return await ctx .send (_ ("Something went wrong while trying to get the image."))
-        else :
-            await ctx .send_help ()
-            return 
+            async with aiohttp.ClientSession() as session:
+                try:
+                    async with session.get(url) as r:
+                        data = await r.read()
+                except aiohttp.InvalidURL:
+                    return await ctx.send(_("That URL is invalid."))
+                except aiohttp.ClientError:
+                    return await ctx.send(_("Something went wrong while trying to get the image."))
+        else:
+            await ctx.send_help()
+            return
 
-        try :
-            async with ctx .typing ():
-                await ctx .bot .user .edit (avatar =data )
-        except discord .HTTPException :
-            await ctx .send (
-            _ (
-            "Failed. Remember that you can edit my avatar "
-            "up to two times a hour. The URL or attachment "
-            "must be a valid image in either JPG or PNG format."
+        try:
+            async with ctx.typing():
+                await ctx.bot.user.edit(avatar=data)
+        except discord.HTTPException:
+            await ctx.send(
+                _(
+                    "Failed. Remember that you can edit my avatar "
+                    "up to two times a hour. The URL or attachment "
+                    "must be a valid image in either JPG or PNG format."
+                )
             )
-            )
-        except discord .InvalidArgument :
-            await ctx .send (_ ("JPG / PNG format only."))
-        else :
-            await ctx .send (_ ("Done."))
+        except discord.InvalidArgument:
+            await ctx.send(_("JPG / PNG format only."))
+        else:
+            await ctx.send(_("Done."))
 
-    @_set_bot_avatar .command (name ="remove",aliases =["clear"])
-    @checks .is_owner ()
-    async def _set_bot_avatar_remove (self ,ctx :commands .Context ):
+    @_set_bot_avatar.command(name="remove", aliases=["clear"])
+    @checks.is_owner()
+    async def _set_bot_avatar_remove(self, ctx: commands.Context):
         """
         Removes [botname]'s avatar.
 
         **Example:**
             - `[p]set bot avatar remove`
         """
-        async with ctx .typing ():
-            await ctx .bot .user .edit (avatar =None )
-        await ctx .send (_ ("Avatar removed."))
+        async with ctx.typing():
+            await ctx.bot.user.edit(avatar=None)
+        await ctx.send(_("Avatar removed."))
 
-    @_set_bot .command (name ="username",aliases =["name"])
-    @checks .is_owner ()
-    async def _set_bot_username (self ,ctx :commands .Context ,*,username :str ):
+    @_set_bot.command(name="username", aliases=["name"])
+    @checks.is_owner()
+    async def _set_bot_username(self, ctx: commands.Context, *, username: str):
         """Sets [botname]'s username.
 
         Maximum length for a username is 32 characters.
@@ -2437,73 +2437,73 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<username>` - The username to give the bot.
         """
-        try :
-            if self .bot .user .public_flags .verified_bot :
-                await ctx .send (
-                _ (
-                "The username of a verified bot cannot be manually changed."
-                " Please contact Discord support to change it."
+        try:
+            if self.bot.user.public_flags.verified_bot:
+                await ctx.send(
+                    _(
+                        "The username of a verified bot cannot be manually changed."
+                        " Please contact Discord support to change it."
+                    )
                 )
-                )
-                return 
-            if len (username )>32 :
-                await ctx .send (_ ("Failed to change name. Must be 32 characters or fewer."))
-                return 
-            async with ctx .typing ():
-                await asyncio .wait_for (self ._name (name =username ),timeout =30 )
-        except asyncio .TimeoutError :
-            await ctx .send (
-            _ (
-            "Changing the username timed out. "
-            "Remember that you can only do it up to 2 times an hour."
-            " Use nicknames if you need frequent changes: {command}"
-            ).format (command =inline (f"{ctx.clean_prefix}set bot nickname"))
+                return
+            if len(username) > 32:
+                await ctx.send(_("Failed to change name. Must be 32 characters or fewer."))
+                return
+            async with ctx.typing():
+                await asyncio.wait_for(self._name(name=username), timeout=30)
+        except asyncio.TimeoutError:
+            await ctx.send(
+                _(
+                    "Changing the username timed out. "
+                    "Remember that you can only do it up to 2 times an hour."
+                    " Use nicknames if you need frequent changes: {command}"
+                ).format(command=inline(f"{ctx.clean_prefix}set bot nickname"))
             )
-        except discord .HTTPException as e :
-            if e .code ==50035 :
-                error_string =e .text .split ("\n")[1 ]# Can't you just tell that map it'll have to wait a couple days?
-                await ctx .send (
-                _ (
-                "Failed to change the username. "
-                "Discord returned the following error:\n"
-                "{error_message}"
-                ).format (error_message =inline (error_string ))
+        except discord.HTTPException as e:
+            if e.code == 50035:
+                error_string = e.text.split("\n")[1]  # Remove the "Invalid Form body"
+                await ctx.send(
+                    _(
+                        "Failed to change the username. "
+                        "Discord returned the following error:\n"
+                        "{error_message}"
+                    ).format(error_message=inline(error_string))
                 )
-            else :
-                log .error (
-                "Unexpected error occurred when trying to change the username.",exc_info =e 
+            else:
+                log.error(
+                    "Unexpected error occurred when trying to change the username.", exc_info=e
                 )
-                await ctx .send (_ ("Unexpected error occurred when trying to change the username."))
-        else :
-            await ctx .send (_ ("Done."))
+                await ctx.send(_("Unexpected error occurred when trying to change the username."))
+        else:
+            await ctx.send(_("Done."))
 
-    @_set_bot .command (name ="nickname")
-    @checks .admin_or_permissions (manage_nicknames =True )
-    @commands .guild_only ()
-    async def _set_bot_nickname (self ,ctx :commands .Context ,*,nickname :str =None ):
+    @_set_bot.command(name="nickname")
+    @checks.admin_or_permissions(manage_nicknames=True)
+    @commands.guild_only()
+    async def _set_bot_nickname(self, ctx: commands.Context, *, nickname: str = None):
         """Sets [botname]'s nickname for the current server.
 
         Maximum length for a nickname is 32 characters.
 
         **Example:**
-            - `[p]set bot nickname ðŸŽƒ SpookyBot ðŸŽƒ`
+            - `[p]set bot nickname 🎃 SpookyBot 🎃`
 
         **Arguments:**
             - `[nickname]` - The nickname to give the bot. Leave blank to clear the current nickname.
         """
-        try :
-            if nickname and len (nickname )>32 :
-                await ctx .send (_ ("Failed to change nickname. Must be 32 characters or fewer."))
-                return 
-            await ctx .guild .me .edit (nick =nickname )
-        except discord .Forbidden :
-            await ctx .send (_ ("I lack the permissions to change my own nickname."))
-        else :
-            await ctx .send (_ ("Done."))
+        try:
+            if nickname and len(nickname) > 32:
+                await ctx.send(_("Failed to change nickname. Must be 32 characters or fewer."))
+                return
+            await ctx.guild.me.edit(nick=nickname)
+        except discord.Forbidden:
+            await ctx.send(_("I lack the permissions to change my own nickname."))
+        else:
+            await ctx.send(_("Done."))
 
-    @_set_bot .command (name ="custominfo")
-    @checks .is_owner ()
-    async def _set_bot_custominfo (self ,ctx :commands .Context ,*,text :str =None ):
+    @_set_bot.command(name="custominfo")
+    @checks.is_owner()
+    async def _set_bot_custominfo(self, ctx: commands.Context, *, text: str = None):
         """Customizes a section of `[p]info`.
 
         The maximum amount of allowed characters is 1024.
@@ -2519,32 +2519,32 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[text]` - The custom info text.
         """
-        if not text :
-            await ctx .bot ._config .custom_info .clear ()
-            await ctx .send (_ ("The custom text has been cleared."))
-            return 
-        if len (text )<=1024 :
-            await ctx .bot ._config .custom_info .set (text )
-            await ctx .send (_ ("The custom text has been set."))
-            await ctx .invoke (self .info )
-        else :
-            await ctx .send (_ ("Text must be fewer than 1024 characters long."))
+        if not text:
+            await ctx.bot._config.custom_info.clear()
+            await ctx.send(_("The custom text has been cleared."))
+            return
+        if len(text) <= 1024:
+            await ctx.bot._config.custom_info.set(text)
+            await ctx.send(_("The custom text has been set."))
+            await ctx.invoke(self.info)
+        else:
+            await ctx.send(_("Text must be fewer than 1024 characters long."))
 
-            # Fine by me! Maybe I can spend some time doing something I actually like now!
-            # [Princesses Celestia, Luna, and Cadance] Know that your time is coming soon As the sun rises, so does the moon As love finds a place in every heart You are a princess; you'll play your part
+    # -- End Bot Metadata Commands -- ###
+    # -- Bot Status Commands -- ###
 
-    @_set .group (name ="status")
-    @checks .bot_in_a_guild ()
-    @checks .is_owner ()
-    async def _set_status (self ,ctx :commands .Context ):
+    @_set.group(name="status")
+    @checks.bot_in_a_guild()
+    @checks.is_owner()
+    async def _set_status(self, ctx: commands.Context):
         """Commands for setting [botname]'s status."""
 
-    @_set_status .command (
-    name ="streaming",aliases =["stream","twitch"],usage ="[(<streamer> <stream_title>)]"
+    @_set_status.command(
+        name="streaming", aliases=["stream", "twitch"], usage="[(<streamer> <stream_title>)]"
     )
-    @checks .bot_in_a_guild ()
-    @checks .is_owner ()
-    async def _set_status_stream (self ,ctx :commands .Context ,streamer =None ,*,stream_title =None ):
+    @checks.bot_in_a_guild()
+    @checks.is_owner()
+    async def _set_status_stream(self, ctx: commands.Context, streamer=None, *, stream_title=None):
         """Sets [botname]'s streaming status to a twitch stream.
 
         This will appear as `Streaming <stream_title>` or `LIVE ON TWITCH` depending on the context.
@@ -2562,31 +2562,31 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<streamer>` - The twitch streamer to provide a link to. This can be their twitch name or the entire URL.
             - `<stream_title>` - The text to follow `Streaming` in the status."""
-        status =ctx .bot .guilds [0 ].me .status if len (ctx .bot .guilds )>0 else None 
+        status = ctx.bot.guilds[0].me.status if len(ctx.bot.guilds) > 0 else None
 
-        if stream_title :
-            stream_title =stream_title .strip ()
-            if "twitch.tv/"not in streamer :
-                streamer ="https://www.twitch.tv/"+streamer 
-            if len (streamer )>511 :
-                await ctx .send (_ ("The maximum length of the streamer url is 511 characters."))
-                return 
-            if len (stream_title )>128 :
-                await ctx .send (_ ("The maximum length of the stream title is 128 characters."))
-                return 
-            activity =discord .Streaming (url =streamer ,name =stream_title )
-            await ctx .bot .change_presence (status =status ,activity =activity )
-        elif streamer is not None :
-            await ctx .send_help ()
-            return 
-        else :
-            await ctx .bot .change_presence (activity =None ,status =status )
-        await ctx .send (_ ("Done."))
+        if stream_title:
+            stream_title = stream_title.strip()
+            if "twitch.tv/" not in streamer:
+                streamer = "https://www.twitch.tv/" + streamer
+            if len(streamer) > 511:
+                await ctx.send(_("The maximum length of the streamer url is 511 characters."))
+                return
+            if len(stream_title) > 128:
+                await ctx.send(_("The maximum length of the stream title is 128 characters."))
+                return
+            activity = discord.Streaming(url=streamer, name=stream_title)
+            await ctx.bot.change_presence(status=status, activity=activity)
+        elif streamer is not None:
+            await ctx.send_help()
+            return
+        else:
+            await ctx.bot.change_presence(activity=None, status=status)
+        await ctx.send(_("Done."))
 
-    @_set_status .command (name ="playing",aliases =["game"])
-    @checks .bot_in_a_guild ()
-    @checks .is_owner ()
-    async def _set_status_game (self ,ctx :commands .Context ,*,game :str =None ):
+    @_set_status.command(name="playing", aliases=["game"])
+    @checks.bot_in_a_guild()
+    @checks.is_owner()
+    async def _set_status_game(self, ctx: commands.Context, *, game: str = None):
         """Sets [botname]'s playing status.
 
         This will appear as `Playing <game>` or `PLAYING A GAME: <game>` depending on the context.
@@ -2601,24 +2601,24 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
             - `[game]` - The text to follow `Playing`. Leave blank to clear the current activity status.
         """
 
-        if game :
-            if len (game )>128 :
-                await ctx .send (_ ("The maximum length of game descriptions is 128 characters."))
-                return 
-            game =discord .Game (name =game )
-        else :
-            game =None 
-        status =ctx .bot .guilds [0 ].me .status if len (ctx .bot .guilds )>0 else discord .Status .online 
-        await ctx .bot .change_presence (status =status ,activity =game )
-        if game :
-            await ctx .send (_ ("Status set to `Playing {game.name}`.").format (game =game ))
-        else :
-            await ctx .send (_ ("Game cleared."))
+        if game:
+            if len(game) > 128:
+                await ctx.send(_("The maximum length of game descriptions is 128 characters."))
+                return
+            game = discord.Game(name=game)
+        else:
+            game = None
+        status = ctx.bot.guilds[0].me.status if len(ctx.bot.guilds) > 0 else discord.Status.online
+        await ctx.bot.change_presence(status=status, activity=game)
+        if game:
+            await ctx.send(_("Status set to `Playing {game.name}`.").format(game=game))
+        else:
+            await ctx.send(_("Game cleared."))
 
-    @_set_status .command (name ="listening")
-    @checks .bot_in_a_guild ()
-    @checks .is_owner ()
-    async def _set_status_listening (self ,ctx :commands .Context ,*,listening :str =None ):
+    @_set_status.command(name="listening")
+    @checks.bot_in_a_guild()
+    @checks.is_owner()
+    async def _set_status_listening(self, ctx: commands.Context, *, listening: str = None):
         """Sets [botname]'s listening status.
 
         This will appear as `Listening to <listening>`.
@@ -2632,28 +2632,28 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[listening]` - The text to follow `Listening to`. Leave blank to clear the current activity status."""
 
-        status =ctx .bot .guilds [0 ].me .status if len (ctx .bot .guilds )>0 else discord .Status .online 
-        if listening :
-            if len (listening )>128 :
-                await ctx .send (
-                _ ("The maximum length of listening descriptions is 128 characters.")
+        status = ctx.bot.guilds[0].me.status if len(ctx.bot.guilds) > 0 else discord.Status.online
+        if listening:
+            if len(listening) > 128:
+                await ctx.send(
+                    _("The maximum length of listening descriptions is 128 characters.")
                 )
-                return 
-            activity =discord .Activity (name =listening ,type =discord .ActivityType .listening )
-        else :
-            activity =None 
-        await ctx .bot .change_presence (status =status ,activity =activity )
-        if activity :
-            await ctx .send (
-            _ ("Status set to `Listening to {listening}`.").format (listening =listening )
+                return
+            activity = discord.Activity(name=listening, type=discord.ActivityType.listening)
+        else:
+            activity = None
+        await ctx.bot.change_presence(status=status, activity=activity)
+        if activity:
+            await ctx.send(
+                _("Status set to `Listening to {listening}`.").format(listening=listening)
             )
-        else :
-            await ctx .send (_ ("Listening cleared."))
+        else:
+            await ctx.send(_("Listening cleared."))
 
-    @_set_status .command (name ="watching")
-    @checks .bot_in_a_guild ()
-    @checks .is_owner ()
-    async def _set_status_watching (self ,ctx :commands .Context ,*,watching :str =None ):
+    @_set_status.command(name="watching")
+    @checks.bot_in_a_guild()
+    @checks.is_owner()
+    async def _set_status_watching(self, ctx: commands.Context, *, watching: str = None):
         """Sets [botname]'s watching status.
 
         This will appear as `Watching <watching>`.
@@ -2667,24 +2667,24 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[watching]` - The text to follow `Watching`. Leave blank to clear the current activity status."""
 
-        status =ctx .bot .guilds [0 ].me .status if len (ctx .bot .guilds )>0 else discord .Status .online 
-        if watching :
-            if len (watching )>128 :
-                await ctx .send (_ ("The maximum length of watching descriptions is 128 characters."))
-                return 
-            activity =discord .Activity (name =watching ,type =discord .ActivityType .watching )
-        else :
-            activity =None 
-        await ctx .bot .change_presence (status =status ,activity =activity )
-        if activity :
-            await ctx .send (_ ("Status set to `Watching {watching}`.").format (watching =watching ))
-        else :
-            await ctx .send (_ ("Watching cleared."))
+        status = ctx.bot.guilds[0].me.status if len(ctx.bot.guilds) > 0 else discord.Status.online
+        if watching:
+            if len(watching) > 128:
+                await ctx.send(_("The maximum length of watching descriptions is 128 characters."))
+                return
+            activity = discord.Activity(name=watching, type=discord.ActivityType.watching)
+        else:
+            activity = None
+        await ctx.bot.change_presence(status=status, activity=activity)
+        if activity:
+            await ctx.send(_("Status set to `Watching {watching}`.").format(watching=watching))
+        else:
+            await ctx.send(_("Watching cleared."))
 
-    @_set_status .command (name ="competing")
-    @checks .bot_in_a_guild ()
-    @checks .is_owner ()
-    async def _set_status_competing (self ,ctx :commands .Context ,*,competing :str =None ):
+    @_set_status.command(name="competing")
+    @checks.bot_in_a_guild()
+    @checks.is_owner()
+    async def _set_status_competing(self, ctx: commands.Context, *, competing: str = None):
         """Sets [botname]'s competing status.
 
         This will appear as `Competing in <competing>`.
@@ -2698,70 +2698,70 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[competing]` - The text to follow `Competing in`. Leave blank to clear the current activity status."""
 
-        status =ctx .bot .guilds [0 ].me .status if len (ctx .bot .guilds )>0 else discord .Status .online 
-        if competing :
-            if len (competing )>128 :
-                await ctx .send (
-                _ ("The maximum length of competing descriptions is 128 characters.")
+        status = ctx.bot.guilds[0].me.status if len(ctx.bot.guilds) > 0 else discord.Status.online
+        if competing:
+            if len(competing) > 128:
+                await ctx.send(
+                    _("The maximum length of competing descriptions is 128 characters.")
                 )
-                return 
-            activity =discord .Activity (name =competing ,type =discord .ActivityType .competing )
-        else :
-            activity =None 
-        await ctx .bot .change_presence (status =status ,activity =activity )
-        if activity :
-            await ctx .send (
-            _ ("Status set to `Competing in {competing}`.").format (competing =competing )
+                return
+            activity = discord.Activity(name=competing, type=discord.ActivityType.competing)
+        else:
+            activity = None
+        await ctx.bot.change_presence(status=status, activity=activity)
+        if activity:
+            await ctx.send(
+                _("Status set to `Competing in {competing}`.").format(competing=competing)
             )
-        else :
-            await ctx .send (_ ("Competing cleared."))
+        else:
+            await ctx.send(_("Competing cleared."))
 
-    async def _set_my_status (self ,ctx :commands .Context ,status :discord .Status ):
-        game =ctx .bot .guilds [0 ].me .activity if len (ctx .bot .guilds )>0 else None 
-        await ctx .bot .change_presence (status =status ,activity =game )
-        return await ctx .send (_ ("Status changed to {}.").format (status ))
+    async def _set_my_status(self, ctx: commands.Context, status: discord.Status):
+        game = ctx.bot.guilds[0].me.activity if len(ctx.bot.guilds) > 0 else None
+        await ctx.bot.change_presence(status=status, activity=game)
+        return await ctx.send(_("Status changed to {}.").format(status))
 
-    @_set_status .command (name ="online")
-    @checks .bot_in_a_guild ()
-    @checks .is_owner ()
-    async def _set_status_online (self ,ctx :commands .Context ):
+    @_set_status.command(name="online")
+    @checks.bot_in_a_guild()
+    @checks.is_owner()
+    async def _set_status_online(self, ctx: commands.Context):
         """Set [botname]'s status to online."""
-        await self ._set_my_status (ctx ,discord .Status .online )
+        await self._set_my_status(ctx, discord.Status.online)
 
-    @_set_status .command (name ="dnd",aliases =["donotdisturb","busy"])
-    @checks .bot_in_a_guild ()
-    @checks .is_owner ()
-    async def _set_status_dnd (self ,ctx :commands .Context ):
+    @_set_status.command(name="dnd", aliases=["donotdisturb", "busy"])
+    @checks.bot_in_a_guild()
+    @checks.is_owner()
+    async def _set_status_dnd(self, ctx: commands.Context):
         """Set [botname]'s status to do not disturb."""
-        await self ._set_my_status (ctx ,discord .Status .do_not_disturb )
+        await self._set_my_status(ctx, discord.Status.do_not_disturb)
 
-    @_set_status .command (name ="idle",aliases =["away","afk"])
-    @checks .bot_in_a_guild ()
-    @checks .is_owner ()
-    async def _set_status_idle (self ,ctx :commands .Context ):
+    @_set_status.command(name="idle", aliases=["away", "afk"])
+    @checks.bot_in_a_guild()
+    @checks.is_owner()
+    async def _set_status_idle(self, ctx: commands.Context):
         """Set [botname]'s status to idle."""
-        await self ._set_my_status (ctx ,discord .Status .idle )
+        await self._set_my_status(ctx, discord.Status.idle)
 
-    @_set_status .command (name ="invisible",aliases =["offline"])
-    @checks .bot_in_a_guild ()
-    @checks .is_owner ()
-    async def _set_status_invisible (self ,ctx :commands .Context ):
+    @_set_status.command(name="invisible", aliases=["offline"])
+    @checks.bot_in_a_guild()
+    @checks.is_owner()
+    async def _set_status_invisible(self, ctx: commands.Context):
         """Set [botname]'s status to invisible."""
-        await self ._set_my_status (ctx ,discord .Status .invisible )
+        await self._set_my_status(ctx, discord.Status.invisible)
 
-        # I told you you need your big sister lookin' after you! I'm just glad this wasn't a whole lot worse. I mean, sure we lost the cart and all the pies, but at least you'reÂ— Huh, the cart! And all the pies! You actually got them all the way up here? In the dark? Through the Flame Geyser Swamp? Past that monster? ...By yourself?
-        # You can drop the act, Cozy Glow! Your pen pal Tirek told us all about how he helped you suck up all that magic!
+    # -- End Bot Status Commands -- ###
+    # -- Bot Roles Commands -- ###
 
-    @_set .group (name ="roles")
-    @checks .guildowner ()
-    @commands .guild_only ()
-    async def _set_roles (self ,ctx :commands .Context ):
+    @_set.group(name="roles")
+    @checks.guildowner()
+    @commands.guild_only()
+    async def _set_roles(self, ctx: commands.Context):
         """Set server's admin and mod roles for [botname]."""
 
-    @_set_roles .command (name ="addadminrole")
-    @checks .guildowner ()
-    @commands .guild_only ()
-    async def _set_roles_addadminrole (self ,ctx :commands .Context ,*,role :discord .Role ):
+    @_set_roles.command(name="addadminrole")
+    @checks.guildowner()
+    @commands.guild_only()
+    async def _set_roles_addadminrole(self, ctx: commands.Context, *, role: discord.Role):
         """
         Adds an admin role for this server.
 
@@ -2780,16 +2780,16 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<role>` - The role to add as an admin.
         """
-        async with ctx .bot ._config .guild (ctx .guild ).admin_role ()as roles :
-            if role .id in roles :
-                return await ctx .send (_ ("This role is already an admin role."))
-            roles .append (role .id )
-        await ctx .send (_ ("That role is now considered an admin role."))
+        async with ctx.bot._config.guild(ctx.guild).admin_role() as roles:
+            if role.id in roles:
+                return await ctx.send(_("This role is already an admin role."))
+            roles.append(role.id)
+        await ctx.send(_("That role is now considered an admin role."))
 
-    @_set_roles .command (name ="addmodrole")
-    @checks .guildowner ()
-    @commands .guild_only ()
-    async def _set_roles_addmodrole (self ,ctx :commands .Context ,*,role :discord .Role ):
+    @_set_roles.command(name="addmodrole")
+    @checks.guildowner()
+    @commands.guild_only()
+    async def _set_roles_addmodrole(self, ctx: commands.Context, *, role: discord.Role):
         """
         Adds a moderator role for this server.
 
@@ -2807,18 +2807,18 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<role>` - The role to add as a moderator.
         """
-        async with ctx .bot ._config .guild (ctx .guild ).mod_role ()as roles :
-            if role .id in roles :
-                return await ctx .send (_ ("This role is already a mod role."))
-            roles .append (role .id )
-        await ctx .send (_ ("That role is now considered a mod role."))
+        async with ctx.bot._config.guild(ctx.guild).mod_role() as roles:
+            if role.id in roles:
+                return await ctx.send(_("This role is already a mod role."))
+            roles.append(role.id)
+        await ctx.send(_("That role is now considered a mod role."))
 
-    @_set_roles .command (
-    name ="removeadminrole",aliases =["remadmindrole","deladminrole","deleteadminrole"]
+    @_set_roles.command(
+        name="removeadminrole", aliases=["remadmindrole", "deladminrole", "deleteadminrole"]
     )
-    @checks .guildowner ()
-    @commands .guild_only ()
-    async def _set_roles_removeadminrole (self ,ctx :commands .Context ,*,role :discord .Role ):
+    @checks.guildowner()
+    @commands.guild_only()
+    async def _set_roles_removeadminrole(self, ctx: commands.Context, *, role: discord.Role):
         """
         Removes an admin role for this server.
 
@@ -2829,18 +2829,18 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<role>` - The role to remove from being an admin.
         """
-        async with ctx .bot ._config .guild (ctx .guild ).admin_role ()as roles :
-            if role .id not in roles :
-                return await ctx .send (_ ("That role was not an admin role to begin with."))
-            roles .remove (role .id )
-        await ctx .send (_ ("That role is no longer considered an admin role."))
+        async with ctx.bot._config.guild(ctx.guild).admin_role() as roles:
+            if role.id not in roles:
+                return await ctx.send(_("That role was not an admin role to begin with."))
+            roles.remove(role.id)
+        await ctx.send(_("That role is no longer considered an admin role."))
 
-    @_set_roles .command (
-    name ="removemodrole",aliases =["remmodrole","delmodrole","deletemodrole"]
+    @_set_roles.command(
+        name="removemodrole", aliases=["remmodrole", "delmodrole", "deletemodrole"]
     )
-    @checks .guildowner ()
-    @commands .guild_only ()
-    async def _set_roles_removemodrole (self ,ctx :commands .Context ,*,role :discord .Role ):
+    @checks.guildowner()
+    @commands.guild_only()
+    async def _set_roles_removemodrole(self, ctx: commands.Context, *, role: discord.Role):
         """
         Removes a mod role for this server.
 
@@ -2851,18 +2851,18 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<role>` - The role to remove from being a moderator.
         """
-        async with ctx .bot ._config .guild (ctx .guild ).mod_role ()as roles :
-            if role .id not in roles :
-                return await ctx .send (_ ("That role was not a mod role to begin with."))
-            roles .remove (role .id )
-        await ctx .send (_ ("That role is no longer considered a mod role."))
+        async with ctx.bot._config.guild(ctx.guild).mod_role() as roles:
+            if role.id not in roles:
+                return await ctx.send(_("That role was not a mod role to begin with."))
+            roles.remove(role.id)
+        await ctx.send(_("That role is no longer considered a mod role."))
 
-        # I think we might be the only ponies here.
-        # Hey!
+    # -- End Set Roles Commands -- ###
+    # -- Set Locale Commands -- ###
 
-    @_set .group (name ="locale",invoke_without_command =True )
-    @checks .guildowner_or_permissions (manage_guild =True )
-    async def _set_locale (self ,ctx :commands .Context ,language_code :str ):
+    @_set.group(name="locale", invoke_without_command=True)
+    @checks.guildowner_or_permissions(manage_guild=True)
+    async def _set_locale(self, ctx: commands.Context, language_code: str):
         """
         Changes [botname]'s locale in this server.
 
@@ -2882,14 +2882,14 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<language_code>` - The default locale to use for the bot. This can be any language code with country code included.
         """
-        if ctx .guild is None :
-            await ctx .send_help ()
-            return 
-        await ctx .invoke (self ._set_locale_local ,language_code )
+        if ctx.guild is None:
+            await ctx.send_help()
+            return
+        await ctx.invoke(self._set_locale_local, language_code)
 
-    @_set_locale .command (name ="global")
-    @checks .is_owner ()
-    async def _set_locale_global (self ,ctx :commands .Context ,language_code :str ):
+    @_set_locale.command(name="global")
+    @checks.is_owner()
+    async def _set_locale_global(self, ctx: commands.Context, language_code: str):
         """
         Changes [botname]'s default locale.
 
@@ -2908,26 +2908,26 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<language_code>` - The default locale to use for the bot. This can be any language code with country code included.
         """
-        try :
-            locale =BabelLocale .parse (language_code ,sep ="-")
-        except (ValueError ,UnknownLocaleError ):
-            await ctx .send (_ ("Invalid language code. Use format: `en-US`"))
-            return 
-        if locale .territory is None :
-            await ctx .send (
-            _ ("Invalid format - language code has to include country code, e.g. `en-US`")
+        try:
+            locale = BabelLocale.parse(language_code, sep="-")
+        except (ValueError, UnknownLocaleError):
+            await ctx.send(_("Invalid language code. Use format: `en-US`"))
+            return
+        if locale.territory is None:
+            await ctx.send(
+                _("Invalid format - language code has to include country code, e.g. `en-US`")
             )
-            return 
-        standardized_locale_name =f"{locale.language}-{locale.territory}"
-        i18n .set_locale (standardized_locale_name )
-        await self .bot ._i18n_cache .set_locale (None ,standardized_locale_name )
-        await i18n .set_contextual_locales_from_guild (self .bot ,ctx .guild )
-        await ctx .send (_ ("Global locale has been set."))
+            return
+        standardized_locale_name = f"{locale.language}-{locale.territory}"
+        i18n.set_locale(standardized_locale_name)
+        await self.bot._i18n_cache.set_locale(None, standardized_locale_name)
+        await i18n.set_contextual_locales_from_guild(self.bot, ctx.guild)
+        await ctx.send(_("Global locale has been set."))
 
-    @_set_locale .command (name ="server",aliases =["local","guild"])
-    @commands .guild_only ()
-    @checks .guildowner_or_permissions (manage_guild =True )
-    async def _set_locale_local (self ,ctx :commands .Context ,language_code :str ):
+    @_set_locale.command(name="server", aliases=["local", "guild"])
+    @commands.guild_only()
+    @checks.guildowner_or_permissions(manage_guild=True)
+    async def _set_locale_local(self, ctx: commands.Context, language_code: str):
         """
         Changes [botname]'s locale in this server.
 
@@ -2945,30 +2945,30 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<language_code>` - The default locale to use for the bot. This can be any language code with country code included.
         """
-        if language_code .lower ()=="default":
-            global_locale =await self .bot ._config .locale ()
-            i18n .set_contextual_locale (global_locale )
-            await self .bot ._i18n_cache .set_locale (ctx .guild ,None )
-            await ctx .send (_ ("Locale has been set to the default."))
-            return 
-        try :
-            locale =BabelLocale .parse (language_code ,sep ="-")
-        except (ValueError ,UnknownLocaleError ):
-            await ctx .send (_ ("Invalid language code. Use format: `en-US`"))
-            return 
-        if locale .territory is None :
-            await ctx .send (
-            _ ("Invalid format - language code has to include country code, e.g. `en-US`")
+        if language_code.lower() == "default":
+            global_locale = await self.bot._config.locale()
+            i18n.set_contextual_locale(global_locale)
+            await self.bot._i18n_cache.set_locale(ctx.guild, None)
+            await ctx.send(_("Locale has been set to the default."))
+            return
+        try:
+            locale = BabelLocale.parse(language_code, sep="-")
+        except (ValueError, UnknownLocaleError):
+            await ctx.send(_("Invalid language code. Use format: `en-US`"))
+            return
+        if locale.territory is None:
+            await ctx.send(
+                _("Invalid format - language code has to include country code, e.g. `en-US`")
             )
-            return 
-        standardized_locale_name =f"{locale.language}-{locale.territory}"
-        i18n .set_contextual_locale (standardized_locale_name )
-        await self .bot ._i18n_cache .set_locale (ctx .guild ,standardized_locale_name )
-        await ctx .send (_ ("Locale has been set."))
+            return
+        standardized_locale_name = f"{locale.language}-{locale.territory}"
+        i18n.set_contextual_locale(standardized_locale_name)
+        await self.bot._i18n_cache.set_locale(ctx.guild, standardized_locale_name)
+        await ctx.send(_("Locale has been set."))
 
-    @_set .group (name ="regionalformat",aliases =["region"],invoke_without_command =True )
-    @checks .guildowner_or_permissions (manage_guild =True )
-    async def _set_regional_format (self ,ctx :commands .Context ,language_code :str ):
+    @_set.group(name="regionalformat", aliases=["region"], invoke_without_command=True)
+    @checks.guildowner_or_permissions(manage_guild=True)
+    async def _set_regional_format(self, ctx: commands.Context, language_code: str):
         """
         Changes the bot's regional format in this server. This is used for formatting date, time and numbers.
 
@@ -2985,14 +2985,14 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[language_code]` - The region format to use for the bot in this server.
         """
-        if ctx .guild is None :
-            await ctx .send_help ()
-            return 
-        await ctx .invoke (self ._set_regional_format_local ,language_code )
+        if ctx.guild is None:
+            await ctx.send_help()
+            return
+        await ctx.invoke(self._set_regional_format_local, language_code)
 
-    @_set_regional_format .command (name ="global")
-    @checks .is_owner ()
-    async def _set_regional_format_global (self ,ctx :commands .Context ,language_code :str ):
+    @_set_regional_format.command(name="global")
+    @checks.is_owner()
+    async def _set_regional_format_global(self, ctx: commands.Context, language_code: str):
         """
         Changes the bot's regional format. This is used for formatting date, time and numbers.
 
@@ -3007,35 +3007,35 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[language_code]` - The default region format to use for the bot.
         """
-        if language_code .lower ()=="reset":
-            i18n .set_regional_format (None )
-            await self .bot ._i18n_cache .set_regional_format (None ,None )
-            await ctx .send (_ ("Global regional formatting will now be based on bot's locale."))
-            return 
+        if language_code.lower() == "reset":
+            i18n.set_regional_format(None)
+            await self.bot._i18n_cache.set_regional_format(None, None)
+            await ctx.send(_("Global regional formatting will now be based on bot's locale."))
+            return
 
-        try :
-            locale =BabelLocale .parse (language_code ,sep ="-")
-        except (ValueError ,UnknownLocaleError ):
-            await ctx .send (_ ("Invalid language code. Use format: `en-US`"))
-            return 
-        if locale .territory is None :
-            await ctx .send (
-            _ ("Invalid format - language code has to include country code, e.g. `en-US`")
+        try:
+            locale = BabelLocale.parse(language_code, sep="-")
+        except (ValueError, UnknownLocaleError):
+            await ctx.send(_("Invalid language code. Use format: `en-US`"))
+            return
+        if locale.territory is None:
+            await ctx.send(
+                _("Invalid format - language code has to include country code, e.g. `en-US`")
             )
-            return 
-        standardized_locale_name =f"{locale.language}-{locale.territory}"
-        i18n .set_regional_format (standardized_locale_name )
-        await self .bot ._i18n_cache .set_regional_format (None ,standardized_locale_name )
-        await ctx .send (
-        _ ("Global regional formatting will now be based on `{language_code}` locale.").format (
-        language_code =standardized_locale_name 
-        )
+            return
+        standardized_locale_name = f"{locale.language}-{locale.territory}"
+        i18n.set_regional_format(standardized_locale_name)
+        await self.bot._i18n_cache.set_regional_format(None, standardized_locale_name)
+        await ctx.send(
+            _("Global regional formatting will now be based on `{language_code}` locale.").format(
+                language_code=standardized_locale_name
+            )
         )
 
-    @_set_regional_format .command (name ="server",aliases =["local","guild"])
-    @commands .guild_only ()
-    @checks .guildowner_or_permissions (manage_guild =True )
-    async def _set_regional_format_local (self ,ctx :commands .Context ,language_code :str ):
+    @_set_regional_format.command(name="server", aliases=["local", "guild"])
+    @commands.guild_only()
+    @checks.guildowner_or_permissions(manage_guild=True)
+    async def _set_regional_format_local(self, ctx: commands.Context, language_code: str):
         """
         Changes the bot's regional format in this server. This is used for formatting date, time and numbers.
 
@@ -3050,39 +3050,39 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[language_code]` - The region format to use for the bot in this server.
         """
-        if language_code .lower ()=="reset":
-            i18n .set_contextual_regional_format (None )
-            await self .bot ._i18n_cache .set_regional_format (ctx .guild ,None )
-            await ctx .send (
-            _ ("Regional formatting will now be based on bot's locale in this server.")
+        if language_code.lower() == "reset":
+            i18n.set_contextual_regional_format(None)
+            await self.bot._i18n_cache.set_regional_format(ctx.guild, None)
+            await ctx.send(
+                _("Regional formatting will now be based on bot's locale in this server.")
             )
-            return 
+            return
 
-        try :
-            locale =BabelLocale .parse (language_code ,sep ="-")
-        except (ValueError ,UnknownLocaleError ):
-            await ctx .send (_ ("Invalid language code. Use format: `en-US`"))
-            return 
-        if locale .territory is None :
-            await ctx .send (
-            _ ("Invalid format - language code has to include country code, e.g. `en-US`")
+        try:
+            locale = BabelLocale.parse(language_code, sep="-")
+        except (ValueError, UnknownLocaleError):
+            await ctx.send(_("Invalid language code. Use format: `en-US`"))
+            return
+        if locale.territory is None:
+            await ctx.send(
+                _("Invalid format - language code has to include country code, e.g. `en-US`")
             )
-            return 
-        standardized_locale_name =f"{locale.language}-{locale.territory}"
-        i18n .set_contextual_regional_format (standardized_locale_name )
-        await self .bot ._i18n_cache .set_regional_format (ctx .guild ,standardized_locale_name )
-        await ctx .send (
-        _ ("Regional formatting will now be based on `{language_code}` locale.").format (
-        language_code =standardized_locale_name 
-        )
+            return
+        standardized_locale_name = f"{locale.language}-{locale.territory}"
+        i18n.set_contextual_regional_format(standardized_locale_name)
+        await self.bot._i18n_cache.set_regional_format(ctx.guild, standardized_locale_name)
+        await ctx.send(
+            _("Regional formatting will now be based on `{language_code}` locale.").format(
+                language_code=standardized_locale_name
+            )
         )
 
-        # Well, no wonder, because I made it up myself! A cherrychanga is mashed up cherries in a tortilla that's deep fried. Cherrychanga. Great name, huh? Oh, but maybe I should call it a chimicherry. Ooh, that's good too. Which do you think sounds better? Cherrychanga or chimicherry? Or what if I combine them? Chimicherrychanga! What sounds the funniest? I like funny words! One of my favorite funny words is 'kumquat'! I didn't make that one up. I would work in a kumquat orchard just so I could say 'kumquat' all day! Kumquat, kumquat, kumquat! And 'pickle barrel'! Isn't that just the funnest thing to say? Pickle barrel, pickle barrel, pickle barrel! Say it with me! Pickle barrel, kumquat, pickle barrel, kumquat, pickle barrel, kumquat, chimicherrychanga!
-        # Enough!
+    # -- End Set Locale Commands -- ###
+    # -- Set Api Commands -- ###
 
-    @_set .group (name ="api",invoke_without_command =True )
-    @checks .is_owner ()
-    async def _set_api (self ,ctx :commands .Context ,service :str ,*,tokens :TokenConverter ):
+    @_set.group(name="api", invoke_without_command=True)
+    @checks.is_owner()
+    async def _set_api(self, ctx: commands.Context, service: str, *, tokens: TokenConverter):
         """
         Commands to set, list or remove various external API tokens.
 
@@ -3101,13 +3101,13 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
             - `<service>` - The service you're adding tokens to.
             - `<tokens>` - Pairs of token keys and values. The key and value should be separated by one of ` `, `,`, or `;`.
         """
-        if ctx .channel .permissions_for (ctx .me ).manage_messages :
-            await ctx .message .delete ()
-        await ctx .bot .set_shared_api_tokens (service ,**tokens )
-        await ctx .send (_ ("`{service}` API tokens have been set.").format (service =service ))
+        if ctx.channel.permissions_for(ctx.me).manage_messages:
+            await ctx.message.delete()
+        await ctx.bot.set_shared_api_tokens(service, **tokens)
+        await ctx.send(_("`{service}` API tokens have been set.").format(service=service))
 
-    @_set_api .command (name ="list")
-    async def _set_api_list (self ,ctx :commands .Context ):
+    @_set_api.command(name="list")
+    async def _set_api_list(self, ctx: commands.Context):
         """
         Show all external API services along with their keys that have been set.
 
@@ -3117,23 +3117,23 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
             - `[p]set api list`
         """
 
-        services :dict =await ctx .bot .get_shared_api_tokens ()
-        if not services :
-            await ctx .send (_ ("No API services have been set yet."))
-            return 
+        services: dict = await ctx.bot.get_shared_api_tokens()
+        if not services:
+            await ctx.send(_("No API services have been set yet."))
+            return
 
-        sorted_services =sorted (services .keys (),key =str .lower )
+        sorted_services = sorted(services.keys(), key=str.lower)
 
-        joined =_ ("Set API services:\n")if len (services )>1 else _ ("Set API service:\n")
-        for service_name in sorted_services :
-            joined +="+ {}\n".format (service_name )
-            for key_name in services [service_name ].keys ():
-                joined +="  - {}\n".format (key_name )
-        for page in pagify (joined ,["\n"],shorten_by =16 ):
-            await ctx .send (box (page .lstrip (" "),lang ="diff"))
+        joined = _("Set API services:\n") if len(services) > 1 else _("Set API service:\n")
+        for service_name in sorted_services:
+            joined += "+ {}\n".format(service_name)
+            for key_name in services[service_name].keys():
+                joined += "  - {}\n".format(key_name)
+        for page in pagify(joined, ["\n"], shorten_by=16):
+            await ctx.send(box(page.lstrip(" "), lang="diff"))
 
-    @_set_api .command (name ="remove",require_var_positional =True )
-    async def _set_api_remove (self ,ctx :commands .Context ,*services :str ):
+    @_set_api.command(name="remove", require_var_positional=True)
+    async def _set_api_remove(self, ctx: commands.Context, *services: str):
         """
         Remove the given services with all their keys and tokens.
 
@@ -3143,38 +3143,38 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
 
         **Arguments:**
             - `<services...>` - The services to remove."""
-        bot_services =(await ctx .bot .get_shared_api_tokens ()).keys ()
-        services =[s for s in services if s in bot_services ]
+        bot_services = (await ctx.bot.get_shared_api_tokens()).keys()
+        services = [s for s in services if s in bot_services]
 
-        if services :
-            await self .bot .remove_shared_api_services (*services )
-            if len (services )>1 :
-                msg =_ ("Services deleted successfully:\n{services_list}").format (
-                services_list =humanize_list (services )
+        if services:
+            await self.bot.remove_shared_api_services(*services)
+            if len(services) > 1:
+                msg = _("Services deleted successfully:\n{services_list}").format(
+                    services_list=humanize_list(services)
                 )
-            else :
-                msg =_ ("Service deleted successfully: {service_name}").format (
-                service_name =services [0 ]
+            else:
+                msg = _("Service deleted successfully: {service_name}").format(
+                    service_name=services[0]
                 )
-            await ctx .send (msg )
-        else :
-            await ctx .send (_ ("None of the services you provided had any keys set."))
+            await ctx.send(msg)
+        else:
+            await ctx.send(_("None of the services you provided had any keys set."))
 
-            # Oh! YÂ— you found her?
-            # But how? And where did they go?
+    # -- End Set Api Commands -- ###
+    # -- Set Ownernotifications Commands -- ###
 
-    @checks .is_owner ()
-    @_set .group (name ="ownernotifications")
-    async def _set_ownernotifications (self ,ctx :commands .Context ):
+    @checks.is_owner()
+    @_set.group(name="ownernotifications")
+    async def _set_ownernotifications(self, ctx: commands.Context):
         """
         Commands for configuring owner notifications.
 
         Owner notifications include usage of `[p]contact` and available Blue updates.
         """
-        pass 
+        pass
 
-    @_set_ownernotifications .command (name ="optin")
-    async def _set_ownernotifications_optin (self ,ctx :commands .Context ):
+    @_set_ownernotifications.command(name="optin")
+    async def _set_ownernotifications_optin(self, ctx: commands.Context):
         """
         Opt-in on receiving owner notifications.
 
@@ -3186,14 +3186,14 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Example:**
             - `[p]set ownernotifications optin`
         """
-        async with ctx .bot ._config .owner_opt_out_list ()as opt_outs :
-            if ctx .author .id in opt_outs :
-                opt_outs .remove (ctx .author .id )
+        async with ctx.bot._config.owner_opt_out_list() as opt_outs:
+            if ctx.author.id in opt_outs:
+                opt_outs.remove(ctx.author.id)
 
-        await ctx .tick ()
+        await ctx.tick()
 
-    @_set_ownernotifications .command (name ="optout")
-    async def _set_ownernotifications_optout (self ,ctx :commands .Context ):
+    @_set_ownernotifications.command(name="optout")
+    async def _set_ownernotifications_optout(self, ctx: commands.Context):
         """
         Opt-out of receiving owner notifications.
 
@@ -3203,15 +3203,15 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Example:**
             - `[p]set ownernotifications optout`
         """
-        async with ctx .bot ._config .owner_opt_out_list ()as opt_outs :
-            if ctx .author .id not in opt_outs :
-                opt_outs .append (ctx .author .id )
+        async with ctx.bot._config.owner_opt_out_list() as opt_outs:
+            if ctx.author.id not in opt_outs:
+                opt_outs.append(ctx.author.id)
 
-        await ctx .tick ()
+        await ctx.tick()
 
-    @_set_ownernotifications .command (name ="adddestination")
-    async def _set_ownernotifications_adddestination (
-    self ,ctx :commands .Context ,*,channel :Union [discord .TextChannel ,int ]
+    @_set_ownernotifications.command(name="adddestination")
+    async def _set_ownernotifications_adddestination(
+        self, ctx: commands.Context, *, channel: Union[discord.TextChannel, int]
     ):
         """
         Adds a destination text channel to receive owner notifications.
@@ -3224,22 +3224,22 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
             - `<channel>` - The channel to send owner notifications to.
         """
 
-        try :
-            channel_id =channel .id 
-        except AttributeError :
-            channel_id =channel 
+        try:
+            channel_id = channel.id
+        except AttributeError:
+            channel_id = channel
 
-        async with ctx .bot ._config .extra_owner_destinations ()as extras :
-            if channel_id not in extras :
-                extras .append (channel_id )
+        async with ctx.bot._config.extra_owner_destinations() as extras:
+            if channel_id not in extras:
+                extras.append(channel_id)
 
-        await ctx .tick ()
+        await ctx.tick()
 
-    @_set_ownernotifications .command (
-    name ="removedestination",aliases =["remdestination","deletedestination","deldestination"]
+    @_set_ownernotifications.command(
+        name="removedestination", aliases=["remdestination", "deletedestination", "deldestination"]
     )
-    async def _set_ownernotifications_removedestination (
-    self ,ctx :commands .Context ,*,channel :Union [discord .TextChannel ,int ]
+    async def _set_ownernotifications_removedestination(
+        self, ctx: commands.Context, *, channel: Union[discord.TextChannel, int]
     ):
         """
         Removes a destination text channel from receiving owner notifications.
@@ -3252,19 +3252,19 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
             - `<channel>` - The channel to stop sending owner notifications to.
         """
 
-        try :
-            channel_id =channel .id 
-        except AttributeError :
-            channel_id =channel 
+        try:
+            channel_id = channel.id
+        except AttributeError:
+            channel_id = channel
 
-        async with ctx .bot ._config .extra_owner_destinations ()as extras :
-            if channel_id in extras :
-                extras .remove (channel_id )
+        async with ctx.bot._config.extra_owner_destinations() as extras:
+            if channel_id in extras:
+                extras.remove(channel_id)
 
-        await ctx .tick ()
+        await ctx.tick()
 
-    @_set_ownernotifications .command (name ="listdestinations")
-    async def _set_ownernotifications_listdestinations (self ,ctx :commands .Context ):
+    @_set_ownernotifications.command(name="listdestinations")
+    async def _set_ownernotifications_listdestinations(self, ctx: commands.Context):
         """
         Lists the configured extra destinations for owner notifications.
 
@@ -3272,93 +3272,93 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
             - `[p]set ownernotifications listdestinations`
         """
 
-        channel_ids =await ctx .bot ._config .extra_owner_destinations ()
+        channel_ids = await ctx.bot._config.extra_owner_destinations()
 
-        if not channel_ids :
-            await ctx .send (_ ("There are no extra channels being sent to."))
-            return 
+        if not channel_ids:
+            await ctx.send(_("There are no extra channels being sent to."))
+            return
 
-        data =[]
+        data = []
 
-        for channel_id in channel_ids :
-            channel =ctx .bot .get_channel (channel_id )
-            if channel :
-            # Ha-ha! You sure your name's not Applesaucey? Better find the brakes on that buggy, sugar. We just got here.
-                data .append (f"{channel.mention} {channel} ({channel.id})")
-            else :
-                data .append (_ ("Unknown channel with id: {id}").format (id =channel_id ))
+        for channel_id in channel_ids:
+            channel = ctx.bot.get_channel(channel_id)
+            if channel:
+                # This includes the channel name in case the user can't see the channel.
+                data.append(f"{channel.mention} {channel} ({channel.id})")
+            else:
+                data.append(_("Unknown channel with id: {id}").format(id=channel_id))
 
-        output ="\n".join (data )
-        for page in pagify (output ):
-            await ctx .send (page )
+        output = "\n".join(data)
+        for page in pagify(output):
+            await ctx.send(page)
 
-            # Of course! Now get out of here!
+    # -- End Set Ownernotifications Commands -- ###
 
-    @_set .command (name ="showsettings")
-    async def _set_showsettings (self ,ctx :commands .Context ):
+    @_set.command(name="showsettings")
+    async def _set_showsettings(self, ctx: commands.Context):
         """
         Show the current settings for [botname].
         """
-        if ctx .guild :
-            guild_data =await ctx .bot ._config .guild (ctx .guild ).all ()
-            guild =ctx .guild 
-            admin_role_ids =guild_data ["admin_role"]
-            admin_role_names =[r .name for r in guild .roles if r .id in admin_role_ids ]
-            admin_roles_str =(
-            humanize_list (admin_role_names )if admin_role_names else _ ("Not Set.")
+        if ctx.guild:
+            guild_data = await ctx.bot._config.guild(ctx.guild).all()
+            guild = ctx.guild
+            admin_role_ids = guild_data["admin_role"]
+            admin_role_names = [r.name for r in guild.roles if r.id in admin_role_ids]
+            admin_roles_str = (
+                humanize_list(admin_role_names) if admin_role_names else _("Not Set.")
             )
-            mod_role_ids =guild_data ["mod_role"]
-            mod_role_names =[r .name for r in guild .roles if r .id in mod_role_ids ]
-            mod_roles_str =humanize_list (mod_role_names )if mod_role_names else _ ("Not Set.")
+            mod_role_ids = guild_data["mod_role"]
+            mod_role_names = [r.name for r in guild.roles if r.id in mod_role_ids]
+            mod_roles_str = humanize_list(mod_role_names) if mod_role_names else _("Not Set.")
 
-            guild_locale =await i18n .get_locale_from_guild (self .bot ,ctx .guild )
-            guild_regional_format =(
-            await i18n .get_regional_format_from_guild (self .bot ,ctx .guild )or guild_locale 
+            guild_locale = await i18n.get_locale_from_guild(self.bot, ctx.guild)
+            guild_regional_format = (
+                await i18n.get_regional_format_from_guild(self.bot, ctx.guild) or guild_locale
             )
 
-            guild_settings =_ (
-            "Admin roles: {admin}\n"
-            "Mod roles: {mod}\n"
-            "Locale: {guild_locale}\n"
-            "Regional format: {guild_regional_format}\n"
-            ).format (
-            admin =admin_roles_str ,
-            mod =mod_roles_str ,
-            guild_locale =guild_locale ,
-            guild_regional_format =guild_regional_format ,
+            guild_settings = _(
+                "Admin roles: {admin}\n"
+                "Mod roles: {mod}\n"
+                "Locale: {guild_locale}\n"
+                "Regional format: {guild_regional_format}\n"
+            ).format(
+                admin=admin_roles_str,
+                mod=mod_roles_str,
+                guild_locale=guild_locale,
+                guild_regional_format=guild_regional_format,
             )
-        else :
-            guild_settings =""
+        else:
+            guild_settings = ""
 
-        prefixes =await ctx .bot ._prefix_cache .get_prefixes (ctx .guild )
-        global_data =await ctx .bot ._config .all ()
-        locale =global_data ["locale"]
-        regional_format =global_data ["regional_format"]or locale 
-        colour =discord .Colour (global_data ["color"])
+        prefixes = await ctx.bot._prefix_cache.get_prefixes(ctx.guild)
+        global_data = await ctx.bot._config.all()
+        locale = global_data["locale"]
+        regional_format = global_data["regional_format"] or locale
+        colour = discord.Colour(global_data["color"])
 
-        prefix_string =" ".join (prefixes )
-        settings =_ (
-        "{bot_name} Settings:\n\n"
-        "Prefixes: {prefixes}\n"
-        "{guild_settings}"
-        "Global locale: {locale}\n"
-        "Global regional format: {regional_format}\n"
-        "Default embed colour: {colour}"
-        ).format (
-        bot_name =ctx .bot .user .name ,
-        prefixes =prefix_string ,
-        guild_settings =guild_settings ,
-        locale =locale ,
-        regional_format =regional_format ,
-        colour =colour ,
+        prefix_string = " ".join(prefixes)
+        settings = _(
+            "{bot_name} Settings:\n\n"
+            "Prefixes: {prefixes}\n"
+            "{guild_settings}"
+            "Global locale: {locale}\n"
+            "Global regional format: {regional_format}\n"
+            "Default embed colour: {colour}"
+        ).format(
+            bot_name=ctx.bot.user.name,
+            prefixes=prefix_string,
+            guild_settings=guild_settings,
+            locale=locale,
+            regional_format=regional_format,
+            colour=colour,
         )
-        for page in pagify (settings ):
-            await ctx .send (box (page ))
+        for page in pagify(settings):
+            await ctx.send(box(page))
 
-    @checks .guildowner_or_permissions (administrator =True )
-    @_set .command (name ="deletedelay")
-    @commands .guild_only ()
-    async def _set_deletedelay (self ,ctx :commands .Context ,time :int =None ):
+    @checks.guildowner_or_permissions(administrator=True)
+    @_set.command(name="deletedelay")
+    @commands.guild_only()
+    async def _set_deletedelay(self, ctx: commands.Context, time: int = None):
         """Set the delay until the bot removes the command message.
 
         Must be between -1 and 60.
@@ -3375,31 +3375,31 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[time]` - The seconds to wait before deleting the command message. Use -1 to disable.
         """
-        guild =ctx .guild 
-        if time is not None :
-            time =min (max (time ,-1 ),60 )# And now, a disappearing act!
-            await ctx .bot ._config .guild (guild ).delete_delay .set (time )
-            if time ==-1 :
-                await ctx .send (_ ("Command deleting disabled."))
-            else :
-                await ctx .send (_ ("Delete delay set to {num} seconds.").format (num =time ))
-        else :
-            delay =await ctx .bot ._config .guild (guild ).delete_delay ()
-            if delay !=-1 :
-                await ctx .send (
-                _ (
-                "Bot will delete command messages after"
-                " {num} seconds. Set this value to -1 to"
-                " stop deleting messages"
-                ).format (num =delay )
+        guild = ctx.guild
+        if time is not None:
+            time = min(max(time, -1), 60)  # Enforces the time limits
+            await ctx.bot._config.guild(guild).delete_delay.set(time)
+            if time == -1:
+                await ctx.send(_("Command deleting disabled."))
+            else:
+                await ctx.send(_("Delete delay set to {num} seconds.").format(num=time))
+        else:
+            delay = await ctx.bot._config.guild(guild).delete_delay()
+            if delay != -1:
+                await ctx.send(
+                    _(
+                        "Bot will delete command messages after"
+                        " {num} seconds. Set this value to -1 to"
+                        " stop deleting messages"
+                    ).format(num=delay)
                 )
-            else :
-                await ctx .send (_ ("I will not delete command messages."))
+            else:
+                await ctx.send(_("I will not delete command messages."))
 
-    @_set .command (name ="usebotcolour",aliases =["usebotcolor"])
-    @checks .guildowner ()
-    @commands .guild_only ()
-    async def _set_usebotcolour (self ,ctx :commands .Context ):
+    @_set.command(name="usebotcolour", aliases=["usebotcolor"])
+    @checks.guildowner()
+    @commands.guild_only()
+    async def _set_usebotcolour(self, ctx: commands.Context):
         """
         Toggle whether to use the bot owner-configured colour for embeds.
 
@@ -3409,18 +3409,18 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Example:**
             - `[p]set usebotcolour`
         """
-        current_setting =await ctx .bot ._config .guild (ctx .guild ).use_bot_color ()
-        await ctx .bot ._config .guild (ctx .guild ).use_bot_color .set (not current_setting )
-        await ctx .send (
-        _ ("The bot {} use its configured color for embeds.").format (
-        _ ("will not")if not current_setting else _ ("will")
-        )
+        current_setting = await ctx.bot._config.guild(ctx.guild).use_bot_color()
+        await ctx.bot._config.guild(ctx.guild).use_bot_color.set(not current_setting)
+        await ctx.send(
+            _("The bot {} use its configured color for embeds.").format(
+                _("will not") if not current_setting else _("will")
+            )
         )
 
-    @_set .command (name ="serverfuzzy")
-    @checks .guildowner ()
-    @commands .guild_only ()
-    async def _set_serverfuzzy (self ,ctx :commands .Context ):
+    @_set.command(name="serverfuzzy")
+    @checks.guildowner()
+    @commands.guild_only()
+    async def _set_serverfuzzy(self, ctx: commands.Context):
         """
         Toggle whether to enable fuzzy command search for the server.
 
@@ -3433,17 +3433,17 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Example:**
             - `[p]set serverfuzzy`
         """
-        current_setting =await ctx .bot ._config .guild (ctx .guild ).fuzzy ()
-        await ctx .bot ._config .guild (ctx .guild ).fuzzy .set (not current_setting )
-        await ctx .send (
-        _ ("Fuzzy command search has been {} for this server.").format (
-        _ ("disabled")if current_setting else _ ("enabled")
-        )
+        current_setting = await ctx.bot._config.guild(ctx.guild).fuzzy()
+        await ctx.bot._config.guild(ctx.guild).fuzzy.set(not current_setting)
+        await ctx.send(
+            _("Fuzzy command search has been {} for this server.").format(
+                _("disabled") if current_setting else _("enabled")
+            )
         )
 
-    @_set .command (name ="fuzzy")
-    @checks .is_owner ()
-    async def _set_fuzzy (self ,ctx :commands .Context ):
+    @_set.command(name="fuzzy")
+    @checks.is_owner()
+    async def _set_fuzzy(self, ctx: commands.Context):
         """
         Toggle whether to enable fuzzy command search in DMs.
 
@@ -3454,17 +3454,17 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Example:**
             - `[p]set fuzzy`
         """
-        current_setting =await ctx .bot ._config .fuzzy ()
-        await ctx .bot ._config .fuzzy .set (not current_setting )
-        await ctx .send (
-        _ ("Fuzzy command search has been {} in DMs.").format (
-        _ ("disabled")if current_setting else _ ("enabled")
-        )
+        current_setting = await ctx.bot._config.fuzzy()
+        await ctx.bot._config.fuzzy.set(not current_setting)
+        await ctx.send(
+            _("Fuzzy command search has been {} in DMs.").format(
+                _("disabled") if current_setting else _("enabled")
+            )
         )
 
-    @_set .command (name ="colour",aliases =["color"])
-    @checks .is_owner ()
-    async def _set_colour (self ,ctx :commands .Context ,*,colour :discord .Colour =None ):
+    @_set.command(name="colour", aliases=["color"])
+    @checks.is_owner()
+    async def _set_colour(self, ctx: commands.Context, *, colour: discord.Colour = None):
         """
         Sets a default colour to be used for the bot's embeds.
 
@@ -3482,21 +3482,21 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[colour]` - The colour to use for embeds. Leave blank to set to the default value (blue).
         """
-        if colour is None :
-            ctx .bot ._color =discord .Color .red ()
-            await ctx .bot ._config .color .set (discord .Color .red ().value )
-            return await ctx .send (_ ("The color has been reset."))
-        ctx .bot ._color =colour 
-        await ctx .bot ._config .color .set (colour .value )
-        await ctx .send (_ ("The color has been set."))
+        if colour is None:
+            ctx.bot._color = discord.Color.red()
+            await ctx.bot._config.color.set(discord.Color.red().value)
+            return await ctx.send(_("The color has been reset."))
+        ctx.bot._color = colour
+        await ctx.bot._config.color.set(colour.value)
+        await ctx.send(_("The color has been set."))
 
-    @_set .command (
-    name ="prefix",
-    aliases =["prefixes","globalprefix","globalprefixes"],
-    require_var_positional =True ,
+    @_set.command(
+        name="prefix",
+        aliases=["prefixes", "globalprefix", "globalprefixes"],
+        require_var_positional=True,
     )
-    @checks .is_owner ()
-    async def _set_prefix (self ,ctx :commands .Context ,*prefixes :str ):
+    @checks.is_owner()
+    async def _set_prefix(self, ctx: commands.Context, *prefixes: str):
         """Sets [botname]'s global prefix(es).
 
         Warning: This is not additive. It will replace all current prefixes.
@@ -3512,34 +3512,34 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<prefixes...>` - The prefixes the bot will respond to globally.
         """
-        if any (len (x )>MAX_PREFIX_LENGTH for x in prefixes ):
-            await ctx .send (
-            _ (
-            "Warning: A prefix is above the recommended length (25 characters).\n"
-            "Do you want to continue?"
+        if any(len(x) > MAX_PREFIX_LENGTH for x in prefixes):
+            await ctx.send(
+                _(
+                    "Warning: A prefix is above the recommended length (25 characters).\n"
+                    "Do you want to continue?"
+                )
+                + " (yes/no)"
             )
-            +" (yes/no)"
-            )
-            pred =MessagePredicate .yes_or_no (ctx )
-            try :
-                await self .bot .wait_for ("message",check =pred ,timeout =30 )
-            except asyncio .TimeoutError :
-                await ctx .send (_ ("Response timed out."))
-                return 
-            else :
-                if pred .result is False :
-                    await ctx .send (_ ("Cancelled."))
-                    return 
-        await ctx .bot .set_prefixes (guild =None ,prefixes =prefixes )
-        if len (prefixes )==1 :
-            await ctx .send (_ ("Prefix set."))
-        else :
-            await ctx .send (_ ("Prefixes set."))
+            pred = MessagePredicate.yes_or_no(ctx)
+            try:
+                await self.bot.wait_for("message", check=pred, timeout=30)
+            except asyncio.TimeoutError:
+                await ctx.send(_("Response timed out."))
+                return
+            else:
+                if pred.result is False:
+                    await ctx.send(_("Cancelled."))
+                    return
+        await ctx.bot.set_prefixes(guild=None, prefixes=prefixes)
+        if len(prefixes) == 1:
+            await ctx.send(_("Prefix set."))
+        else:
+            await ctx.send(_("Prefixes set."))
 
-    @_set .command (name ="serverprefix",aliases =["serverprefixes"])
-    @checks .admin_or_permissions (manage_guild =True )
-    @commands .guild_only ()
-    async def _set_serverprefix (self ,ctx :commands .Context ,*prefixes :str ):
+    @_set.command(name="serverprefix", aliases=["serverprefixes"])
+    @checks.admin_or_permissions(manage_guild=True)
+    @commands.guild_only()
+    async def _set_serverprefix(self, ctx: commands.Context, *prefixes: str):
         """
         Sets [botname]'s server prefix(es).
 
@@ -3556,32 +3556,32 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[prefixes...]` - The prefixes the bot will respond to on this server. Leave blank to clear server prefixes.
         """
-        if not prefixes :
-            await ctx .bot .set_prefixes (guild =ctx .guild ,prefixes =[])
-            await ctx .send (_ ("Server prefixes have been reset."))
-            return 
-        if any (len (x )>MAX_PREFIX_LENGTH for x in prefixes ):
-            await ctx .send (_ ("You cannot have a prefix longer than 25 characters."))
-            return 
-        prefixes =sorted (prefixes ,reverse =True )
-        await ctx .bot .set_prefixes (guild =ctx .guild ,prefixes =prefixes )
-        if len (prefixes )==1 :
-            await ctx .send (_ ("Server prefix set."))
-        else :
-            await ctx .send (_ ("Server prefixes set."))
+        if not prefixes:
+            await ctx.bot.set_prefixes(guild=ctx.guild, prefixes=[])
+            await ctx.send(_("Server prefixes have been reset."))
+            return
+        if any(len(x) > MAX_PREFIX_LENGTH for x in prefixes):
+            await ctx.send(_("You cannot have a prefix longer than 25 characters."))
+            return
+        prefixes = sorted(prefixes, reverse=True)
+        await ctx.bot.set_prefixes(guild=ctx.guild, prefixes=prefixes)
+        if len(prefixes) == 1:
+            await ctx.send(_("Server prefix set."))
+        else:
+            await ctx.send(_("Server prefixes set."))
 
-    @commands .group ()
-    @checks .is_owner ()
-    async def helpset (self ,ctx :commands .Context ):
+    @commands.group()
+    @checks.is_owner()
+    async def helpset(self, ctx: commands.Context):
         """
         Commands to manage settings for the help command.
 
         All help settings are applied globally.
         """
-        pass 
+        pass
 
-    @helpset .command (name ="showsettings")
-    async def helpset_showsettings (self ,ctx :commands .Context ):
+    @helpset.command(name="showsettings")
+    async def helpset_showsettings(self, ctx: commands.Context):
         """
         Show the current help settings.
 
@@ -3591,21 +3591,21 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
             - `[p]helpset showsettings`
         """
 
-        help_settings =await commands .help .HelpSettings .from_context (ctx )
+        help_settings = await commands.help.HelpSettings.from_context(ctx)
 
-        if type (ctx .bot ._help_formatter )is commands .help .BlueHelpFormatter :
-            message =help_settings .pretty 
-        else :
-            message =_ (
-            "Warning: The default formatter is not in use, these settings may not apply."
+        if type(ctx.bot._help_formatter) is commands.help.BlueHelpFormatter:
+            message = help_settings.pretty
+        else:
+            message = _(
+                "Warning: The default formatter is not in use, these settings may not apply."
             )
-            message +=f"\n\n{help_settings.pretty}"
+            message += f"\n\n{help_settings.pretty}"
 
-        for page in pagify (message ):
-            await ctx .send (page )
+        for page in pagify(message):
+            await ctx.send(page)
 
-    @helpset .command (name ="resetformatter")
-    async def helpset_resetformatter (self ,ctx :commands .Context ):
+    @helpset.command(name="resetformatter")
+    async def helpset_resetformatter(self, ctx: commands.Context):
         """
         This resets [botname]'s help formatter to the default formatter.
 
@@ -3613,17 +3613,17 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
             - `[p]helpset resetformatter`
         """
 
-        ctx .bot .reset_help_formatter ()
-        await ctx .send (
-        _ (
-        "The help formatter has been reset. "
-        "This will not prevent cogs from modifying help, "
-        "you may need to remove a cog if this has been an issue."
-        )
+        ctx.bot.reset_help_formatter()
+        await ctx.send(
+            _(
+                "The help formatter has been reset. "
+                "This will not prevent cogs from modifying help, "
+                "you may need to remove a cog if this has been an issue."
+            )
         )
 
-    @helpset .command (name ="resetsettings")
-    async def helpset_resetsettings (self ,ctx :commands .Context ):
+    @helpset.command(name="resetsettings")
+    async def helpset_resetsettings(self, ctx: commands.Context):
         """
         This resets [botname]'s help settings to their defaults.
 
@@ -3632,16 +3632,16 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Example:**
             - `[p]helpset resetsettings`
         """
-        await ctx .bot ._config .help .clear ()
-        await ctx .send (
-        _ (
-        "The help settings have been reset to their defaults. "
-        "This may not have an impact when using 3rd party help formatters."
-        )
+        await ctx.bot._config.help.clear()
+        await ctx.send(
+            _(
+                "The help settings have been reset to their defaults. "
+                "This may not have an impact when using 3rd party help formatters."
+            )
         )
 
-    @helpset .command (name ="usemenus")
-    async def helpset_usemenus (self ,ctx :commands .Context ,use_menus :bool =None ):
+    @helpset.command(name="usemenus")
+    async def helpset_usemenus(self, ctx: commands.Context, use_menus: bool = None):
         """
         Allows the help command to be sent as a paginated menu instead of separate
         messages.
@@ -3658,16 +3658,16 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[use_menus]` - Whether to use menus. Leave blank to toggle.
         """
-        if use_menus is None :
-            use_menus =not await ctx .bot ._config .help .use_menus ()
-        await ctx .bot ._config .help .use_menus .set (use_menus )
-        if use_menus :
-            await ctx .send (_ ("Help will use menus."))
-        else :
-            await ctx .send (_ ("Help will not use menus."))
+        if use_menus is None:
+            use_menus = not await ctx.bot._config.help.use_menus()
+        await ctx.bot._config.help.use_menus.set(use_menus)
+        if use_menus:
+            await ctx.send(_("Help will use menus."))
+        else:
+            await ctx.send(_("Help will not use menus."))
 
-    @helpset .command (name ="showhidden")
-    async def helpset_showhidden (self ,ctx :commands .Context ,show_hidden :bool =None ):
+    @helpset.command(name="showhidden")
+    async def helpset_showhidden(self, ctx: commands.Context, show_hidden: bool = None):
         """
         This allows the help command to show hidden commands.
 
@@ -3681,16 +3681,16 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[show_hidden]` - Whether to use show hidden commands in help. Leave blank to toggle.
         """
-        if show_hidden is None :
-            show_hidden =not await ctx .bot ._config .help .show_hidden ()
-        await ctx .bot ._config .help .show_hidden .set (show_hidden )
-        if show_hidden :
-            await ctx .send (_ ("Help will not filter hidden commands."))
-        else :
-            await ctx .send (_ ("Help will filter hidden commands."))
+        if show_hidden is None:
+            show_hidden = not await ctx.bot._config.help.show_hidden()
+        await ctx.bot._config.help.show_hidden.set(show_hidden)
+        if show_hidden:
+            await ctx.send(_("Help will not filter hidden commands."))
+        else:
+            await ctx.send(_("Help will filter hidden commands."))
 
-    @helpset .command (name ="showaliases")
-    async def helpset_showaliases (self ,ctx :commands .Context ,show_aliases :bool =None ):
+    @helpset.command(name="showaliases")
+    async def helpset_showaliases(self, ctx: commands.Context, show_aliases: bool = None):
         """
         This allows the help command to show existing commands aliases if there is any.
 
@@ -3704,20 +3704,20 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[show_aliases]` - Whether to include aliases in help. Leave blank to toggle.
         """
-        if show_aliases is None :
-            show_aliases =not await ctx .bot ._config .help .show_aliases ()
-        await ctx .bot ._config .help .show_aliases .set (show_aliases )
-        if show_aliases :
-            await ctx .send (_ ("Help will now show command aliases."))
-        else :
-            await ctx .send (_ ("Help will no longer show command aliases."))
+        if show_aliases is None:
+            show_aliases = not await ctx.bot._config.help.show_aliases()
+        await ctx.bot._config.help.show_aliases.set(show_aliases)
+        if show_aliases:
+            await ctx.send(_("Help will now show command aliases."))
+        else:
+            await ctx.send(_("Help will no longer show command aliases."))
 
-    @helpset .command (name ="usetick")
-    async def helpset_usetick (self ,ctx :commands .Context ,use_tick :bool =None ):
+    @helpset.command(name="usetick")
+    async def helpset_usetick(self, ctx: commands.Context, use_tick: bool = None):
         """
         This allows the help command message to be ticked if help is sent to a DM.
 
-        Ticking is reacting to the help message with a âœ….
+        Ticking is reacting to the help message with a ✅.
 
         Defaults to False.
         Using this without a setting will toggle.
@@ -3731,16 +3731,16 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[use_tick]` - Whether to tick the help command when help is sent to DMs. Leave blank to toggle.
         """
-        if use_tick is None :
-            use_tick =not await ctx .bot ._config .help .use_tick ()
-        await ctx .bot ._config .help .use_tick .set (use_tick )
-        if use_tick :
-            await ctx .send (_ ("Help will now tick the command when sent in a DM."))
-        else :
-            await ctx .send (_ ("Help will not tick the command when sent in a DM."))
+        if use_tick is None:
+            use_tick = not await ctx.bot._config.help.use_tick()
+        await ctx.bot._config.help.use_tick.set(use_tick)
+        if use_tick:
+            await ctx.send(_("Help will now tick the command when sent in a DM."))
+        else:
+            await ctx.send(_("Help will not tick the command when sent in a DM."))
 
-    @helpset .command (name ="verifychecks")
-    async def helpset_permfilter (self ,ctx :commands .Context ,verify :bool =None ):
+    @helpset.command(name="verifychecks")
+    async def helpset_permfilter(self, ctx: commands.Context, verify: bool = None):
         """
         Sets if commands which can't be run in the current context should be filtered from help.
 
@@ -3754,16 +3754,16 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[verify]` - Whether to hide unusable commands in help. Leave blank to toggle.
         """
-        if verify is None :
-            verify =not await ctx .bot ._config .help .verify_checks ()
-        await ctx .bot ._config .help .verify_checks .set (verify )
-        if verify :
-            await ctx .send (_ ("Help will only show for commands which can be run."))
-        else :
-            await ctx .send (_ ("Help will show up without checking if the commands can be run."))
+        if verify is None:
+            verify = not await ctx.bot._config.help.verify_checks()
+        await ctx.bot._config.help.verify_checks.set(verify)
+        if verify:
+            await ctx.send(_("Help will only show for commands which can be run."))
+        else:
+            await ctx.send(_("Help will show up without checking if the commands can be run."))
 
-    @helpset .command (name ="verifyexists")
-    async def helpset_verifyexists (self ,ctx :commands .Context ,verify :bool =None ):
+    @helpset.command(name="verifyexists")
+    async def helpset_verifyexists(self, ctx: commands.Context, verify: bool = None):
         """
         Sets whether the bot should respond to help commands for nonexistent topics.
 
@@ -3781,21 +3781,21 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[verify]` - Whether to respond to help for nonexistent topics. Leave blank to toggle.
         """
-        if verify is None :
-            verify =not await ctx .bot ._config .help .verify_exists ()
-        await ctx .bot ._config .help .verify_exists .set (verify )
-        if verify :
-            await ctx .send (_ ("Help will verify the existence of help topics."))
-        else :
-            await ctx .send (
-            _ (
-            "Help will only verify the existence of "
-            "help topics via fuzzy help (if enabled)."
-            )
+        if verify is None:
+            verify = not await ctx.bot._config.help.verify_exists()
+        await ctx.bot._config.help.verify_exists.set(verify)
+        if verify:
+            await ctx.send(_("Help will verify the existence of help topics."))
+        else:
+            await ctx.send(
+                _(
+                    "Help will only verify the existence of "
+                    "help topics via fuzzy help (if enabled)."
+                )
             )
 
-    @helpset .command (name ="pagecharlimit")
-    async def helpset_pagecharlimt (self ,ctx :commands .Context ,limit :int ):
+    @helpset.command(name="pagecharlimit")
+    async def helpset_pagecharlimt(self, ctx: commands.Context, limit: int):
         """Set the character limit for each page in the help message.
 
         Note: This setting only applies to embedded help.
@@ -3812,15 +3812,15 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<limit>` - The max amount of characters to show per page in the help message.
         """
-        if limit <500 :
-            await ctx .send (_ ("You must give a value of at least 500 characters."))
-            return 
+        if limit < 500:
+            await ctx.send(_("You must give a value of at least 500 characters."))
+            return
 
-        await ctx .bot ._config .help .page_char_limit .set (limit )
-        await ctx .send (_ ("Done. The character limit per page has been set to {}.").format (limit ))
+        await ctx.bot._config.help.page_char_limit.set(limit)
+        await ctx.send(_("Done. The character limit per page has been set to {}.").format(limit))
 
-    @helpset .command (name ="maxpages")
-    async def helpset_maxpages (self ,ctx :commands .Context ,pages :int ):
+    @helpset.command(name="maxpages")
+    async def helpset_maxpages(self, ctx: commands.Context, pages: int):
         """Set the maximum number of help pages sent in a server channel.
 
         Note: This setting does not apply to menu help.
@@ -3838,16 +3838,16 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<limit>` - The max pages allowed to send per help in a server.
         """
-        if pages <0 :
-            await ctx .send (_ ("You must give a value of zero or greater!"))
-            return 
+        if pages < 0:
+            await ctx.send(_("You must give a value of zero or greater!"))
+            return
 
-        await ctx .bot ._config .help .max_pages_in_guild .set (pages )
-        await ctx .send (_ ("Done. The page limit has been set to {}.").format (pages ))
+        await ctx.bot._config.help.max_pages_in_guild.set(pages)
+        await ctx.send(_("Done. The page limit has been set to {}.").format(pages))
 
-    @helpset .command (name ="deletedelay")
-    @commands .bot_has_permissions (manage_messages =True )
-    async def helpset_deletedelay (self ,ctx :commands .Context ,seconds :int ):
+    @helpset.command(name="deletedelay")
+    @commands.bot_has_permissions(manage_messages=True)
+    async def helpset_deletedelay(self, ctx: commands.Context, seconds: int):
         """Set the delay after which help pages will be deleted.
 
         The setting is disabled by default, and only applies to non-menu help,
@@ -3865,21 +3865,21 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<seconds>` - The seconds to wait before deleting help pages.
         """
-        if seconds <0 :
-            await ctx .send (_ ("You must give a value of zero or greater!"))
-            return 
-        if seconds >60 *60 *24 *14 :# Ha! Yeah!
-            await ctx .send (_ ("The delay cannot be longer than 14 days!"))
-            return 
+        if seconds < 0:
+            await ctx.send(_("You must give a value of zero or greater!"))
+            return
+        if seconds > 60 * 60 * 24 * 14:  # 14 days
+            await ctx.send(_("The delay cannot be longer than 14 days!"))
+            return
 
-        await ctx .bot ._config .help .delete_delay .set (seconds )
-        if seconds ==0 :
-            await ctx .send (_ ("Done. Help messages will not be deleted now."))
-        else :
-            await ctx .send (_ ("Done. The delete delay has been set to {} seconds.").format (seconds ))
+        await ctx.bot._config.help.delete_delay.set(seconds)
+        if seconds == 0:
+            await ctx.send(_("Done. Help messages will not be deleted now."))
+        else:
+            await ctx.send(_("Done. The delete delay has been set to {} seconds.").format(seconds))
 
-    @helpset .command (name ="reacttimeout")
-    async def helpset_reacttimeout (self ,ctx :commands .Context ,seconds :int ):
+    @helpset.command(name="reacttimeout")
+    async def helpset_reacttimeout(self, ctx: commands.Context, seconds: int):
         """Set the timeout for reactions, if menus are enabled.
 
         The default is 30 seconds.
@@ -3894,18 +3894,18 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<seconds>` - The timeout, in seconds, of the reactions.
         """
-        if seconds <15 :
-            await ctx .send (_ ("You must give a value of at least 15 seconds!"))
-            return 
-        if seconds >300 :
-            await ctx .send (_ ("The timeout cannot be greater than 5 minutes!"))
-            return 
+        if seconds < 15:
+            await ctx.send(_("You must give a value of at least 15 seconds!"))
+            return
+        if seconds > 300:
+            await ctx.send(_("The timeout cannot be greater than 5 minutes!"))
+            return
 
-        await ctx .bot ._config .help .react_timeout .set (seconds )
-        await ctx .send (_ ("Done. The reaction timeout has been set to {} seconds.").format (seconds ))
+        await ctx.bot._config.help.react_timeout.set(seconds)
+        await ctx.send(_("Done. The reaction timeout has been set to {} seconds.").format(seconds))
 
-    @helpset .command (name ="tagline")
-    async def helpset_tagline (self ,ctx :commands .Context ,*,tagline :str =None ):
+    @helpset.command(name="tagline")
+    async def helpset_tagline(self, ctx: commands.Context, *, tagline: str = None):
         """
         Set the tagline to be used.
 
@@ -3919,25 +3919,25 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[tagline]` - The tagline to appear at the bottom of help embeds. Leave blank to reset.
         """
-        if tagline is None :
-            await ctx .bot ._config .help .tagline .set ("")
-            return await ctx .send (_ ("The tagline has been reset."))
+        if tagline is None:
+            await ctx.bot._config.help.tagline.set("")
+            return await ctx.send(_("The tagline has been reset."))
 
-        if len (tagline )>2048 :
-            await ctx .send (
-            _ (
-            "Your tagline is too long! Please shorten it to be "
-            "no more than 2048 characters long."
+        if len(tagline) > 2048:
+            await ctx.send(
+                _(
+                    "Your tagline is too long! Please shorten it to be "
+                    "no more than 2048 characters long."
+                )
             )
-            )
-            return 
+            return
 
-        await ctx .bot ._config .help .tagline .set (tagline )
-        await ctx .send (_ ("The tagline has been set."))
+        await ctx.bot._config.help.tagline.set(tagline)
+        await ctx.send(_("The tagline has been set."))
 
-    @commands .command (cooldown_after_parsing =True )
-    @commands .cooldown (1 ,60 ,commands .BucketType .user )
-    async def contact (self ,ctx :commands .Context ,*,message :str ):
+    @commands.command(cooldown_after_parsing=True)
+    @commands.cooldown(1, 60, commands.BucketType.user)
+    async def contact(self, ctx: commands.Context, *, message: str):
         """Sends a message to the owner.
 
         This is limited to one message every 60 seconds per person.
@@ -3948,83 +3948,83 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[message]` - The message to send to the owner.
         """
-        guild =ctx .message .guild 
-        author =ctx .message .author 
-        footer =_ ("User ID: {}").format (author .id )
+        guild = ctx.message.guild
+        author = ctx.message.author
+        footer = _("User ID: {}").format(author.id)
 
-        if ctx .guild is None :
-            source =_ ("through DM")
-        else :
-            source =_ ("from {}").format (guild )
-            footer +=_ (" | Server ID: {}").format (guild .id )
+        if ctx.guild is None:
+            source = _("through DM")
+        else:
+            source = _("from {}").format(guild)
+            footer += _(" | Server ID: {}").format(guild.id)
 
-        prefixes =await ctx .bot .get_valid_prefixes ()
-        prefix =re .sub (rf"<@!?{ctx.me.id}>",f"@{ctx.me.name}".replace ("\\",r"\\"),prefixes [0 ])
+        prefixes = await ctx.bot.get_valid_prefixes()
+        prefix = re.sub(rf"<@!?{ctx.me.id}>", f"@{ctx.me.name}".replace("\\", r"\\"), prefixes[0])
 
-        content =_ ("Use `{}dm {} <text>` to reply to this user").format (prefix ,author .id )
+        content = _("Use `{}dm {} <text>` to reply to this user").format(prefix, author.id)
 
-        description =_ ("Sent by {} {}").format (author ,source )
+        description = _("Sent by {} {}").format(author, source)
 
-        destinations =await ctx .bot .get_owner_notification_destinations ()
+        destinations = await ctx.bot.get_owner_notification_destinations()
 
-        if not destinations :
-            await ctx .send (_ ("I've been configured not to send this anywhere."))
-            return 
+        if not destinations:
+            await ctx.send(_("I've been configured not to send this anywhere."))
+            return
 
-        successful =False 
+        successful = False
 
-        for destination in destinations :
-            is_dm =isinstance (destination ,discord .User )
-            if not is_dm and not destination .permissions_for (destination .guild .me ).send_messages :
-                continue 
+        for destination in destinations:
+            is_dm = isinstance(destination, discord.User)
+            if not is_dm and not destination.permissions_for(destination.guild.me).send_messages:
+                continue
 
-            if await ctx .bot .embed_requested (destination ,command =ctx .command ):
-                color =await ctx .bot .get_embed_color (destination )
+            if await ctx.bot.embed_requested(destination, command=ctx.command):
+                color = await ctx.bot.get_embed_color(destination)
 
-                e =discord .Embed (colour =color ,description =message )
-                if author .avatar_url :
-                    e .set_author (name =description ,icon_url =author .avatar_url )
-                else :
-                    e .set_author (name =description )
+                e = discord.Embed(colour=color, description=message)
+                if author.avatar_url:
+                    e.set_author(name=description, icon_url=author.avatar_url)
+                else:
+                    e.set_author(name=description)
 
-                e .set_footer (text =footer )
+                e.set_footer(text=footer)
 
-                try :
-                    await destination .send (embed =e )
-                except discord .Forbidden :
-                    log .exception (f"Contact failed to {destination}({destination.id})")
-                    # Because it's what she does. I wasn't so different from you, and Twilight helped me change. If there's one pony in Equestria that can save a friendship, it's her.
-                except discord .HTTPException :
-                    log .exception (
-                    f"An unexpected error happened while attempting to"
-                    f" send contact to {destination}({destination.id})"
+                try:
+                    await destination.send(embed=e)
+                except discord.Forbidden:
+                    log.exception(f"Contact failed to {destination}({destination.id})")
+                    # Should this automatically opt them out?
+                except discord.HTTPException:
+                    log.exception(
+                        f"An unexpected error happened while attempting to"
+                        f" send contact to {destination}({destination.id})"
                     )
-                else :
-                    successful =True 
-            else :
-                msg_text ="{}\nMessage:\n\n{}\n{}".format (description ,message ,footer )
+                else:
+                    successful = True
+            else:
+                msg_text = "{}\nMessage:\n\n{}\n{}".format(description, message, footer)
 
-                try :
-                    await destination .send ("{}\n{}".format (content ,box (msg_text )))
-                except discord .Forbidden :
-                    log .exception (f"Contact failed to {destination}({destination.id})")
-                    # Yeah, Applejack! Whoo-hoo!
-                except discord .HTTPException :
-                    log .exception (
-                    f"An unexpected error happened while attempting to"
-                    f" send contact to {destination}({destination.id})"
+                try:
+                    await destination.send("{}\n{}".format(content, box(msg_text)))
+                except discord.Forbidden:
+                    log.exception(f"Contact failed to {destination}({destination.id})")
+                    # Should this automatically opt them out?
+                except discord.HTTPException:
+                    log.exception(
+                        f"An unexpected error happened while attempting to"
+                        f" send contact to {destination}({destination.id})"
                     )
-                else :
-                    successful =True 
+                else:
+                    successful = True
 
-        if successful :
-            await ctx .send (_ ("Your message has been sent."))
-        else :
-            await ctx .send (_ ("I'm unable to deliver your message. Sorry."))
+        if successful:
+            await ctx.send(_("Your message has been sent."))
+        else:
+            await ctx.send(_("I'm unable to deliver your message. Sorry."))
 
-    @commands .command ()
-    @checks .is_owner ()
-    async def dm (self ,ctx :commands .Context ,user_id :int ,*,message :str ):
+    @commands.command()
+    @checks.is_owner()
+    async def dm(self, ctx: commands.Context, user_id: int, *, message: str):
         """Sends a DM to a user.
 
         This command needs a user ID to work.
@@ -4038,179 +4038,179 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[message]` - The message to dm to the user.
         """
-        destination =self .bot .get_user (user_id )
-        if destination is None or destination .bot :
-            await ctx .send (
-            _ (
-            "Invalid ID, user not found, or user is a bot. "
-            "You can only send messages to people I share "
-            "a server with."
-            )
-            )
-            return 
-
-        prefixes =await ctx .bot .get_valid_prefixes ()
-        prefix =re .sub (rf"<@!?{ctx.me.id}>",f"@{ctx.me.name}".replace ("\\",r"\\"),prefixes [0 ])
-        description =_ ("Owner of {}").format (ctx .bot .user )
-        content =_ ("You can reply to this message with {}contact").format (prefix )
-        if await ctx .embed_requested ():
-            e =discord .Embed (colour =discord .Colour .red (),description =message )
-
-            e .set_footer (text =content )
-            if ctx .bot .user .avatar_url :
-                e .set_author (name =description ,icon_url =ctx .bot .user .avatar_url )
-            else :
-                e .set_author (name =description )
-
-            try :
-                await destination .send (embed =e )
-            except discord .HTTPException :
-                await ctx .send (
-                _ ("Sorry, I couldn't deliver your message to {}").format (destination )
+        destination = self.bot.get_user(user_id)
+        if destination is None or destination.bot:
+            await ctx.send(
+                _(
+                    "Invalid ID, user not found, or user is a bot. "
+                    "You can only send messages to people I share "
+                    "a server with."
                 )
-            else :
-                await ctx .send (_ ("Message delivered to {}").format (destination ))
-        else :
-            response ="{}\nMessage:\n\n{}".format (description ,message )
-            try :
-                await destination .send ("{}\n{}".format (box (response ),content ))
-            except discord .HTTPException :
-                await ctx .send (
-                _ ("Sorry, I couldn't deliver your message to {}").format (destination )
-                )
-            else :
-                await ctx .send (_ ("Message delivered to {}").format (destination ))
+            )
+            return
 
-    @commands .command (hidden =True )
-    @checks .is_owner ()
-    async def datapath (self ,ctx :commands .Context ):
+        prefixes = await ctx.bot.get_valid_prefixes()
+        prefix = re.sub(rf"<@!?{ctx.me.id}>", f"@{ctx.me.name}".replace("\\", r"\\"), prefixes[0])
+        description = _("Owner of {}").format(ctx.bot.user)
+        content = _("You can reply to this message with {}contact").format(prefix)
+        if await ctx.embed_requested():
+            e = discord.Embed(colour=discord.Colour.red(), description=message)
+
+            e.set_footer(text=content)
+            if ctx.bot.user.avatar_url:
+                e.set_author(name=description, icon_url=ctx.bot.user.avatar_url)
+            else:
+                e.set_author(name=description)
+
+            try:
+                await destination.send(embed=e)
+            except discord.HTTPException:
+                await ctx.send(
+                    _("Sorry, I couldn't deliver your message to {}").format(destination)
+                )
+            else:
+                await ctx.send(_("Message delivered to {}").format(destination))
+        else:
+            response = "{}\nMessage:\n\n{}".format(description, message)
+            try:
+                await destination.send("{}\n{}".format(box(response), content))
+            except discord.HTTPException:
+                await ctx.send(
+                    _("Sorry, I couldn't deliver your message to {}").format(destination)
+                )
+            else:
+                await ctx.send(_("Message delivered to {}").format(destination))
+
+    @commands.command(hidden=True)
+    @checks.is_owner()
+    async def datapath(self, ctx: commands.Context):
         """Prints the bot's data path."""
-        from bluebot .core .data_manager import basic_config 
+        from bluebot.core.data_manager import basic_config
 
-        data_dir =Path (basic_config ["DATA_PATH"])
-        msg =_ ("Data path: {path}").format (path =data_dir )
-        await ctx .send (box (msg ))
+        data_dir = Path(basic_config["DATA_PATH"])
+        msg = _("Data path: {path}").format(path=data_dir)
+        await ctx.send(box(msg))
 
-    @commands .command (hidden =True )
-    @checks .is_owner ()
-    async def debuginfo (self ,ctx :commands .Context ):
+    @commands.command(hidden=True)
+    @checks.is_owner()
+    async def debuginfo(self, ctx: commands.Context):
         """Shows debug information useful for debugging."""
 
-        if sys .platform =="linux":
-            import distro # Eeyup.
+        if sys.platform == "linux":
+            import distro  # pylint: disable=import-error
 
-        IS_WINDOWS =os .name =="nt"
-        IS_MAC =sys .platform =="darwin"
-        IS_LINUX =sys .platform =="linux"
+        IS_WINDOWS = os.name == "nt"
+        IS_MAC = sys.platform == "darwin"
+        IS_LINUX = sys.platform == "linux"
 
-        python_version =".".join (map (str ,sys .version_info [:3 ]))
-        pyver =f"{python_version} ({platform.architecture()[0]})"
-        pipver =pip .__version__ 
-        redver =blue_version_info 
-        dpy_version =discord .__version__ 
-        if IS_WINDOWS :
-            os_info =platform .uname ()
-            osver =f"{os_info.system} {os_info.release} (version {os_info.version})"
-        elif IS_MAC :
-            os_info =platform .mac_ver ()
-            osver =f"Mac OSX {os_info[0]} {os_info[2]}"
-        elif IS_LINUX :
-            osver =f"{distro.name()} {distro.version()}".strip ()
-        else :
-            osver ="Could not parse OS, report this on Github."
-        user_who_ran =getpass .getuser ()
-        driver =storage_type ()
+        python_version = ".".join(map(str, sys.version_info[:3]))
+        pyver = f"{python_version} ({platform.architecture()[0]})"
+        pipver = pip.__version__
+        redver = blue_version_info
+        dpy_version = discord.__version__
+        if IS_WINDOWS:
+            os_info = platform.uname()
+            osver = f"{os_info.system} {os_info.release} (version {os_info.version})"
+        elif IS_MAC:
+            os_info = platform.mac_ver()
+            osver = f"Mac OSX {os_info[0]} {os_info[2]}"
+        elif IS_LINUX:
+            osver = f"{distro.name()} {distro.version()}".strip()
+        else:
+            osver = "Could not parse OS, report this on Github."
+        user_who_ran = getpass.getuser()
+        driver = storage_type()
 
-        from bluebot .core .data_manager import basic_config ,config_file 
+        from bluebot.core.data_manager import basic_config, config_file
 
-        data_path =Path (basic_config ["DATA_PATH"])
-        disabled_intents =(
-        ", ".join (
-        intent_name .replace ("_"," ").title ()
-        for intent_name ,enabled in self .bot .intents 
-        if not enabled 
-        )
-        or "None"
-        )
-
-        def _datasize (num :int ):
-            for unit in ["B","KB","MB","GB","TB","PB","EB","ZB"]:
-                if abs (num )<1024.0 :
-                    return "{0:.1f}{1}".format (num ,unit )
-                num /=1024.0 
-            return "{0:.1f}{1}".format (num ,"YB")
-
-        memory_ram =psutil .virtual_memory ()
-        ram_string ="{used}/{total} ({percent}%)".format (
-        used =_datasize (memory_ram .used ),
-        total =_datasize (memory_ram .total ),
-        percent =memory_ram .percent ,
+        data_path = Path(basic_config["DATA_PATH"])
+        disabled_intents = (
+            ", ".join(
+                intent_name.replace("_", " ").title()
+                for intent_name, enabled in self.bot.intents
+                if not enabled
+            )
+            or "None"
         )
 
-        owners =[]
-        for uid in self .bot .owner_ids :
-            try :
-                u =await self .bot .get_or_fetch_user (uid )
-                owners .append (f"{u.id} ({u})")
-            except discord .HTTPException :
-                owners .append (f"{uid} (Unresolvable)")
-        owners_string =", ".join (owners )or "None"
+        def _datasize(num: int):
+            for unit in ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB"]:
+                if abs(num) < 1024.0:
+                    return "{0:.1f}{1}".format(num, unit)
+                num /= 1024.0
+            return "{0:.1f}{1}".format(num, "YB")
 
-        resp_intro ="# Debug Info for Blue:"
-        resp_system_intro ="## System Metadata:"
-        resp_system =(
-        f"CPU Cores: {psutil.cpu_count()} ({platform.machine()})\nRAM: {ram_string}\n"
-        )
-        resp_os_intro ="## OS Variables:"
-        resp_os =f"OS version: {osver}\nUser: {user_who_ran}\n"# Okay. I am definitely glad you came. I don't think we'd be able to find our way without you.
-        resp_py_metadata =(
-        f"Python executable: {sys.executable}\n"
-        f"Python version: {pyver}\n"
-        f"Pip version: {pipver}\n"
-        )
-        resp_blue_metadata =f"Blue version: {bluever}\nDiscord.py version: {dpy_version}\n"
-        resp_blue_vars_intro ="## Blue variables:"
-        resp_blue_vars =(
-        f"Instance name: {data_manager.instance_name}\n"
-        f"Owner(s): {owners_string}\n"
-        f"Storage type: {driver}\n"
-        f"Disabled intents: {disabled_intents}\n"
-        f"Data path: {data_path}\n"
-        f"Metadata file: {config_file}"
+        memory_ram = psutil.virtual_memory()
+        ram_string = "{used}/{total} ({percent}%)".format(
+            used=_datasize(memory_ram.used),
+            total=_datasize(memory_ram.total),
+            percent=memory_ram.percent,
         )
 
-        response =(
-        box (resp_intro ,lang ="md"),
-        "\n",
-        box (resp_system_intro ,lang ="md"),
-        box (resp_system ),
-        "\n",
-        box (resp_os_intro ,lang ="md"),
-        box (resp_os ),
-        box (resp_py_metadata ),
-        box (resp_blue_metadata ),
-        "\n",
-        box (resp_blue_vars_intro ,lang ="md"),
-        box (resp_blue_vars ),
+        owners = []
+        for uid in self.bot.owner_ids:
+            try:
+                u = await self.bot.get_or_fetch_user(uid)
+                owners.append(f"{u.id} ({u})")
+            except discord.HTTPException:
+                owners.append(f"{uid} (Unresolvable)")
+        owners_string = ", ".join(owners) or "None"
+
+        resp_intro = "# Debug Info for Blue:"
+        resp_system_intro = "## System Metadata:"
+        resp_system = (
+            f"CPU Cores: {psutil.cpu_count()} ({platform.machine()})\nRAM: {ram_string}\n"
+        )
+        resp_os_intro = "## OS Variables:"
+        resp_os = f"OS version: {osver}\nUser: {user_who_ran}\n"  # Ran where off to?!
+        resp_py_metadata = (
+            f"Python executable: {sys.executable}\n"
+            f"Python version: {pyver}\n"
+            f"Pip version: {pipver}\n"
+        )
+        resp_blue_metadata = f"Blue version: {bluever}\nDiscord.py version: {dpy_version}\n"
+        resp_blue_vars_intro = "## Blue variables:"
+        resp_blue_vars = (
+            f"Instance name: {data_manager.instance_name}\n"
+            f"Owner(s): {owners_string}\n"
+            f"Storage type: {driver}\n"
+            f"Disabled intents: {disabled_intents}\n"
+            f"Data path: {data_path}\n"
+            f"Metadata file: {config_file}"
         )
 
-        await ctx .send ("".join (response ))
+        response = (
+            box(resp_intro, lang="md"),
+            "\n",
+            box(resp_system_intro, lang="md"),
+            box(resp_system),
+            "\n",
+            box(resp_os_intro, lang="md"),
+            box(resp_os),
+            box(resp_py_metadata),
+            box(resp_blue_metadata),
+            "\n",
+            box(resp_blue_vars_intro, lang="md"),
+            box(resp_blue_vars),
+        )
 
-        # Wow. That was brave.
-        # That makes me seem too egotistical, doesn't it? Oh, oh! Maybe if they're framed, it's like, "Wow, she's so humble!" Ya think? Scootaloo?
-        # What are you doing?!
-        # Where am I?
-        # Uh? She's not here.
-    @commands .is_owner ()
-    @commands .command ()
-    async def diagnoseissues (
-    self ,
-    ctx :commands .Context ,
-    channel :Optional [discord .TextChannel ],
-    member :Union [discord .Member ,discord .User ],
-    *,
-    command_name :str ,
-    )->None :
+        await ctx.send("".join(response))
+
+    # You may ask why this command is owner-only,
+    # cause after all it could be quite useful to guild owners!
+    # Truth to be told, that would require us to make some part of this
+    # more end-user friendly rather than just bot owner friendly - terms like
+    # 'global call once checks' are not of any use to someone who isn't bot owner.
+    @commands.is_owner()
+    @commands.command()
+    async def diagnoseissues(
+        self,
+        ctx: commands.Context,
+        channel: Optional[discord.TextChannel],
+        member: Union[discord.Member, discord.User],
+        *,
+        command_name: str,
+    ) -> None:
         """
         Diagnose issues with the command checks with ease!
 
@@ -4225,40 +4225,40 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
             - `<member>` - The member that should be considered as the command caller.
             - `<command_name>` - The name of the command to test.
         """
-        if channel is None :
-            channel =ctx .channel 
-            if not isinstance (channel ,discord .TextChannel ):
-                await ctx .send (_ ("The channel needs to be passed when using this command in DMs."))
-                return 
+        if channel is None:
+            channel = ctx.channel
+            if not isinstance(channel, discord.TextChannel):
+                await ctx.send(_("The channel needs to be passed when using this command in DMs."))
+                return
 
-        command =self .bot .get_command (command_name )
-        if command is None :
-            await ctx .send ("Command not found!")
-            return 
+        command = self.bot.get_command(command_name)
+        if command is None:
+            await ctx.send("Command not found!")
+            return
 
-            # Mm-hmm.
-            # A-ha! Not only do I think I know how the boat sank, I have a pretty good idea how to get Rarity, Applejack and Pinkie Pie back together!
-        if isinstance (member ,discord .User ):
-            maybe_member =channel .guild .get_member (member .id )
-            if maybe_member is None :
-                await ctx .send (_ ("The given user is not a member of the diagnosed server."))
-                return 
-            member =maybe_member 
+        # This is done to allow the bot owner to diagnose a command
+        # while not being a part of the server.
+        if isinstance(member, discord.User):
+            maybe_member = channel.guild.get_member(member.id)
+            if maybe_member is None:
+                await ctx.send(_("The given user is not a member of the diagnosed server."))
+                return
+            member = maybe_member
 
-        if not channel .permissions_for (member ).send_messages :
-        # We did?
-            await ctx .send (
-            _ (
-            "Don't try to fool me, the given member can't access the {channel} channel!"
-            ).format (channel =channel .mention )
+        if not channel.permissions_for(member).send_messages:
+            # Let's make Flame happy here
+            await ctx.send(
+                _(
+                    "Don't try to fool me, the given member can't access the {channel} channel!"
+                ).format(channel=channel.mention)
             )
-            return 
-        issue_diagnoser =IssueDiagnoser (self .bot ,ctx ,channel ,member ,command )
-        await ctx .send (await issue_diagnoser .diagnose ())
+            return
+        issue_diagnoser = IssueDiagnoser(self.bot, ctx, channel, member, command)
+        await ctx.send(await issue_diagnoser.diagnose())
 
-    @commands .group (aliases =["whitelist"])
-    @checks .is_owner ()
-    async def allowlist (self ,ctx :commands .Context ):
+    @commands.group(aliases=["whitelist"])
+    @checks.is_owner()
+    async def allowlist(self, ctx: commands.Context):
         """
         Commands to manage the allowlist.
 
@@ -4266,10 +4266,10 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
 
         Use `[p]allowlist clear` to disable the allowlist
         """
-        pass 
+        pass
 
-    @allowlist .command (name ="add",require_var_positional =True )
-    async def allowlist_add (self ,ctx :commands .Context ,*users :Union [discord .Member ,int ]):
+    @allowlist.command(name="add", require_var_positional=True)
+    async def allowlist_add(self, ctx: commands.Context, *users: Union[discord.Member, int]):
         """
         Adds users to the allowlist.
 
@@ -4280,40 +4280,40 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<users...>` - The user or users to add to the allowlist.
         """
-        await self .bot .add_to_whitelist (users )
-        if len (users )>1 :
-            await ctx .send (_ ("Users have been added to the allowlist."))
-        else :
-            await ctx .send (_ ("User has been added to the allowlist."))
+        await self.bot.add_to_whitelist(users)
+        if len(users) > 1:
+            await ctx.send(_("Users have been added to the allowlist."))
+        else:
+            await ctx.send(_("User has been added to the allowlist."))
 
-    @allowlist .command (name ="list")
-    async def allowlist_list (self ,ctx :commands .Context ):
+    @allowlist.command(name="list")
+    async def allowlist_list(self, ctx: commands.Context):
         """
         Lists users on the allowlist.
 
         **Example:**
             - `[p]allowlist list`
         """
-        curr_list =await ctx .bot ._config .whitelist ()
+        curr_list = await ctx.bot._config.whitelist()
 
-        if not curr_list :
-            await ctx .send ("Allowlist is empty.")
-            return 
-        if len (curr_list )>1 :
-            msg =_ ("Users on the allowlist:")
-        else :
-            msg =_ ("User on the allowlist:")
-        for user_id in curr_list :
-            user =self .bot .get_user (user_id )
-            if not user :
-                user =_ ("Unknown or Deleted User")
-            msg +=f"\n\t- {user_id} ({user})"
+        if not curr_list:
+            await ctx.send("Allowlist is empty.")
+            return
+        if len(curr_list) > 1:
+            msg = _("Users on the allowlist:")
+        else:
+            msg = _("User on the allowlist:")
+        for user_id in curr_list:
+            user = self.bot.get_user(user_id)
+            if not user:
+                user = _("Unknown or Deleted User")
+            msg += f"\n\t- {user_id} ({user})"
 
-        for page in pagify (msg ):
-            await ctx .send (box (page ))
+        for page in pagify(msg):
+            await ctx.send(box(page))
 
-    @allowlist .command (name ="remove",require_var_positional =True )
-    async def allowlist_remove (self ,ctx :commands .Context ,*users :Union [discord .Member ,int ]):
+    @allowlist.command(name="remove", require_var_positional=True)
+    async def allowlist_remove(self, ctx: commands.Context, *users: Union[discord.Member, int]):
         """
         Removes users from the allowlist.
 
@@ -4326,14 +4326,14 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<users...>` - The user or users to remove from the allowlist.
         """
-        await self .bot .remove_from_whitelist (users )
-        if len (users )>1 :
-            await ctx .send (_ ("Users have been removed from the allowlist."))
-        else :
-            await ctx .send (_ ("User has been removed from the allowlist."))
+        await self.bot.remove_from_whitelist(users)
+        if len(users) > 1:
+            await ctx.send(_("Users have been removed from the allowlist."))
+        else:
+            await ctx.send(_("User has been removed from the allowlist."))
 
-    @allowlist .command (name ="clear")
-    async def allowlist_clear (self ,ctx :commands .Context ):
+    @allowlist.command(name="clear")
+    async def allowlist_clear(self, ctx: commands.Context):
         """
         Clears the allowlist.
 
@@ -4342,21 +4342,21 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Example:**
             - `[p]allowlist clear`
         """
-        await self .bot .clear_whitelist ()
-        await ctx .send (_ ("Allowlist has been cleared."))
+        await self.bot.clear_whitelist()
+        await ctx.send(_("Allowlist has been cleared."))
 
-    @commands .group (aliases =["blacklist","denylist"])
-    @checks .is_owner ()
-    async def blocklist (self ,ctx :commands .Context ):
+    @commands.group(aliases=["blacklist", "denylist"])
+    @checks.is_owner()
+    async def blocklist(self, ctx: commands.Context):
         """
         Commands to manage the blocklist.
 
         Use `[p]blocklist clear` to disable the blocklist
         """
-        pass 
+        pass
 
-    @blocklist .command (name ="add",require_var_positional =True )
-    async def blocklist_add (self ,ctx :commands .Context ,*users :Union [discord .Member ,int ]):
+    @blocklist.command(name="add", require_var_positional=True)
+    async def blocklist_add(self, ctx: commands.Context, *users: Union[discord.Member, int]):
         """
         Adds users to the blocklist.
 
@@ -4367,49 +4367,49 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<users...>` - The user or users to add to the blocklist.
         """
-        for user in users :
-            if isinstance (user ,int ):
-                user_obj =discord .Object (id =user )
-            else :
-                user_obj =user 
-            if await ctx .bot .is_owner (user_obj ):
-                await ctx .send (_ ("You cannot add an owner to the blocklist!"))
-                return 
+        for user in users:
+            if isinstance(user, int):
+                user_obj = discord.Object(id=user)
+            else:
+                user_obj = user
+            if await ctx.bot.is_owner(user_obj):
+                await ctx.send(_("You cannot add an owner to the blocklist!"))
+                return
 
-        await self .bot .add_to_blacklist (users )
-        if len (users )>1 :
-            await ctx .send (_ ("Users have been added to the blocklist."))
-        else :
-            await ctx .send (_ ("User has been added to the blocklist."))
+        await self.bot.add_to_blacklist(users)
+        if len(users) > 1:
+            await ctx.send(_("Users have been added to the blocklist."))
+        else:
+            await ctx.send(_("User has been added to the blocklist."))
 
-    @blocklist .command (name ="list")
-    async def blocklist_list (self ,ctx :commands .Context ):
+    @blocklist.command(name="list")
+    async def blocklist_list(self, ctx: commands.Context):
         """
         Lists users on the blocklist.
 
         **Example:**
             - `[p]blocklist list`
         """
-        curr_list =await self .bot .get_blacklist ()
+        curr_list = await self.bot.get_blacklist()
 
-        if not curr_list :
-            await ctx .send ("Blocklist is empty.")
-            return 
-        if len (curr_list )>1 :
-            msg =_ ("Users on the blocklist:")
-        else :
-            msg =_ ("User on the blocklist:")
-        for user_id in curr_list :
-            user =self .bot .get_user (user_id )
-            if not user :
-                user =_ ("Unknown or Deleted User")
-            msg +=f"\n\t- {user_id} ({user})"
+        if not curr_list:
+            await ctx.send("Blocklist is empty.")
+            return
+        if len(curr_list) > 1:
+            msg = _("Users on the blocklist:")
+        else:
+            msg = _("User on the blocklist:")
+        for user_id in curr_list:
+            user = self.bot.get_user(user_id)
+            if not user:
+                user = _("Unknown or Deleted User")
+            msg += f"\n\t- {user_id} ({user})"
 
-        for page in pagify (msg ):
-            await ctx .send (box (page ))
+        for page in pagify(msg):
+            await ctx.send(box(page))
 
-    @blocklist .command (name ="remove",require_var_positional =True )
-    async def blocklist_remove (self ,ctx :commands .Context ,*users :Union [discord .Member ,int ]):
+    @blocklist.command(name="remove", require_var_positional=True)
+    async def blocklist_remove(self, ctx: commands.Context, *users: Union[discord.Member, int]):
         """
         Removes users from the blocklist.
 
@@ -4420,27 +4420,27 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<users...>` - The user or users to remove from the blocklist.
         """
-        await self .bot .remove_from_blacklist (users )
-        if len (users )>1 :
-            await ctx .send (_ ("Users have been removed from the blocklist."))
-        else :
-            await ctx .send (_ ("User has been removed from the blocklist."))
+        await self.bot.remove_from_blacklist(users)
+        if len(users) > 1:
+            await ctx.send(_("Users have been removed from the blocklist."))
+        else:
+            await ctx.send(_("User has been removed from the blocklist."))
 
-    @blocklist .command (name ="clear")
-    async def blocklist_clear (self ,ctx :commands .Context ):
+    @blocklist.command(name="clear")
+    async def blocklist_clear(self, ctx: commands.Context):
         """
         Clears the blocklist.
 
         **Example:**
             - `[p]blocklist clear`
         """
-        await self .bot .clear_blacklist ()
-        await ctx .send (_ ("Blocklist has been cleared."))
+        await self.bot.clear_blacklist()
+        await ctx.send(_("Blocklist has been cleared."))
 
-    @commands .group (aliases =["localwhitelist"])
-    @commands .guild_only ()
-    @checks .admin_or_permissions (administrator =True )
-    async def localallowlist (self ,ctx :commands .Context ):
+    @commands.group(aliases=["localwhitelist"])
+    @commands.guild_only()
+    @checks.admin_or_permissions(administrator=True)
+    async def localallowlist(self, ctx: commands.Context):
         """
         Commands to manage the server specific allowlist.
 
@@ -4448,11 +4448,11 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
 
         Use `[p]localallowlist clear` to disable the allowlist
         """
-        pass 
+        pass
 
-    @localallowlist .command (name ="add",require_var_positional =True )
-    async def localallowlist_add (
-    self ,ctx :commands .Context ,*users_or_roles :Union [discord .Member ,discord .Role ,int ]
+    @localallowlist.command(name="add", require_var_positional=True)
+    async def localallowlist_add(
+        self, ctx: commands.Context, *users_or_roles: Union[discord.Member, discord.Role, int]
     ):
         """
         Adds a user or role to the server allowlist.
@@ -4465,56 +4465,56 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<users_or_roles...>` - The users or roles to remove from the local allowlist.
         """
-        names =[getattr (u_or_r ,"name",u_or_r )for u_or_r in users_or_roles ]
-        uids ={getattr (u_or_r ,"id",u_or_r )for u_or_r in users_or_roles }
-        if not (ctx .guild .owner ==ctx .author or await self .bot .is_owner (ctx .author )):
-            current_whitelist =await self .bot .get_whitelist (ctx .guild )
-            theoretical_whitelist =current_whitelist .union (uids )
-            ids ={i for i in (ctx .author .id ,*(getattr (ctx .author ,"_roles",[])))}
-            if ids .isdisjoint (theoretical_whitelist ):
-                return await ctx .send (
-                _ (
-                "I cannot allow you to do this, as it would "
-                "remove your ability to run commands, "
-                "please ensure to add yourself to the allowlist first."
+        names = [getattr(u_or_r, "name", u_or_r) for u_or_r in users_or_roles]
+        uids = {getattr(u_or_r, "id", u_or_r) for u_or_r in users_or_roles}
+        if not (ctx.guild.owner == ctx.author or await self.bot.is_owner(ctx.author)):
+            current_whitelist = await self.bot.get_whitelist(ctx.guild)
+            theoretical_whitelist = current_whitelist.union(uids)
+            ids = {i for i in (ctx.author.id, *(getattr(ctx.author, "_roles", [])))}
+            if ids.isdisjoint(theoretical_whitelist):
+                return await ctx.send(
+                    _(
+                        "I cannot allow you to do this, as it would "
+                        "remove your ability to run commands, "
+                        "please ensure to add yourself to the allowlist first."
+                    )
                 )
-                )
-        await self .bot .add_to_whitelist (uids ,guild =ctx .guild )
+        await self.bot.add_to_whitelist(uids, guild=ctx.guild)
 
-        if len (uids )>1 :
-            await ctx .send (_ ("Users and/or roles have been added to the allowlist."))
-        else :
-            await ctx .send (_ ("User or role has been added to the allowlist."))
+        if len(uids) > 1:
+            await ctx.send(_("Users and/or roles have been added to the allowlist."))
+        else:
+            await ctx.send(_("User or role has been added to the allowlist."))
 
-    @localallowlist .command (name ="list")
-    async def localallowlist_list (self ,ctx :commands .Context ):
+    @localallowlist.command(name="list")
+    async def localallowlist_list(self, ctx: commands.Context):
         """
         Lists users and roles on the server allowlist.
 
         **Example:**
             - `[p]localallowlist list`
         """
-        curr_list =await self .bot .get_whitelist (ctx .guild )
+        curr_list = await self.bot.get_whitelist(ctx.guild)
 
-        if not curr_list :
-            await ctx .send ("Server allowlist is empty.")
-            return 
-        if len (curr_list )>1 :
-            msg =_ ("Allowed users and/or roles:")
-        else :
-            msg =_ ("Allowed user or role:")
-        for obj_id in curr_list :
-            user_or_role =self .bot .get_user (obj_id )or ctx .guild .get_role (obj_id )
-            if not user_or_role :
-                user_or_role =_ ("Unknown or Deleted User/Role")
-            msg +=f"\n\t- {obj_id} ({user_or_role})"
+        if not curr_list:
+            await ctx.send("Server allowlist is empty.")
+            return
+        if len(curr_list) > 1:
+            msg = _("Allowed users and/or roles:")
+        else:
+            msg = _("Allowed user or role:")
+        for obj_id in curr_list:
+            user_or_role = self.bot.get_user(obj_id) or ctx.guild.get_role(obj_id)
+            if not user_or_role:
+                user_or_role = _("Unknown or Deleted User/Role")
+            msg += f"\n\t- {obj_id} ({user_or_role})"
 
-        for page in pagify (msg ):
-            await ctx .send (box (page ))
+        for page in pagify(msg):
+            await ctx.send(box(page))
 
-    @localallowlist .command (name ="remove",require_var_positional =True )
-    async def localallowlist_remove (
-    self ,ctx :commands .Context ,*users_or_roles :Union [discord .Member ,discord .Role ,int ]
+    @localallowlist.command(name="remove", require_var_positional=True)
+    async def localallowlist_remove(
+        self, ctx: commands.Context, *users_or_roles: Union[discord.Member, discord.Role, int]
     ):
         """
         Removes user or role from the allowlist.
@@ -4529,28 +4529,28 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<users_or_roles...>` - The users or roles to remove from the local allowlist.
         """
-        names =[getattr (u_or_r ,"name",u_or_r )for u_or_r in users_or_roles ]
-        uids ={getattr (u_or_r ,"id",u_or_r )for u_or_r in users_or_roles }
-        if not (ctx .guild .owner ==ctx .author or await self .bot .is_owner (ctx .author )):
-            current_whitelist =await self .bot .get_whitelist (ctx .guild )
-            theoretical_whitelist =current_whitelist -uids 
-            ids ={i for i in (ctx .author .id ,*(getattr (ctx .author ,"_roles",[])))}
-            if theoretical_whitelist and ids .isdisjoint (theoretical_whitelist ):
-                return await ctx .send (
-                _ (
-                "I cannot allow you to do this, as it would "
-                "remove your ability to run commands."
+        names = [getattr(u_or_r, "name", u_or_r) for u_or_r in users_or_roles]
+        uids = {getattr(u_or_r, "id", u_or_r) for u_or_r in users_or_roles}
+        if not (ctx.guild.owner == ctx.author or await self.bot.is_owner(ctx.author)):
+            current_whitelist = await self.bot.get_whitelist(ctx.guild)
+            theoretical_whitelist = current_whitelist - uids
+            ids = {i for i in (ctx.author.id, *(getattr(ctx.author, "_roles", [])))}
+            if theoretical_whitelist and ids.isdisjoint(theoretical_whitelist):
+                return await ctx.send(
+                    _(
+                        "I cannot allow you to do this, as it would "
+                        "remove your ability to run commands."
+                    )
                 )
-                )
-        await self .bot .remove_from_whitelist (uids ,guild =ctx .guild )
+        await self.bot.remove_from_whitelist(uids, guild=ctx.guild)
 
-        if len (uids )>1 :
-            await ctx .send (_ ("Users and/or roles have been removed from the server allowlist."))
-        else :
-            await ctx .send (_ ("User or role has been removed from the server allowlist."))
+        if len(uids) > 1:
+            await ctx.send(_("Users and/or roles have been removed from the server allowlist."))
+        else:
+            await ctx.send(_("User or role has been removed from the server allowlist."))
 
-    @localallowlist .command (name ="clear")
-    async def localallowlist_clear (self ,ctx :commands .Context ):
+    @localallowlist.command(name="clear")
+    async def localallowlist_clear(self, ctx: commands.Context):
         """
         Clears the allowlist.
 
@@ -4559,23 +4559,23 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Example:**
             - `[p]localallowlist clear`
         """
-        await self .bot .clear_whitelist (ctx .guild )
-        await ctx .send (_ ("Server allowlist has been cleared."))
+        await self.bot.clear_whitelist(ctx.guild)
+        await ctx.send(_("Server allowlist has been cleared."))
 
-    @commands .group (aliases =["localblacklist"])
-    @commands .guild_only ()
-    @checks .admin_or_permissions (administrator =True )
-    async def localblocklist (self ,ctx :commands .Context ):
+    @commands.group(aliases=["localblacklist"])
+    @commands.guild_only()
+    @checks.admin_or_permissions(administrator=True)
+    async def localblocklist(self, ctx: commands.Context):
         """
         Commands to manage the server specific blocklist.
 
         Use `[p]localblocklist clear` to disable the blocklist
         """
-        pass 
+        pass
 
-    @localblocklist .command (name ="add",require_var_positional =True )
-    async def localblocklist_add (
-    self ,ctx :commands .Context ,*users_or_roles :Union [discord .Member ,discord .Role ,int ]
+    @localblocklist.command(name="add", require_var_positional=True)
+    async def localblocklist_add(
+        self, ctx: commands.Context, *users_or_roles: Union[discord.Member, discord.Role, int]
     ):
         """
         Adds a user or role to the local blocklist.
@@ -4588,53 +4588,53 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<users_or_roles...>` - The users or roles to add to the local blocklist.
         """
-        for user_or_role in users_or_roles :
-            uid =discord .Object (id =getattr (user_or_role ,"id",user_or_role ))
-            if uid .id ==ctx .author .id :
-                await ctx .send (_ ("You cannot add yourself to the blocklist!"))
-                return 
-            if uid .id ==ctx .guild .owner_id and not await ctx .bot .is_owner (ctx .author ):
-                await ctx .send (_ ("You cannot add the guild owner to the blocklist!"))
-                return 
-            if await ctx .bot .is_owner (uid ):
-                await ctx .send (_ ("You cannot add a bot owner to the blocklist!"))
-                return 
-        await self .bot .add_to_blacklist (users_or_roles ,guild =ctx .guild )
+        for user_or_role in users_or_roles:
+            uid = discord.Object(id=getattr(user_or_role, "id", user_or_role))
+            if uid.id == ctx.author.id:
+                await ctx.send(_("You cannot add yourself to the blocklist!"))
+                return
+            if uid.id == ctx.guild.owner_id and not await ctx.bot.is_owner(ctx.author):
+                await ctx.send(_("You cannot add the guild owner to the blocklist!"))
+                return
+            if await ctx.bot.is_owner(uid):
+                await ctx.send(_("You cannot add a bot owner to the blocklist!"))
+                return
+        await self.bot.add_to_blacklist(users_or_roles, guild=ctx.guild)
 
-        if len (users_or_roles )>1 :
-            await ctx .send (_ ("Users and/or roles have been added from the server blocklist."))
-        else :
-            await ctx .send (_ ("User or role has been added from the server blocklist."))
+        if len(users_or_roles) > 1:
+            await ctx.send(_("Users and/or roles have been added from the server blocklist."))
+        else:
+            await ctx.send(_("User or role has been added from the server blocklist."))
 
-    @localblocklist .command (name ="list")
-    async def localblocklist_list (self ,ctx :commands .Context ):
+    @localblocklist.command(name="list")
+    async def localblocklist_list(self, ctx: commands.Context):
         """
         Lists users and roles on the server blocklist.
 
         **Example:**
             - `[p]localblocklist list`
         """
-        curr_list =await self .bot .get_blacklist (ctx .guild )
+        curr_list = await self.bot.get_blacklist(ctx.guild)
 
-        if not curr_list :
-            await ctx .send ("Server blocklist is empty.")
-            return 
-        if len (curr_list )>1 :
-            msg =_ ("Blocked users and/or roles:")
-        else :
-            msg =_ ("Blocked user or role:")
-        for obj_id in curr_list :
-            user_or_role =self .bot .get_user (obj_id )or ctx .guild .get_role (obj_id )
-            if not user_or_role :
-                user_or_role =_ ("Unknown or Deleted User/Role")
-            msg +=f"\n\t- {obj_id} ({user_or_role})"
+        if not curr_list:
+            await ctx.send("Server blocklist is empty.")
+            return
+        if len(curr_list) > 1:
+            msg = _("Blocked users and/or roles:")
+        else:
+            msg = _("Blocked user or role:")
+        for obj_id in curr_list:
+            user_or_role = self.bot.get_user(obj_id) or ctx.guild.get_role(obj_id)
+            if not user_or_role:
+                user_or_role = _("Unknown or Deleted User/Role")
+            msg += f"\n\t- {obj_id} ({user_or_role})"
 
-        for page in pagify (msg ):
-            await ctx .send (box (page ))
+        for page in pagify(msg):
+            await ctx.send(box(page))
 
-    @localblocklist .command (name ="remove",require_var_positional =True )
-    async def localblocklist_remove (
-    self ,ctx :commands .Context ,*users_or_roles :Union [discord .Member ,discord .Role ,int ]
+    @localblocklist.command(name="remove", require_var_positional=True)
+    async def localblocklist_remove(
+        self, ctx: commands.Context, *users_or_roles: Union[discord.Member, discord.Role, int]
     ):
         """
         Removes user or role from local blocklist.
@@ -4647,15 +4647,15 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<users_or_roles...>` - The users or roles to remove from the local blocklist.
         """
-        await self .bot .remove_from_blacklist (users_or_roles ,guild =ctx .guild )
+        await self.bot.remove_from_blacklist(users_or_roles, guild=ctx.guild)
 
-        if len (users_or_roles )>1 :
-            await ctx .send (_ ("Users and/or roles have been removed from the server blocklist."))
-        else :
-            await ctx .send (_ ("User or role has been removed from the server blocklist."))
+        if len(users_or_roles) > 1:
+            await ctx.send(_("Users and/or roles have been removed from the server blocklist."))
+        else:
+            await ctx.send(_("User or role has been removed from the server blocklist."))
 
-    @localblocklist .command (name ="clear")
-    async def localblocklist_clear (self ,ctx :commands .Context ):
+    @localblocklist.command(name="clear")
+    async def localblocklist_clear(self, ctx: commands.Context):
         """
         Clears the server blocklist.
 
@@ -4664,18 +4664,18 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Example:**
             - `[p]blocklist clear`
         """
-        await self .bot .clear_blacklist (ctx .guild )
-        await ctx .send (_ ("Server blocklist has been cleared."))
+        await self.bot.clear_blacklist(ctx.guild)
+        await ctx.send(_("Server blocklist has been cleared."))
 
-    @checks .guildowner_or_permissions (administrator =True )
-    @commands .group (name ="command")
-    async def command_manager (self ,ctx :commands .Context ):
+    @checks.guildowner_or_permissions(administrator=True)
+    @commands.group(name="command")
+    async def command_manager(self, ctx: commands.Context):
         """Commands to enable and disable commands and cogs."""
-        pass 
+        pass
 
-    @checks .is_owner ()
-    @command_manager .command (name ="defaultdisablecog")
-    async def command_default_disable_cog (self ,ctx :commands .Context ,*,cog :CogConverter ):
+    @checks.is_owner()
+    @command_manager.command(name="defaultdisablecog")
+    async def command_default_disable_cog(self, ctx: commands.Context, *, cog: CogConverter):
         """Set the default state for a cog as disabled.
 
         This will disable the cog for all servers by default.
@@ -4690,15 +4690,15 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<cog>` - The name of the cog to make disabled by default. Must be title-case.
         """
-        cogname =cog .qualified_name 
-        if isinstance (cog ,commands .commands ._RuleDropper ):
-            return await ctx .send (_ ("You can't disable this cog by default."))
-        await self .bot ._disabled_cog_cache .default_disable (cogname )
-        await ctx .send (_ ("{cogname} has been set as disabled by default.").format (cogname =cogname ))
+        cogname = cog.qualified_name
+        if isinstance(cog, commands.commands._RuleDropper):
+            return await ctx.send(_("You can't disable this cog by default."))
+        await self.bot._disabled_cog_cache.default_disable(cogname)
+        await ctx.send(_("{cogname} has been set as disabled by default.").format(cogname=cogname))
 
-    @checks .is_owner ()
-    @command_manager .command (name ="defaultenablecog")
-    async def command_default_enable_cog (self ,ctx :commands .Context ,*,cog :CogConverter ):
+    @checks.is_owner()
+    @command_manager.command(name="defaultenablecog")
+    async def command_default_enable_cog(self, ctx: commands.Context, *, cog: CogConverter):
         """Set the default state for a cog as enabled.
 
         This will re-enable the cog for all servers by default.
@@ -4713,13 +4713,13 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<cog>` - The name of the cog to make enabled by default. Must be title-case.
         """
-        cogname =cog .qualified_name 
-        await self .bot ._disabled_cog_cache .default_enable (cogname )
-        await ctx .send (_ ("{cogname} has been set as enabled by default.").format (cogname =cogname ))
+        cogname = cog.qualified_name
+        await self.bot._disabled_cog_cache.default_enable(cogname)
+        await ctx.send(_("{cogname} has been set as enabled by default.").format(cogname=cogname))
 
-    @commands .guild_only ()
-    @command_manager .command (name ="disablecog")
-    async def command_disable_cog (self ,ctx :commands .Context ,*,cog :CogConverter ):
+    @commands.guild_only()
+    @command_manager.command(name="disablecog")
+    async def command_disable_cog(self, ctx: commands.Context, *, cog: CogConverter):
         """Disable a cog in this server.
 
         Note: This will only work on loaded cogs, and must reference the title-case cog name.
@@ -4731,19 +4731,19 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<cog>` - The name of the cog to disable on this server. Must be title-case.
         """
-        cogname =cog .qualified_name 
-        if isinstance (cog ,commands .commands ._RuleDropper ):
-            return await ctx .send (_ ("You can't disable this cog as you would lock yourself out."))
-        if await self .bot ._disabled_cog_cache .disable_cog_in_guild (cogname ,ctx .guild .id ):
-            await ctx .send (_ ("{cogname} has been disabled in this guild.").format (cogname =cogname ))
-        else :
-            await ctx .send (
-            _ ("{cogname} was already disabled (nothing to do).").format (cogname =cogname )
+        cogname = cog.qualified_name
+        if isinstance(cog, commands.commands._RuleDropper):
+            return await ctx.send(_("You can't disable this cog as you would lock yourself out."))
+        if await self.bot._disabled_cog_cache.disable_cog_in_guild(cogname, ctx.guild.id):
+            await ctx.send(_("{cogname} has been disabled in this guild.").format(cogname=cogname))
+        else:
+            await ctx.send(
+                _("{cogname} was already disabled (nothing to do).").format(cogname=cogname)
             )
 
-    @commands .guild_only ()
-    @command_manager .command (name ="enablecog",usage ="<cog>")
-    async def command_enable_cog (self ,ctx :commands .Context ,*,cogname :str ):
+    @commands.guild_only()
+    @command_manager.command(name="enablecog", usage="<cog>")
+    async def command_enable_cog(self, ctx: commands.Context, *, cogname: str):
         """Enable a cog in this server.
 
         Note: This will only work on loaded cogs, and must reference the title-case cog name.
@@ -4755,44 +4755,44 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<cog>` - The name of the cog to enable on this server. Must be title-case.
         """
-        if await self .bot ._disabled_cog_cache .enable_cog_in_guild (cogname ,ctx .guild .id ):
-            await ctx .send (_ ("{cogname} has been enabled in this guild.").format (cogname =cogname ))
-        else :
-        # [simultaneously] Okay!
-            cog =self .bot .get_cog (cogname )
-            if not cog :
-                return await ctx .send (_ ('Cog "{arg}" not found.').format (arg =cogname ))
+        if await self.bot._disabled_cog_cache.enable_cog_in_guild(cogname, ctx.guild.id):
+            await ctx.send(_("{cogname} has been enabled in this guild.").format(cogname=cogname))
+        else:
+            # putting this here allows enabling a cog that isn't loaded but was disabled.
+            cog = self.bot.get_cog(cogname)
+            if not cog:
+                return await ctx.send(_('Cog "{arg}" not found.').format(arg=cogname))
 
-            await ctx .send (
-            _ ("{cogname} was not disabled (nothing to do).").format (cogname =cogname )
+            await ctx.send(
+                _("{cogname} was not disabled (nothing to do).").format(cogname=cogname)
             )
 
-    @commands .guild_only ()
-    @command_manager .command (name ="listdisabledcogs")
-    async def command_list_disabled_cogs (self ,ctx :commands .Context ):
+    @commands.guild_only()
+    @command_manager.command(name="listdisabledcogs")
+    async def command_list_disabled_cogs(self, ctx: commands.Context):
         """List the cogs which are disabled in this server.
 
         **Example:**
             - `[p]command listdisabledcogs`
         """
-        disabled =[
-        cog .qualified_name 
-        for cog in self .bot .cogs .values ()
-        if await self .bot ._disabled_cog_cache .cog_disabled_in_guild (
-        cog .qualified_name ,ctx .guild .id 
-        )
+        disabled = [
+            cog.qualified_name
+            for cog in self.bot.cogs.values()
+            if await self.bot._disabled_cog_cache.cog_disabled_in_guild(
+                cog.qualified_name, ctx.guild.id
+            )
         ]
-        if disabled :
-            output =_ ("The following cogs are disabled in this guild:\n")
-            output +=humanize_list (disabled )
+        if disabled:
+            output = _("The following cogs are disabled in this guild:\n")
+            output += humanize_list(disabled)
 
-            for page in pagify (output ):
-                await ctx .send (page )
-        else :
-            await ctx .send (_ ("There are no disabled cogs in this guild."))
+            for page in pagify(output):
+                await ctx.send(page)
+        else:
+            await ctx.send(_("There are no disabled cogs in this guild."))
 
-    @command_manager .group (name ="listdisabled",invoke_without_command =True )
-    async def list_disabled (self ,ctx :commands .Context ):
+    @command_manager.group(name="listdisabled", invoke_without_command=True)
+    async def list_disabled(self, ctx: commands.Context):
         """
         List disabled commands.
 
@@ -4802,57 +4802,57 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Example:**
             - `[p]command listdisabled`
         """
-        # I mean about the Gala and the ticket and who I should take.
-        if await ctx .bot .is_owner (ctx .author ):
-            await ctx .invoke (self .list_disabled_global )
-        else :
-            await ctx .invoke (self .list_disabled_guild )
+        # Select the scope based on the author's privileges
+        if await ctx.bot.is_owner(ctx.author):
+            await ctx.invoke(self.list_disabled_global)
+        else:
+            await ctx.invoke(self.list_disabled_guild)
 
-    @list_disabled .command (name ="global")
-    async def list_disabled_global (self ,ctx :commands .Context ):
+    @list_disabled.command(name="global")
+    async def list_disabled_global(self, ctx: commands.Context):
         """List disabled commands globally.
 
         **Example:**
             - `[p]command listdisabled global`
         """
-        disabled_list =await self .bot ._config .disabled_commands ()
-        if not disabled_list :
-            return await ctx .send (_ ("There aren't any globally disabled commands."))
+        disabled_list = await self.bot._config.disabled_commands()
+        if not disabled_list:
+            return await ctx.send(_("There aren't any globally disabled commands."))
 
-        if len (disabled_list )>1 :
-            header =_ ("{} commands are disabled globally.\n").format (
-            humanize_number (len (disabled_list ))
+        if len(disabled_list) > 1:
+            header = _("{} commands are disabled globally.\n").format(
+                humanize_number(len(disabled_list))
             )
-        else :
-            header =_ ("1 command is disabled globally.\n")
-        paged =[box (x )for x in pagify (humanize_list (disabled_list ),page_length =1000 )]
-        paged [0 ]=header +paged [0 ]
-        await ctx .send_interactive (paged )
+        else:
+            header = _("1 command is disabled globally.\n")
+        paged = [box(x) for x in pagify(humanize_list(disabled_list), page_length=1000)]
+        paged[0] = header + paged[0]
+        await ctx.send_interactive(paged)
 
-    @commands .guild_only ()
-    @list_disabled .command (name ="guild")
-    async def list_disabled_guild (self ,ctx :commands .Context ):
+    @commands.guild_only()
+    @list_disabled.command(name="guild")
+    async def list_disabled_guild(self, ctx: commands.Context):
         """List disabled commands in this server.
 
         **Example:**
             - `[p]command listdisabled guild`
         """
-        disabled_list =await self .bot ._config .guild (ctx .guild ).disabled_commands ()
-        if not disabled_list :
-            return await ctx .send (_ ("There aren't any disabled commands in {}.").format (ctx .guild ))
+        disabled_list = await self.bot._config.guild(ctx.guild).disabled_commands()
+        if not disabled_list:
+            return await ctx.send(_("There aren't any disabled commands in {}.").format(ctx.guild))
 
-        if len (disabled_list )>1 :
-            header =_ ("{} commands are disabled in {}.\n").format (
-            humanize_number (len (disabled_list )),ctx .guild 
+        if len(disabled_list) > 1:
+            header = _("{} commands are disabled in {}.\n").format(
+                humanize_number(len(disabled_list)), ctx.guild
             )
-        else :
-            header =_ ("1 command is disabled in {}.\n").format (ctx .guild )
-        paged =[box (x )for x in pagify (humanize_list (disabled_list ),page_length =1000 )]
-        paged [0 ]=header +paged [0 ]
-        await ctx .send_interactive (paged )
+        else:
+            header = _("1 command is disabled in {}.\n").format(ctx.guild)
+        paged = [box(x) for x in pagify(humanize_list(disabled_list), page_length=1000)]
+        paged[0] = header + paged[0]
+        await ctx.send_interactive(paged)
 
-    @command_manager .group (name ="disable",invoke_without_command =True )
-    async def command_disable (self ,ctx :commands .Context ,*,command :CommandConverter ):
+    @command_manager.group(name="disable", invoke_without_command=True)
+    async def command_disable(self, ctx: commands.Context, *, command: CommandConverter):
         """
         Disable a command.
 
@@ -4866,15 +4866,15 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<command>` - The command to disable.
         """
-        # What?! You just want new Fluttershy to be a doormat like old Fluttershy! But old Fluttershy is gone!
-        if await ctx .bot .is_owner (ctx .author ):
-            await ctx .invoke (self .command_disable_global ,command =command )
-        else :
-            await ctx .invoke (self .command_disable_guild ,command =command )
+        # Select the scope based on the author's privileges
+        if await ctx.bot.is_owner(ctx.author):
+            await ctx.invoke(self.command_disable_global, command=command)
+        else:
+            await ctx.invoke(self.command_disable_guild, command=command)
 
-    @checks .is_owner ()
-    @command_disable .command (name ="global")
-    async def command_disable_global (self ,ctx :commands .Context ,*,command :CommandConverter ):
+    @checks.is_owner()
+    @command_disable.command(name="global")
+    async def command_disable_global(self, ctx: commands.Context, *, command: CommandConverter):
         """
         Disable a command globally.
 
@@ -4885,32 +4885,32 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<command>` - The command to disable globally.
         """
-        if self .command_manager in command .parents or self .command_manager ==command :
-            await ctx .send (
-            _ ("The command to disable cannot be `command` or any of its subcommands.")
+        if self.command_manager in command.parents or self.command_manager == command:
+            await ctx.send(
+                _("The command to disable cannot be `command` or any of its subcommands.")
             )
-            return 
+            return
 
-        if isinstance (command ,commands .commands ._RuleDropper ):
-            await ctx .send (
-            _ ("This command is designated as being always available and cannot be disabled.")
+        if isinstance(command, commands.commands._RuleDropper):
+            await ctx.send(
+                _("This command is designated as being always available and cannot be disabled.")
             )
-            return 
+            return
 
-        async with ctx .bot ._config .disabled_commands ()as disabled_commands :
-            if command .qualified_name not in disabled_commands :
-                disabled_commands .append (command .qualified_name )
+        async with ctx.bot._config.disabled_commands() as disabled_commands:
+            if command.qualified_name not in disabled_commands:
+                disabled_commands.append(command.qualified_name)
 
-        if not command .enabled :
-            await ctx .send (_ ("That command is already disabled globally."))
-            return 
-        command .enabled =False 
+        if not command.enabled:
+            await ctx.send(_("That command is already disabled globally."))
+            return
+        command.enabled = False
 
-        await ctx .tick ()
+        await ctx.tick()
 
-    @commands .guild_only ()
-    @command_disable .command (name ="server",aliases =["guild"])
-    async def command_disable_guild (self ,ctx :commands .Context ,*,command :CommandConverter ):
+    @commands.guild_only()
+    @command_disable.command(name="server", aliases=["guild"])
+    async def command_disable_guild(self, ctx: commands.Context, *, command: CommandConverter):
         """
         Disable a command in this server only.
 
@@ -4921,36 +4921,36 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<command>` - The command to disable for the current server.
         """
-        if self .command_manager in command .parents or self .command_manager ==command :
-            await ctx .send (
-            _ ("The command to disable cannot be `command` or any of its subcommands.")
+        if self.command_manager in command.parents or self.command_manager == command:
+            await ctx.send(
+                _("The command to disable cannot be `command` or any of its subcommands.")
             )
-            return 
+            return
 
-        if isinstance (command ,commands .commands ._RuleDropper ):
-            await ctx .send (
-            _ ("This command is designated as being always available and cannot be disabled.")
+        if isinstance(command, commands.commands._RuleDropper):
+            await ctx.send(
+                _("This command is designated as being always available and cannot be disabled.")
             )
-            return 
+            return
 
-        if command .requires .privilege_level is not None :
-            if command .requires .privilege_level >await PrivilegeLevel .from_ctx (ctx ):
-                await ctx .send (_ ("You are not allowed to disable that command."))
-                return 
+        if command.requires.privilege_level is not None:
+            if command.requires.privilege_level > await PrivilegeLevel.from_ctx(ctx):
+                await ctx.send(_("You are not allowed to disable that command."))
+                return
 
-        async with ctx .bot ._config .guild (ctx .guild ).disabled_commands ()as disabled_commands :
-            if command .qualified_name not in disabled_commands :
-                disabled_commands .append (command .qualified_name )
+        async with ctx.bot._config.guild(ctx.guild).disabled_commands() as disabled_commands:
+            if command.qualified_name not in disabled_commands:
+                disabled_commands.append(command.qualified_name)
 
-        done =command .disable_in (ctx .guild )
+        done = command.disable_in(ctx.guild)
 
-        if not done :
-            await ctx .send (_ ("That command is already disabled in this server."))
-        else :
-            await ctx .tick ()
+        if not done:
+            await ctx.send(_("That command is already disabled in this server."))
+        else:
+            await ctx.tick()
 
-    @command_manager .group (name ="enable",invoke_without_command =True )
-    async def command_enable (self ,ctx :commands .Context ,*,command :CommandConverter ):
+    @command_manager.group(name="enable", invoke_without_command=True)
+    async def command_enable(self, ctx: commands.Context, *, command: CommandConverter):
         """Enable a command.
 
         If you're the bot owner, this will try to enable a globally disabled command by default.
@@ -4963,14 +4963,14 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<command>` - The command to enable.
         """
-        if await ctx .bot .is_owner (ctx .author ):
-            await ctx .invoke (self .command_enable_global ,command =command )
-        else :
-            await ctx .invoke (self .command_enable_guild ,command =command )
+        if await ctx.bot.is_owner(ctx.author):
+            await ctx.invoke(self.command_enable_global, command=command)
+        else:
+            await ctx.invoke(self.command_enable_guild, command=command)
 
-    @commands .is_owner ()
-    @command_enable .command (name ="global")
-    async def command_enable_global (self ,ctx :commands .Context ,*,command :CommandConverter ):
+    @commands.is_owner()
+    @command_enable.command(name="global")
+    async def command_enable_global(self, ctx: commands.Context, *, command: CommandConverter):
         """
         Enable a command globally.
 
@@ -4981,20 +4981,20 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<command>` - The command to enable globally.
         """
-        async with ctx .bot ._config .disabled_commands ()as disabled_commands :
-            with contextlib .suppress (ValueError ):
-                disabled_commands .remove (command .qualified_name )
+        async with ctx.bot._config.disabled_commands() as disabled_commands:
+            with contextlib.suppress(ValueError):
+                disabled_commands.remove(command.qualified_name)
 
-        if command .enabled :
-            await ctx .send (_ ("That command is already enabled globally."))
-            return 
+        if command.enabled:
+            await ctx.send(_("That command is already enabled globally."))
+            return
 
-        command .enabled =True 
-        await ctx .tick ()
+        command.enabled = True
+        await ctx.tick()
 
-    @commands .guild_only ()
-    @command_enable .command (name ="server",aliases =["guild"])
-    async def command_enable_guild (self ,ctx :commands .Context ,*,command :CommandConverter ):
+    @commands.guild_only()
+    @command_enable.command(name="server", aliases=["guild"])
+    async def command_enable_guild(self, ctx: commands.Context, *, command: CommandConverter):
         """
             Enable a command in this server.
 
@@ -5005,25 +5005,25 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<command>` - The command to enable for the current server.
         """
-        if command .requires .privilege_level is not None :
-            if command .requires .privilege_level >await PrivilegeLevel .from_ctx (ctx ):
-                await ctx .send (_ ("You are not allowed to enable that command."))
-                return 
+        if command.requires.privilege_level is not None:
+            if command.requires.privilege_level > await PrivilegeLevel.from_ctx(ctx):
+                await ctx.send(_("You are not allowed to enable that command."))
+                return
 
-        async with ctx .bot ._config .guild (ctx .guild ).disabled_commands ()as disabled_commands :
-            with contextlib .suppress (ValueError ):
-                disabled_commands .remove (command .qualified_name )
+        async with ctx.bot._config.guild(ctx.guild).disabled_commands() as disabled_commands:
+            with contextlib.suppress(ValueError):
+                disabled_commands.remove(command.qualified_name)
 
-        done =command .enable_in (ctx .guild )
+        done = command.enable_in(ctx.guild)
 
-        if not done :
-            await ctx .send (_ ("That command is already enabled in this server."))
-        else :
-            await ctx .tick ()
+        if not done:
+            await ctx.send(_("That command is already enabled in this server."))
+        else:
+            await ctx.tick()
 
-    @checks .is_owner ()
-    @command_manager .command (name ="disabledmsg")
-    async def command_disabledmsg (self ,ctx :commands .Context ,*,message :str =""):
+    @checks.is_owner()
+    @command_manager.command(name="disabledmsg")
+    async def command_disabledmsg(self, ctx: commands.Context, *, message: str = ""):
         """Set the bot's response to disabled commands.
 
         Leave blank to send nothing.
@@ -5038,52 +5038,52 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `[message]` - The message to send when a disabled command is attempted.
         """
-        await ctx .bot ._config .disabled_command_msg .set (message )
-        await ctx .tick ()
+        await ctx.bot._config.disabled_command_msg.set(message)
+        await ctx.tick()
 
-    @commands .guild_only ()
-    @checks .guildowner_or_permissions (manage_guild =True )
-    @commands .group (name ="autoimmune")
-    async def autoimmune_group (self ,ctx :commands .Context ):
+    @commands.guild_only()
+    @checks.guildowner_or_permissions(manage_guild=True)
+    @commands.group(name="autoimmune")
+    async def autoimmune_group(self, ctx: commands.Context):
         """
         Commands to manage server settings for immunity from automated actions.
 
         This includes duplicate message deletion and mention spam from the Mod cog, and filters from the Filter cog.
         """
-        pass 
+        pass
 
-    @autoimmune_group .command (name ="list")
-    async def autoimmune_list (self ,ctx :commands .Context ):
+    @autoimmune_group.command(name="list")
+    async def autoimmune_list(self, ctx: commands.Context):
         """
         Gets the current members and roles configured for automatic moderation action immunity.
 
         **Example:**
             - `[p]autoimmune list`
         """
-        ai_ids =await ctx .bot ._config .guild (ctx .guild ).autoimmune_ids ()
+        ai_ids = await ctx.bot._config.guild(ctx.guild).autoimmune_ids()
 
-        roles ={r .name for r in ctx .guild .roles if r .id in ai_ids }
-        members ={str (m )for m in ctx .guild .members if m .id in ai_ids }
+        roles = {r.name for r in ctx.guild.roles if r.id in ai_ids}
+        members = {str(m) for m in ctx.guild.members if m.id in ai_ids}
 
-        output =""
-        if roles :
-            output +=_ ("Roles immune from automated moderation actions:\n")
-            output +=", ".join (roles )
-        if members :
-            if roles :
-                output +="\n"
-            output +=_ ("Members immune from automated moderation actions:\n")
-            output +=", ".join (members )
+        output = ""
+        if roles:
+            output += _("Roles immune from automated moderation actions:\n")
+            output += ", ".join(roles)
+        if members:
+            if roles:
+                output += "\n"
+            output += _("Members immune from automated moderation actions:\n")
+            output += ", ".join(members)
 
-        if not output :
-            output =_ ("No immunity settings here.")
+        if not output:
+            output = _("No immunity settings here.")
 
-        for page in pagify (output ):
-            await ctx .send (page )
+        for page in pagify(output):
+            await ctx.send(page)
 
-    @autoimmune_group .command (name ="add")
-    async def autoimmune_add (
-    self ,ctx :commands .Context ,*,user_or_role :Union [discord .Member ,discord .Role ]
+    @autoimmune_group.command(name="add")
+    async def autoimmune_add(
+        self, ctx: commands.Context, *, user_or_role: Union[discord.Member, discord.Role]
     ):
         """
         Makes a user or role immune from automated moderation actions.
@@ -5095,15 +5095,15 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<user_or_role>` - The user or role to add immunity to.
         """
-        async with ctx .bot ._config .guild (ctx .guild ).autoimmune_ids ()as ai_ids :
-            if user_or_role .id in ai_ids :
-                return await ctx .send (_ ("Already added."))
-            ai_ids .append (user_or_role .id )
-        await ctx .tick ()
+        async with ctx.bot._config.guild(ctx.guild).autoimmune_ids() as ai_ids:
+            if user_or_role.id in ai_ids:
+                return await ctx.send(_("Already added."))
+            ai_ids.append(user_or_role.id)
+        await ctx.tick()
 
-    @autoimmune_group .command (name ="remove")
-    async def autoimmune_remove (
-    self ,ctx :commands .Context ,*,user_or_role :Union [discord .Member ,discord .Role ]
+    @autoimmune_group.command(name="remove")
+    async def autoimmune_remove(
+        self, ctx: commands.Context, *, user_or_role: Union[discord.Member, discord.Role]
     ):
         """
         Remove a user or role from being immune to automated moderation actions.
@@ -5115,15 +5115,15 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<user_or_role>` - The user or role to remove immunity from.
         """
-        async with ctx .bot ._config .guild (ctx .guild ).autoimmune_ids ()as ai_ids :
-            if user_or_role .id not in ai_ids :
-                return await ctx .send (_ ("Not in list."))
-            ai_ids .remove (user_or_role .id )
-        await ctx .tick ()
+        async with ctx.bot._config.guild(ctx.guild).autoimmune_ids() as ai_ids:
+            if user_or_role.id not in ai_ids:
+                return await ctx.send(_("Not in list."))
+            ai_ids.remove(user_or_role.id)
+        await ctx.tick()
 
-    @autoimmune_group .command (name ="isimmune")
-    async def autoimmune_checkimmune (
-    self ,ctx :commands .Context ,*,user_or_role :Union [discord .Member ,discord .Role ]
+    @autoimmune_group.command(name="isimmune")
+    async def autoimmune_checkimmune(
+        self, ctx: commands.Context, *, user_or_role: Union[discord.Member, discord.Role]
     ):
         """
         Checks if a user or role would be considered immune from automated actions.
@@ -5136,36 +5136,36 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
             - `<user_or_role>` - The user or role to check the immunity of.
         """
 
-        if await ctx .bot .is_automod_immune (user_or_role ):
-            await ctx .send (_ ("They are immune."))
-        else :
-            await ctx .send (_ ("They are not immune."))
+        if await ctx.bot.is_automod_immune(user_or_role):
+            await ctx.send(_("They are immune."))
+        else:
+            await ctx.send(_("They are not immune."))
 
-            # Good old Spike is here, ready to do his part!
-    async def rpc_load (self ,request ):
-        cog_name =request .params [0 ]
+    # RPC handlers
+    async def rpc_load(self, request):
+        cog_name = request.params[0]
 
-        spec =await self .bot ._cog_mgr .find_cog (cog_name )
-        if spec is None :
-            raise LookupError ("No such cog found.")
+        spec = await self.bot._cog_mgr.find_cog(cog_name)
+        if spec is None:
+            raise LookupError("No such cog found.")
 
-        self ._cleanup_and_refresh_modules (spec .name )
+        self._cleanup_and_refresh_modules(spec.name)
 
-        await self .bot .load_extension (spec )
+        await self.bot.load_extension(spec)
 
-    async def rpc_unload (self ,request ):
-        cog_name =request .params [0 ]
+    async def rpc_unload(self, request):
+        cog_name = request.params[0]
 
-        self .bot .unload_extension (cog_name )
+        self.bot.unload_extension(cog_name)
 
-    async def rpc_reload (self ,request ):
-        await self .rpc_unload (request )
-        await self .rpc_load (request )
+    async def rpc_reload(self, request):
+        await self.rpc_unload(request)
+        await self.rpc_load(request)
 
-    @commands .group ()
-    @commands .guild_only ()
-    @checks .admin_or_permissions (manage_channels =True )
-    async def ignore (self ,ctx :commands .Context ):
+    @commands.group()
+    @commands.guild_only()
+    @checks.admin_or_permissions(manage_channels=True)
+    async def ignore(self, ctx: commands.Context):
         """
         Commands to add servers or channels to the ignore list.
 
@@ -5174,22 +5174,22 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         Note: Owners and Admins override the ignore list.
         """
 
-    @ignore .command (name ="list")
-    async def ignore_list (self ,ctx :commands .Context ):
+    @ignore.command(name="list")
+    async def ignore_list(self, ctx: commands.Context):
         """
         List the currently ignored servers and channels.
 
         **Example:**
             - `[p]ignore list`
         """
-        for page in pagify (await self .count_ignored (ctx )):
-            await ctx .maybe_send_embed (page )
+        for page in pagify(await self.count_ignored(ctx)):
+            await ctx.maybe_send_embed(page)
 
-    @ignore .command (name ="channel")
-    async def ignore_channel (
-    self ,
-    ctx :commands .Context ,
-    channel :Optional [Union [discord .TextChannel ,discord .CategoryChannel ]]=None ,
+    @ignore.command(name="channel")
+    async def ignore_channel(
+        self,
+        ctx: commands.Context,
+        channel: Optional[Union[discord.TextChannel, discord.CategoryChannel]] = None,
     ):
         """
         Ignore commands in the channel or category.
@@ -5207,17 +5207,17 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<channel>` - The channel to ignore. Can be a category channel.
         """
-        if not channel :
-            channel =ctx .channel 
-        if not await self .bot ._ignored_cache .get_ignored_channel (channel ):
-            await self .bot ._ignored_cache .set_ignored_channel (channel ,True )
-            await ctx .send (_ ("Channel added to ignore list."))
-        else :
-            await ctx .send (_ ("Channel already in ignore list."))
+        if not channel:
+            channel = ctx.channel
+        if not await self.bot._ignored_cache.get_ignored_channel(channel):
+            await self.bot._ignored_cache.set_ignored_channel(channel, True)
+            await ctx.send(_("Channel added to ignore list."))
+        else:
+            await ctx.send(_("Channel already in ignore list."))
 
-    @ignore .command (name ="server",aliases =["guild"])
-    @checks .admin_or_permissions (manage_guild =True )
-    async def ignore_guild (self ,ctx :commands .Context ):
+    @ignore.command(name="server", aliases=["guild"])
+    @checks.admin_or_permissions(manage_guild=True)
+    async def ignore_guild(self, ctx: commands.Context):
         """
         Ignore commands in this server.
 
@@ -5226,24 +5226,24 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Example:**
             - `[p]ignore server` - Ignores the current server
         """
-        guild =ctx .guild 
-        if not await self .bot ._ignored_cache .get_ignored_guild (guild ):
-            await self .bot ._ignored_cache .set_ignored_guild (guild ,True )
-            await ctx .send (_ ("This server has been added to the ignore list."))
-        else :
-            await ctx .send (_ ("This server is already being ignored."))
+        guild = ctx.guild
+        if not await self.bot._ignored_cache.get_ignored_guild(guild):
+            await self.bot._ignored_cache.set_ignored_guild(guild, True)
+            await ctx.send(_("This server has been added to the ignore list."))
+        else:
+            await ctx.send(_("This server is already being ignored."))
 
-    @commands .group ()
-    @commands .guild_only ()
-    @checks .admin_or_permissions (manage_channels =True )
-    async def unignore (self ,ctx :commands .Context ):
+    @commands.group()
+    @commands.guild_only()
+    @checks.admin_or_permissions(manage_channels=True)
+    async def unignore(self, ctx: commands.Context):
         """Commands to remove servers or channels from the ignore list."""
 
-    @unignore .command (name ="channel")
-    async def unignore_channel (
-    self ,
-    ctx :commands .Context ,
-    channel :Optional [Union [discord .TextChannel ,discord .CategoryChannel ]]=None ,
+    @unignore.command(name="channel")
+    async def unignore_channel(
+        self,
+        ctx: commands.Context,
+        channel: Optional[Union[discord.TextChannel, discord.CategoryChannel]] = None,
     ):
         """
         Remove a channel or category from the ignore list.
@@ -5259,71 +5259,71 @@ class Core (commands .commands ._RuleDropper ,commands .Cog ,CoreLogic ):
         **Arguments:**
             - `<channel>` - The channel to unignore. This can be a category channel.
         """
-        if not channel :
-            channel =ctx .channel 
+        if not channel:
+            channel = ctx.channel
 
-        if await self .bot ._ignored_cache .get_ignored_channel (channel ):
-            await self .bot ._ignored_cache .set_ignored_channel (channel ,False )
-            await ctx .send (_ ("Channel removed from ignore list."))
-        else :
-            await ctx .send (_ ("That channel is not in the ignore list."))
+        if await self.bot._ignored_cache.get_ignored_channel(channel):
+            await self.bot._ignored_cache.set_ignored_channel(channel, False)
+            await ctx.send(_("Channel removed from ignore list."))
+        else:
+            await ctx.send(_("That channel is not in the ignore list."))
 
-    @unignore .command (name ="server",aliases =["guild"])
-    @checks .admin_or_permissions (manage_guild =True )
-    async def unignore_guild (self ,ctx :commands .Context ):
+    @unignore.command(name="server", aliases=["guild"])
+    @checks.admin_or_permissions(manage_guild=True)
+    async def unignore_guild(self, ctx: commands.Context):
         """
         Remove this server from the ignore list.
 
         **Example:**
             - `[p]unignore server` - Stops ignoring the current server
         """
-        guild =ctx .message .guild 
-        if await self .bot ._ignored_cache .get_ignored_guild (guild ):
-            await self .bot ._ignored_cache .set_ignored_guild (guild ,False )
-            await ctx .send (_ ("This server has been removed from the ignore list."))
-        else :
-            await ctx .send (_ ("This server is not in the ignore list."))
+        guild = ctx.message.guild
+        if await self.bot._ignored_cache.get_ignored_guild(guild):
+            await self.bot._ignored_cache.set_ignored_guild(guild, False)
+            await ctx.send(_("This server has been removed from the ignore list."))
+        else:
+            await ctx.send(_("This server is not in the ignore list."))
 
-    async def count_ignored (self ,ctx :commands .Context ):
-        category_channels :List [discord .CategoryChannel ]=[]
-        text_channels :List [discord .TextChannel ]=[]
-        if await self .bot ._ignored_cache .get_ignored_guild (ctx .guild ):
-            return _ ("This server is currently being ignored.")
-        for channel in ctx .guild .text_channels :
-            if channel .category and channel .category not in category_channels :
-                if await self .bot ._ignored_cache .get_ignored_channel (channel .category ):
-                    category_channels .append (channel .category )
-            if await self .bot ._ignored_cache .get_ignored_channel (channel ,check_category =False ):
-                text_channels .append (channel )
+    async def count_ignored(self, ctx: commands.Context):
+        category_channels: List[discord.CategoryChannel] = []
+        text_channels: List[discord.TextChannel] = []
+        if await self.bot._ignored_cache.get_ignored_guild(ctx.guild):
+            return _("This server is currently being ignored.")
+        for channel in ctx.guild.text_channels:
+            if channel.category and channel.category not in category_channels:
+                if await self.bot._ignored_cache.get_ignored_channel(channel.category):
+                    category_channels.append(channel.category)
+            if await self.bot._ignored_cache.get_ignored_channel(channel, check_category=False):
+                text_channels.append(channel)
 
-        cat_str =(
-        humanize_list ([c .name for c in category_channels ])if category_channels else "None"
+        cat_str = (
+            humanize_list([c.name for c in category_channels]) if category_channels else "None"
         )
-        chan_str =humanize_list ([c .mention for c in text_channels ])if text_channels else "None"
-        msg =_ ("Currently ignored categories: {categories}\nChannels: {channels}").format (
-        categories =cat_str ,channels =chan_str 
+        chan_str = humanize_list([c.mention for c in text_channels]) if text_channels else "None"
+        msg = _("Currently ignored categories: {categories}\nChannels: {channels}").format(
+            categories=cat_str, channels=chan_str
         )
-        return msg 
+        return msg
 
-        # Oh, I didn't say that. That molt stench is a magnet for predators. Tatzlwurms, hydras, rocs...
-        # Well, she did write the book on it.
-    @commands .cooldown (1 ,180 ,lambda msg :(msg .channel .id ,msg .author .id ))
-    @commands .command (
-    cls =commands .commands ._AlwaysAvailableCommand ,
-    name ="licenseinfo",
-    aliases =["licenceinfo"],
-    i18n =_ ,
+    # Removing this command from forks is a violation of the GPLv3 under which it is licensed.
+    # Otherwise interfering with the ability for this command to be accessible is also a violation.
+    @commands.cooldown(1, 180, lambda msg: (msg.channel.id, msg.author.id))
+    @commands.command(
+        cls=commands.commands._AlwaysAvailableCommand,
+        name="licenseinfo",
+        aliases=["licenceinfo"],
+        i18n=_,
     )
-    async def license_info_command (self ,ctx ):
+    async def license_info_command(self, ctx):
         """
         Get info about Blue's licenses.
         """
 
-        message =(
-        "This bot is an instance of Red-DiscordBot (hereinafter referred to as Red).\n"
-        "Red is a free and open source application made available to the public and "
-        "licensed under the GNU GPLv3. The full text of this license is available to you at "
-        "<https://github.com/Cog-Creators/Rede-DiscordBot/blob/V3/develop/LICENSE>."
+        message = (
+            "This bot is an instance of Red-DiscordBot (hereinafter referred to as Red).\n"
+            "Red is a free and open source application made available to the public and "
+            "licensed under the GNU GPLv3. The full text of this license is available to you at "
+            "<https://github.com/Cog-Creators/Rede-DiscordBot/blob/V3/develop/LICENSE>."
         )
-        await ctx .send (message )
-        # [singsong] We're plus-ones!
+        await ctx.send(message)
+        # We need a link which contains a thank you to other projects which we use at some point.

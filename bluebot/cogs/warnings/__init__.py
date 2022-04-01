@@ -1,5 +1,5 @@
-from .warnings import Warnings 
+from .warnings import Warnings
 
 
-def setup (bot ):
-    bot .add_cog (Warnings (bot ))
+def setup(bot):
+    bot.add_cog(Warnings(bot))

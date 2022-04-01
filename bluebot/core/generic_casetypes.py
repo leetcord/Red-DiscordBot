@@ -3,117 +3,117 @@ Contains generic mod action casetypes for use in Blue and 3rd party cogs.
 These do not need to be registered to the modlog, as it is done for you.
 """
 
-ban ={"name":"ban","default_setting":True ,"image":"\N{HAMMER}","case_str":"Ban"}
+ban = {"name": "ban", "default_setting": True, "image": "\N{HAMMER}", "case_str": "Ban"}
 
-kick ={"name":"kick","default_setting":True ,"image":"\N{WOMANS BOOTS}","case_str":"Kick"}
+kick = {"name": "kick", "default_setting": True, "image": "\N{WOMANS BOOTS}", "case_str": "Kick"}
 
-hackban ={
-"name":"hackban",
-"default_setting":True ,
-"image":"\N{BUST IN SILHOUETTE}\N{HAMMER}",
-"case_str":"Hackban",
-}
-
-tempban ={
-"name":"tempban",
-"default_setting":True ,
-"image":"\N{ALARM CLOCK}\N{HAMMER}",
-"case_str":"Tempban",
+hackban = {
+    "name": "hackban",
+    "default_setting": True,
+    "image": "\N{BUST IN SILHOUETTE}\N{HAMMER}",
+    "case_str": "Hackban",
 }
 
-softban ={
-"name":"softban",
-"default_setting":True ,
-"image":"\N{DASH SYMBOL}\N{HAMMER}",
-"case_str":"Softban",
-}
-unban ={
-"name":"unban",
-"default_setting":True ,
-"image":"\N{DOVE OF PEACE}\N{VARIATION SELECTOR-16}",
-"case_str":"Unban",
-}
-voiceban ={
-"name":"voiceban",
-"default_setting":True ,
-"image":"\N{SPEAKER WITH CANCELLATION STROKE}",
-"case_str":"Voice Ban",
-}
-voiceunban ={
-"name":"voiceunban",
-"default_setting":True ,
-"image":"\N{SPEAKER}\N{VARIATION SELECTOR-16}",
-"case_str":"Voice Unban",
-}
-voicemute ={
-"name":"vmute",
-"default_setting":False ,
-"image":"\N{SPEAKER WITH CANCELLATION STROKE}",
-"case_str":"Voice Mute",
+tempban = {
+    "name": "tempban",
+    "default_setting": True,
+    "image": "\N{ALARM CLOCK}\N{HAMMER}",
+    "case_str": "Tempban",
 }
 
-channelmute ={
-"name":"cmute",
-"default_setting":False ,
-"image":"\N{SPEAKER WITH CANCELLATION STROKE}",
-"case_str":"Channel Mute",
+softban = {
+    "name": "softban",
+    "default_setting": True,
+    "image": "\N{DASH SYMBOL}\N{HAMMER}",
+    "case_str": "Softban",
+}
+unban = {
+    "name": "unban",
+    "default_setting": True,
+    "image": "\N{DOVE OF PEACE}\N{VARIATION SELECTOR-16}",
+    "case_str": "Unban",
+}
+voiceban = {
+    "name": "voiceban",
+    "default_setting": True,
+    "image": "\N{SPEAKER WITH CANCELLATION STROKE}",
+    "case_str": "Voice Ban",
+}
+voiceunban = {
+    "name": "voiceunban",
+    "default_setting": True,
+    "image": "\N{SPEAKER}\N{VARIATION SELECTOR-16}",
+    "case_str": "Voice Unban",
+}
+voicemute = {
+    "name": "vmute",
+    "default_setting": False,
+    "image": "\N{SPEAKER WITH CANCELLATION STROKE}",
+    "case_str": "Voice Mute",
 }
 
-servermute ={
-"name":"smute",
-"default_setting":True ,
-"image":"\N{SPEAKER WITH CANCELLATION STROKE}",
-"case_str":"Server Mute",
+channelmute = {
+    "name": "cmute",
+    "default_setting": False,
+    "image": "\N{SPEAKER WITH CANCELLATION STROKE}",
+    "case_str": "Channel Mute",
 }
 
-voiceunmute ={
-"name":"vunmute",
-"default_setting":False ,
-"image":"\N{SPEAKER}\N{VARIATION SELECTOR-16}",
-"case_str":"Voice Unmute",
-}
-channelunmute ={
-"name":"cunmute",
-"default_setting":False ,
-"image":"\N{SPEAKER}\N{VARIATION SELECTOR-16}",
-"case_str":"Channel Unmute",
-}
-serverunmute ={
-"name":"sunmute",
-"default_setting":True ,
-"image":"\N{SPEAKER}\N{VARIATION SELECTOR-16}",
-"case_str":"Server Unmute",
+servermute = {
+    "name": "smute",
+    "default_setting": True,
+    "image": "\N{SPEAKER WITH CANCELLATION STROKE}",
+    "case_str": "Server Mute",
 }
 
-voicekick ={
-"name":"vkick",
-"default_setting":False ,
-"image":"\N{SPEAKER WITH CANCELLATION STROKE}",
-"case_str":"Voice Kick",
+voiceunmute = {
+    "name": "vunmute",
+    "default_setting": False,
+    "image": "\N{SPEAKER}\N{VARIATION SELECTOR-16}",
+    "case_str": "Voice Unmute",
+}
+channelunmute = {
+    "name": "cunmute",
+    "default_setting": False,
+    "image": "\N{SPEAKER}\N{VARIATION SELECTOR-16}",
+    "case_str": "Channel Unmute",
+}
+serverunmute = {
+    "name": "sunmute",
+    "default_setting": True,
+    "image": "\N{SPEAKER}\N{VARIATION SELECTOR-16}",
+    "case_str": "Server Unmute",
 }
 
-warning ={
-"name":"warning",
-"default_setting":True ,
-"image":"\N{WARNING SIGN}\N{VARIATION SELECTOR-16}",
-"case_str":"Warning",
+voicekick = {
+    "name": "vkick",
+    "default_setting": False,
+    "image": "\N{SPEAKER WITH CANCELLATION STROKE}",
+    "case_str": "Voice Kick",
 }
 
-all_generics =(
-ban ,
-kick ,
-hackban ,
-tempban ,
-softban ,
-unban ,
-voiceban ,
-voiceunban ,
-voicemute ,
-channelmute ,
-servermute ,
-voiceunmute ,
-serverunmute ,
-channelunmute ,
-voicekick ,
-warning ,
+warning = {
+    "name": "warning",
+    "default_setting": True,
+    "image": "\N{WARNING SIGN}\N{VARIATION SELECTOR-16}",
+    "case_str": "Warning",
+}
+
+all_generics = (
+    ban,
+    kick,
+    hackban,
+    tempban,
+    softban,
+    unban,
+    voiceban,
+    voiceunban,
+    voicemute,
+    channelmute,
+    servermute,
+    voiceunmute,
+    serverunmute,
+    channelunmute,
+    voicekick,
+    warning,
 )

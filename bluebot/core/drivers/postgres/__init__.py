@@ -1,3 +1,3 @@
-from .postgres import PostgresDriver 
+from .postgres import PostgresDriver
 
-__all__ =["PostgresDriver"]
+__all__ = ["PostgresDriver"]

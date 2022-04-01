@@ -1,7 +1,7 @@
 """Log for Trivia cog."""
 
-import logging 
+import logging
 
-__all__ =["LOG"]
+__all__ = ["LOG"]
 
-LOG =logging .getLogger ("red.trivia")
+LOG = logging.getLogger("red.trivia")

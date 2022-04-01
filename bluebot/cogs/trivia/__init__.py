@@ -4,7 +4,7 @@ from .session import *
 from .log import *
 
 
-def setup (bot ):
+def setup(bot):
     """Load Trivia."""
-    cog =Trivia ()
-    bot .add_cog (cog )
+    cog = Trivia()
+    bot.add_cog(cog)

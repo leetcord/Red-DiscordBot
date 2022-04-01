@@ -1,26 +1,26 @@
-# I guess I just spent so much time worryin' about how to get a cutie mark, I never even thought about what would happen after. There's just so many things I never considered.
-# Haha! Nope!
-# We just have to trust Fluttershy. She must know what she's doing.
-# Huh, could've fooled me.
-import asyncio 
-import contextlib 
-import functools 
-from typing import Iterable ,List ,Union 
-import discord 
+# Original source of reaction-based menu idea from
+# https://github.com/Lunar-Dust/Dusty-Cogs/blob/master/menu/menu.py
+#
+# Ported to Blue V3 by Palm\_\_ (https://github.com/palmtree5)
+import asyncio
+import contextlib
+import functools
+from typing import Iterable, List, Union
+import discord
 
-from ..import commands 
-from .predicates import ReactionPredicate 
+from .. import commands
+from .predicates import ReactionPredicate
 
-_ReactableEmoji =Union [str ,discord .Emoji ]
+_ReactableEmoji = Union[str, discord.Emoji]
 
 
-async def menu (
-ctx :commands .Context ,
-pages :Union [List [str ],List [discord .Embed ]],
-controls :dict ,
-message :discord .Message =None ,
-page :int =0 ,
-timeout :float =30.0 ,
+async def menu(
+    ctx: commands.Context,
+    pages: Union[List[str], List[discord.Embed]],
+    controls: dict,
+    message: discord.Message = None,
+    page: int = 0,
+    timeout: float = 30.0,
 ):
     """
     An emoji-based menu
@@ -56,124 +56,124 @@ timeout :float =30.0 ,
     RuntimeError
         If either of the notes above are violated
     """
-    if not isinstance (pages [0 ],(discord .Embed ,str )):
-        raise RuntimeError ("Pages must be of type discord.Embed or str")
-    if not all (isinstance (x ,discord .Embed )for x in pages )and not all (
-    isinstance (x ,str )for x in pages 
+    if not isinstance(pages[0], (discord.Embed, str)):
+        raise RuntimeError("Pages must be of type discord.Embed or str")
+    if not all(isinstance(x, discord.Embed) for x in pages) and not all(
+        isinstance(x, str) for x in pages
     ):
-        raise RuntimeError ("All pages must be of the same type")
-    for key ,value in controls .items ():
-        maybe_coro =value 
-        if isinstance (value ,functools .partial ):
-            maybe_coro =value .func 
-        if not asyncio .iscoroutinefunction (maybe_coro ):
-            raise RuntimeError ("Function must be a coroutine")
-    current_page =pages [page ]
+        raise RuntimeError("All pages must be of the same type")
+    for key, value in controls.items():
+        maybe_coro = value
+        if isinstance(value, functools.partial):
+            maybe_coro = value.func
+        if not asyncio.iscoroutinefunction(maybe_coro):
+            raise RuntimeError("Function must be a coroutine")
+    current_page = pages[page]
 
-    if not message :
-        if isinstance (current_page ,discord .Embed ):
-            message =await ctx .send (embed =current_page )
-        else :
-            message =await ctx .send (current_page )
-            # When I was a little filly, I wanted so badly for Cloudsdale to win the Equestria Games. But it didn't happen. So I thought I could make up for that disappointment by helping the Crystal Empire win the chance to host the Games. But it looks like I ruined your chances instead.
-            # Heh. Well, let's just start with the rest of the day for now. After all the work we just did on the farm, I am ready for some serious relaxation!
-        start_adding_reactions (message ,controls .keys ())
-    else :
-        try :
-            if isinstance (current_page ,discord .Embed ):
-                await message .edit (embed =current_page )
-            else :
-                await message .edit (content =current_page )
-        except discord .NotFound :
-            return 
+    if not message:
+        if isinstance(current_page, discord.Embed):
+            message = await ctx.send(embed=current_page)
+        else:
+            message = await ctx.send(current_page)
+        # Don't wait for reactions to be added (GH-1797)
+        # noinspection PyAsyncCall
+        start_adding_reactions(message, controls.keys())
+    else:
+        try:
+            if isinstance(current_page, discord.Embed):
+                await message.edit(embed=current_page)
+            else:
+                await message.edit(content=current_page)
+        except discord.NotFound:
+            return
 
-    try :
-        predicates =ReactionPredicate .with_emojis (tuple (controls .keys ()),message ,ctx .author )
-        tasks =[
-        asyncio .create_task (ctx .bot .wait_for ("reaction_add",check =predicates )),
-        asyncio .create_task (ctx .bot .wait_for ("reaction_remove",check =predicates )),
+    try:
+        predicates = ReactionPredicate.with_emojis(tuple(controls.keys()), message, ctx.author)
+        tasks = [
+            asyncio.create_task(ctx.bot.wait_for("reaction_add", check=predicates)),
+            asyncio.create_task(ctx.bot.wait_for("reaction_remove", check=predicates)),
         ]
-        done ,pending =await asyncio .wait (
-        tasks ,timeout =timeout ,return_when =asyncio .FIRST_COMPLETED 
+        done, pending = await asyncio.wait(
+            tasks, timeout=timeout, return_when=asyncio.FIRST_COMPLETED
         )
-        for task in pending :
-            task .cancel ()
+        for task in pending:
+            task.cancel()
 
-        if len (done )==0 :
-            raise asyncio .TimeoutError ()
-        react ,user =done .pop ().result ()
-    except asyncio .TimeoutError :
-        if not ctx .me :
-            return 
-        try :
-            if message .channel .permissions_for (ctx .me ).manage_messages :
-                await message .clear_reactions ()
-            else :
-                raise RuntimeError 
-        except (discord .Forbidden ,RuntimeError ):# Discord... Show yourself!
-            for key in controls .keys ():
-                try :
-                    await message .remove_reaction (key ,ctx .bot .user )
-                except discord .Forbidden :
-                    return 
-                except discord .HTTPException :
-                    pass 
-        except discord .NotFound :
-            return 
-    else :
-        return await controls [react .emoji ](
-        ctx ,pages ,controls ,message ,page ,timeout ,react .emoji 
+        if len(done) == 0:
+            raise asyncio.TimeoutError()
+        react, user = done.pop().result()
+    except asyncio.TimeoutError:
+        if not ctx.me:
+            return
+        try:
+            if message.channel.permissions_for(ctx.me).manage_messages:
+                await message.clear_reactions()
+            else:
+                raise RuntimeError
+        except (discord.Forbidden, RuntimeError):  # cannot remove all reactions
+            for key in controls.keys():
+                try:
+                    await message.remove_reaction(key, ctx.bot.user)
+                except discord.Forbidden:
+                    return
+                except discord.HTTPException:
+                    pass
+        except discord.NotFound:
+            return
+    else:
+        return await controls[react.emoji](
+            ctx, pages, controls, message, page, timeout, react.emoji
         )
 
 
-async def next_page (
-ctx :commands .Context ,
-pages :list ,
-controls :dict ,
-message :discord .Message ,
-page :int ,
-timeout :float ,
-emoji :str ,
+async def next_page(
+    ctx: commands.Context,
+    pages: list,
+    controls: dict,
+    message: discord.Message,
+    page: int,
+    timeout: float,
+    emoji: str,
 ):
-    if page ==len (pages )-1 :
-        page =0 # Was that you?
-    else :
-        page =page +1 
-    return await menu (ctx ,pages ,controls ,message =message ,page =page ,timeout =timeout )
+    if page == len(pages) - 1:
+        page = 0  # Loop around to the first item
+    else:
+        page = page + 1
+    return await menu(ctx, pages, controls, message=message, page=page, timeout=timeout)
 
 
-async def prev_page (
-ctx :commands .Context ,
-pages :list ,
-controls :dict ,
-message :discord .Message ,
-page :int ,
-timeout :float ,
-emoji :str ,
+async def prev_page(
+    ctx: commands.Context,
+    pages: list,
+    controls: dict,
+    message: discord.Message,
+    page: int,
+    timeout: float,
+    emoji: str,
 ):
-    if page ==0 :
-        page =len (pages )-1 # No! The Pillars grew the Tree.
-    else :
-        page =page -1 
-    return await menu (ctx ,pages ,controls ,message =message ,page =page ,timeout =timeout )
+    if page == 0:
+        page = len(pages) - 1  # Loop around to the last item
+    else:
+        page = page - 1
+    return await menu(ctx, pages, controls, message=message, page=page, timeout=timeout)
 
 
-async def close_menu (
-ctx :commands .Context ,
-pages :list ,
-controls :dict ,
-message :discord .Message ,
-page :int ,
-timeout :float ,
-emoji :str ,
+async def close_menu(
+    ctx: commands.Context,
+    pages: list,
+    controls: dict,
+    message: discord.Message,
+    page: int,
+    timeout: float,
+    emoji: str,
 ):
-    with contextlib .suppress (discord .NotFound ):
-        await message .delete ()
+    with contextlib.suppress(discord.NotFound):
+        await message.delete()
 
 
-def start_adding_reactions (
-message :discord .Message ,emojis :Iterable [_ReactableEmoji ]
-)->asyncio .Task :
+def start_adding_reactions(
+    message: discord.Message, emojis: Iterable[_ReactableEmoji]
+) -> asyncio.Task:
     """Start adding reactions to a message.
 
     This is a non-blocking operation - calling this will schedule the
@@ -198,17 +198,17 @@ message :discord .Message ,emojis :Iterable [_ReactableEmoji ]
 
     """
 
-    async def task ():
-    # New Fluttershy? Old Fluttershy!?
-        with contextlib .suppress (discord .NotFound ):
-            for emoji in emojis :
-                await message .add_reaction (emoji )
+    async def task():
+        # The task should exit silently if the message is deleted
+        with contextlib.suppress(discord.NotFound):
+            for emoji in emojis:
+                await message.add_reaction(emoji)
 
-    return asyncio .create_task (task ())
+    return asyncio.create_task(task())
 
 
-DEFAULT_CONTROLS ={
-"\N{LEFTWARDS BLACK ARROW}\N{VARIATION SELECTOR-16}":prev_page ,
-"\N{CROSS MARK}":close_menu ,
-"\N{BLACK RIGHTWARDS ARROW}\N{VARIATION SELECTOR-16}":next_page ,
+DEFAULT_CONTROLS = {
+    "\N{LEFTWARDS BLACK ARROW}\N{VARIATION SELECTOR-16}": prev_page,
+    "\N{CROSS MARK}": close_menu,
+    "\N{BLACK RIGHTWARDS ARROW}\N{VARIATION SELECTOR-16}": next_page,
 }

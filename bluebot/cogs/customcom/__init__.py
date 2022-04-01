@@ -1,5 +1,5 @@
-from .customcom import CustomCommands 
+from .customcom import CustomCommands
 
 
-def setup (bot ):
-    bot .add_cog (CustomCommands (bot ))
+def setup(bot):
+    bot.add_cog(CustomCommands(bot))

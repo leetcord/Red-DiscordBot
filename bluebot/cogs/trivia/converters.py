@@ -1,18 +1,18 @@
-import math 
+import math
 
-from bluebot .core import commands 
-from bluebot .core .i18n import Translator 
+from bluebot.core import commands
+from bluebot.core.i18n import Translator
 
-__all__ =("finite_float",)
+__all__ = ("finite_float",)
 
-_ =Translator ("Trivia",__file__ )
+_ = Translator("Trivia", __file__)
 
 
-def finite_float (arg :str )->float :
-    try :
-        ret =float (arg )
-    except ValueError :
-        raise commands .BadArgument (_ ("`{arg}` is not a number.").format (arg =arg ))
-    if not math .isfinite (ret ):
-        raise commands .BadArgument (_ ("`{arg}` is not a finite number.").format (arg =ret ))
-    return ret 
+def finite_float(arg: str) -> float:
+    try:
+        ret = float(arg)
+    except ValueError:
+        raise commands.BadArgument(_("`{arg}` is not a number.").format(arg=arg))
+    if not math.isfinite(ret):
+        raise commands.BadArgument(_("`{arg}` is not a finite number.").format(arg=ret))
+    return ret

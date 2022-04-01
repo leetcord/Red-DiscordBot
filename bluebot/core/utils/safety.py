@@ -1,8 +1,8 @@
-import warnings 
-import functools 
+import warnings
+import functools
 
 
-def unsafe (f ,message =None ):
+def unsafe(f, message=None):
     """
     Decorator form for marking a function as unsafe.
 
@@ -13,19 +13,19 @@ def unsafe (f ,message =None ):
     This should be used sparingly at most.
     """
 
-    def wrapper (func ):
-        @functools .wraps (func )
-        def get_wrapped (*args ,**kwargs ):
-            actual_message =message or f"{func.__name__} is unsafe for use"
-            warnings .warn (actual_message ,stacklevel =3 ,category =RuntimeWarning )
-            return func (*args ,**kwargs )
+    def wrapper(func):
+        @functools.wraps(func)
+        def get_wrapped(*args, **kwargs):
+            actual_message = message or f"{func.__name__} is unsafe for use"
+            warnings.warn(actual_message, stacklevel=3, category=RuntimeWarning)
+            return func(*args, **kwargs)
 
-        return get_wrapped 
+        return get_wrapped
 
-    return wrapper 
+    return wrapper
 
 
-def warn_unsafe (f ,message =None ):
+def warn_unsafe(f, message=None):
     """
     Function to mark function from dependencies as unsafe for use.
 
@@ -37,13 +37,13 @@ def warn_unsafe (f ,message =None ):
     This should be used sparingly at most.
     """
 
-    def wrapper (func ):
-        @functools .wraps (func )
-        def get_wrapped (*args ,**kwargs ):
-            actual_message =message or f"{func.__name__} is unsafe for use"
-            warnings .warn (actual_message ,stacklevel =3 ,category =RuntimeWarning )
-            return func (*args ,**kwargs )
+    def wrapper(func):
+        @functools.wraps(func)
+        def get_wrapped(*args, **kwargs):
+            actual_message = message or f"{func.__name__} is unsafe for use"
+            warnings.warn(actual_message, stacklevel=3, category=RuntimeWarning)
+            return func(*args, **kwargs)
 
-        return get_wrapped 
+        return get_wrapped
 
-    return wrapper (f )
+    return wrapper(f)
