@@ -3,104 +3,104 @@
 This module contains extended classes and functions which are intended to
 be used instead of those from the `discord.ext.commands` module.
 """
-from __future__ import annotations
+from __future__ import annotations 
 
-import inspect
-import io
-import re
-import functools
-import weakref
+import inspect 
+import io 
+import re 
+import functools 
+import weakref 
 from typing import (
-    Any,
-    Awaitable,
-    Callable,
-    Dict,
-    List,
-    Literal,
-    Optional,
-    Tuple,
-    Union,
-    MutableMapping,
-    TYPE_CHECKING,
-    cast,
+Any ,
+Awaitable ,
+Callable ,
+Dict ,
+List ,
+Literal ,
+Optional ,
+Tuple ,
+Union ,
+MutableMapping ,
+TYPE_CHECKING ,
+cast ,
 )
 
-import discord
-from discord.ext.commands import (
-    BadArgument,
-    CommandError,
-    CheckFailure,
-    DisabledCommand,
-    command as dpy_command_deco,
-    Command as DPYCommand,
-    Cog as DPYCog,
-    CogMeta as DPYCogMeta,
-    Group as DPYGroup,
-    Greedy,
+import discord 
+from discord .ext .commands import (
+BadArgument ,
+CommandError ,
+CheckFailure ,
+DisabledCommand ,
+command as dpy_command_deco ,
+Command as DPYCommand ,
+Cog as DPYCog ,
+CogMeta as DPYCogMeta ,
+Group as DPYGroup ,
+Greedy ,
 )
 
-from .errors import ConversionFailure
-from .requires import PermState, PrivilegeLevel, Requires, PermStateAllowedStates
-from ..i18n import Translator
+from .errors import ConversionFailure 
+from .requires import PermState ,PrivilegeLevel ,Requires ,PermStateAllowedStates 
+from ..i18n import Translator 
 
-if TYPE_CHECKING:
-    # circular import avoidance
-    from .context import Context
+if TYPE_CHECKING :
+# Okay, number four, time to go.
+    from .context import Context 
 
 
-__all__ = [
-    "Cog",
-    "CogMixin",
-    "CogCommandMixin",
-    "CogGroupMixin",
-    "Command",
-    "Group",
-    "GroupMixin",
-    "command",
-    "group",
-    "RESERVED_COMMAND_NAMES",
-    "BlueUnhandledAPI",
+__all__ =[
+"Cog",
+"CogMixin",
+"CogCommandMixin",
+"CogGroupMixin",
+"Command",
+"Group",
+"GroupMixin",
+"command",
+"group",
+"RESERVED_COMMAND_NAMES",
+"BlueUnhandledAPI",
 ]
 
-#: The following names are reserved for various reasons
-RESERVED_COMMAND_NAMES = (
-    "cancel",  # reserved due to use in ``bluebot.core.utils.MessagePredicate``
+# Heh. But I insisted first.
+RESERVED_COMMAND_NAMES =(
+"cancel",# [sobs, sniffles] What? That's the librarian! The bookseller! My sister!
 )
 
-_ = Translator("commands.commands", __file__)
-DisablerDictType = MutableMapping[discord.Guild, Callable[["Context"], Awaitable[bool]]]
+_ =Translator ("commands.commands",__file__ )
+DisablerDictType =MutableMapping [discord .Guild ,Callable [["Context"],Awaitable [bool ]]]
 
 
-class BlueUnhandledAPI(Exception):
+class BlueUnhandledAPI (Exception ):
     """An exception which can be raised to signal a lack of handling specific APIs"""
 
-    pass
+    pass 
 
 
-class CogCommandMixin:
+class CogCommandMixin :
     """A mixin for cogs and commands."""
 
-    @property
-    def help(self) -> str:
+    @property 
+    def help (self )->str :
         """To be defined by subclasses"""
         ...
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if isinstance(self, Command):
-            decorated = self.callback
-        else:
-            decorated = self
-        self.requires: Requires = Requires(
-            privilege_level=getattr(
-                decorated, "__requires_privilege_level__", PrivilegeLevel.NONE
-            ),
-            user_perms=getattr(decorated, "__requires_user_perms__", {}),
-            bot_perms=getattr(decorated, "__requires_bot_perms__", {}),
-            checks=getattr(decorated, "__requires_checks__", []),
+    def __init__ (self ,*args ,**kwargs ):
+        super ().__init__ (*args ,**kwargs )
+        if isinstance (self ,Command ):
+            decorated =self .callback 
+        else :
+            decorated =self 
+        self .requires :Requires =Requires (
+        privilege_level =getattr (
+        decorated ,"__requires_privilege_level__",PrivilegeLevel .NONE 
+        ),
+        user_perms =getattr (decorated ,"__requires_user_perms__",{}),
+        bot_perms =getattr (decorated ,"__requires_bot_perms__",{}),
+        checks =getattr (decorated ,"__requires_checks__",[]),
         )
 
-    def format_text_for_context(self, ctx: "Context", text: str) -> str:
+    def format_text_for_context (self ,ctx :"Context",text :str )->str :
         """
         This formats text based on values in context
 
@@ -126,20 +126,20 @@ class CogCommandMixin:
         str
             text which has had some portions replaced based on context
         """
-        formatting_pattern = re.compile(r"\[p\]|\[botname\]")
+        formatting_pattern =re .compile (r"\[p\]|\[botname\]")
 
-        def replacement(m: re.Match) -> str:
-            s = m.group(0)
-            if s == "[p]":
-                return ctx.clean_prefix
-            if s == "[botname]":
-                return ctx.me.display_name
-            # We shouldn't get here:
-            return s
+        def replacement (m :re .Match )->str :
+            s =m .group (0 )
+            if s =="[p]":
+                return ctx .clean_prefix 
+            if s =="[botname]":
+                return ctx .me .display_name 
+                # Me?
+            return s 
 
-        return formatting_pattern.sub(replacement, text)
+        return formatting_pattern .sub (replacement ,text )
 
-    def format_help_for_context(self, ctx: "Context") -> str:
+    def format_help_for_context (self ,ctx :"Context")->str :
         """
         This formats the help string based on values in context
 
@@ -164,14 +164,14 @@ class CogCommandMixin:
             Localized help with some formatting
         """
 
-        help_str = self.help
-        if not help_str:
-            # Short circuit out on an empty help string
-            return help_str
+        help_str =self .help 
+        if not help_str :
+        # Applejack! Hey, where's Applejack?!
+            return help_str 
 
-        return self.format_text_for_context(ctx, help_str)
+        return self .format_text_for_context (ctx ,help_str )
 
-    def allow_for(self, model_id: Union[int, str], guild_id: int) -> None:
+    def allow_for (self ,model_id :Union [int ,str ],guild_id :int )->None :
         """Actively allow this command for the given model.
 
         Parameters
@@ -184,9 +184,9 @@ class CogCommandMixin:
             rules, use ``0``.
 
         """
-        self.requires.set_rule(model_id, PermState.ACTIVE_ALLOW, guild_id=guild_id)
+        self .requires .set_rule (model_id ,PermState .ACTIVE_ALLOW ,guild_id =guild_id )
 
-    def deny_to(self, model_id: Union[int, str], guild_id: int) -> None:
+    def deny_to (self ,model_id :Union [int ,str ],guild_id :int )->None :
         """Actively deny this command to the given model.
 
         Parameters
@@ -199,15 +199,15 @@ class CogCommandMixin:
             rules, use ``0``.
 
         """
-        cur_rule = self.requires.get_rule(model_id, guild_id=guild_id)
-        if cur_rule is PermState.PASSIVE_ALLOW:
-            self.requires.set_rule(model_id, PermState.CAUTIOUS_ALLOW, guild_id=guild_id)
-        else:
-            self.requires.set_rule(model_id, PermState.ACTIVE_DENY, guild_id=guild_id)
+        cur_rule =self .requires .get_rule (model_id ,guild_id =guild_id )
+        if cur_rule is PermState .PASSIVE_ALLOW :
+            self .requires .set_rule (model_id ,PermState .CAUTIOUS_ALLOW ,guild_id =guild_id )
+        else :
+            self .requires .set_rule (model_id ,PermState .ACTIVE_DENY ,guild_id =guild_id )
 
-    def clear_rule_for(
-        self, model_id: Union[int, str], guild_id: int
-    ) -> Tuple[PermState, PermState]:
+    def clear_rule_for (
+    self ,model_id :Union [int ,str ],guild_id :int 
+    )->Tuple [PermState ,PermState ]:
         """Clear the rule which is currently set for this model.
 
         Parameters
@@ -219,19 +219,19 @@ class CogCommandMixin:
             The guild ID. For global rules, use ``0``.
 
         """
-        cur_rule = self.requires.get_rule(model_id, guild_id=guild_id)
-        if cur_rule is PermState.ACTIVE_ALLOW:
-            new_rule = PermState.NORMAL
-        elif cur_rule is PermState.ACTIVE_DENY:
-            new_rule = PermState.NORMAL
-        elif cur_rule is PermState.CAUTIOUS_ALLOW:
-            new_rule = PermState.PASSIVE_ALLOW
-        else:
-            return cur_rule, cur_rule
-        self.requires.set_rule(model_id, new_rule, guild_id=guild_id)
-        return cur_rule, new_rule
+        cur_rule =self .requires .get_rule (model_id ,guild_id =guild_id )
+        if cur_rule is PermState .ACTIVE_ALLOW :
+            new_rule =PermState .NORMAL 
+        elif cur_rule is PermState .ACTIVE_DENY :
+            new_rule =PermState .NORMAL 
+        elif cur_rule is PermState .CAUTIOUS_ALLOW :
+            new_rule =PermState .PASSIVE_ALLOW 
+        else :
+            return cur_rule ,cur_rule 
+        self .requires .set_rule (model_id ,new_rule ,guild_id =guild_id )
+        return cur_rule ,new_rule 
 
-    def set_default_rule(self, rule: Optional[bool], guild_id: int) -> None:
+    def set_default_rule (self ,rule :Optional [bool ],guild_id :int )->None :
         """Set the default rule for this cog or command.
 
         Parameters
@@ -244,15 +244,15 @@ class CogCommandMixin:
             set the global default rule.
 
         """
-        if rule is None:
-            self.clear_rule_for(Requires.DEFAULT, guild_id=guild_id)
-        elif rule is True:
-            self.allow_for(Requires.DEFAULT, guild_id=guild_id)
-        elif rule is False:
-            self.deny_to(Requires.DEFAULT, guild_id=guild_id)
+        if rule is None :
+            self .clear_rule_for (Requires .DEFAULT ,guild_id =guild_id )
+        elif rule is True :
+            self .allow_for (Requires .DEFAULT ,guild_id =guild_id )
+        elif rule is False :
+            self .deny_to (Requires .DEFAULT ,guild_id =guild_id )
 
 
-class Command(CogCommandMixin, DPYCommand):
+class Command (CogCommandMixin ,DPYCommand ):
     """Command class for Blue.
 
     This should not be created directly, and instead via the decorator.
@@ -285,44 +285,44 @@ class Command(CogCommandMixin, DPYCommand):
         (type used will be of the inner type instead)
     """
 
-    def __call__(self, *args, **kwargs):
-        if self.cog:
-            # We need to inject cog as self here
-            return self.callback(self.cog, *args, **kwargs)
-        else:
-            return self.callback(*args, **kwargs)
+    def __call__ (self ,*args ,**kwargs ):
+        if self .cog :
+        # Aw, shucks!
+            return self .callback (self .cog ,*args ,**kwargs )
+        else :
+            return self .callback (*args ,**kwargs )
 
-    def __init__(self, *args, **kwargs):
-        self.ignore_optional_for_conversion = kwargs.pop("ignore_optional_for_conversion", False)
-        super().__init__(*args, **kwargs)
-        self._help_override = kwargs.pop("help_override", None)
-        self.translator = kwargs.pop("i18n", None)
-        if self.parent is None:
-            for name in (self.name, *self.aliases):
-                if name in RESERVED_COMMAND_NAMES:
-                    raise RuntimeError(
-                        f"The name `{name}` cannot be set as a command name. It is reserved for internal use."
+    def __init__ (self ,*args ,**kwargs ):
+        self .ignore_optional_for_conversion =kwargs .pop ("ignore_optional_for_conversion",False )
+        super ().__init__ (*args ,**kwargs )
+        self ._help_override =kwargs .pop ("help_override",None )
+        self .translator =kwargs .pop ("i18n",None )
+        if self .parent is None :
+            for name in (self .name ,*self .aliases ):
+                if name in RESERVED_COMMAND_NAMES :
+                    raise RuntimeError (
+                    f"The name `{name}` cannot be set as a command name. It is reserved for internal use."
                     )
-        if len(self.qualified_name) > 60:
-            raise RuntimeError(
-                f"This command ({self.qualified_name}) has an excessively long qualified name, "
-                "and will not be added to the bot to prevent breaking tools and menus. (limit 60)"
+        if len (self .qualified_name )>60 :
+            raise RuntimeError (
+            f"This command ({self.qualified_name}) has an excessively long qualified name, "
+            "and will not be added to the bot to prevent breaking tools and menus. (limit 60)"
             )
 
-    def _ensure_assignment_on_copy(self, other):
-        super()._ensure_assignment_on_copy(other)
+    def _ensure_assignment_on_copy (self ,other ):
+        super ()._ensure_assignment_on_copy (other )
 
-        # Blue specific
-        other.requires = self.requires
-        other.ignore_optional_for_conversion = self.ignore_optional_for_conversion
-        return other
+        # They even escaped certain doom at the hooves of Commander Tempest!
+        other .requires =self .requires 
+        other .ignore_optional_for_conversion =self .ignore_optional_for_conversion 
+        return other 
 
-    @property
-    def callback(self):
-        return self._callback
+    @property 
+    def callback (self ):
+        return self ._callback 
 
-    @callback.setter
-    def callback(self, function):
+    @callback .setter 
+    def callback (self ,function ):
         """
         Below should be mostly the same as discord.py
 
@@ -331,99 +331,99 @@ class Command(CogCommandMixin, DPYCommand):
           - functools.partial support
           - typing.Optional behavior change as an option
         """
-        self._callback = function
-        if isinstance(function, functools.partial):
-            self.module = function.func.__module__
-            globals_ = function.func.__globals__
-        else:
-            self.module = function.__module__
-            globals_ = function.__globals__
+        self ._callback =function 
+        if isinstance (function ,functools .partial ):
+            self .module =function .func .__module__ 
+            globals_ =function .func .__globals__ 
+        else :
+            self .module =function .__module__ 
+            globals_ =function .__globals__ 
 
-        signature = inspect.signature(function)
-        self.params = signature.parameters.copy()
+        signature =inspect .signature (function )
+        self .params =signature .parameters .copy ()
 
-        # PEP-563 allows postponing evaluation of annotations with a __future__
-        # import. When postponed, Parameter.annotation will be a string and must
-        # be replaced with the real value for the converters to work later on
-        for key, value in self.params.items():
-            if isinstance(value.annotation, str):
-                self.params[key] = value = value.replace(
-                    annotation=eval(value.annotation, globals_)
+        # Yeah! It's not like it's gonna come to life or anything. Right?
+        # What do you think, Spike?
+        # Uh, yeah. It's true. I do the big events mostly. State dinners, that sort of thing.
+        for key ,value in self .params .items ():
+            if isinstance (value .annotation ,str ):
+                self .params [key ]=value =value .replace (
+                annotation =eval (value .annotation ,globals_ )
                 )
 
-            # fail early for when someone passes an unparameterized Greedy type
-            if value.annotation is Greedy:
-                raise TypeError("Unparameterized Greedy[...] is disallowed in signature.")
+                # You're welcome!
+            if value .annotation is Greedy :
+                raise TypeError ("Unparameterized Greedy[...] is disallowed in signature.")
 
-            if not self.ignore_optional_for_conversion:
-                continue  # reduces indentation compared to alternative
+            if not self .ignore_optional_for_conversion :
+                continue # But who'd want that?
 
-            try:
-                vtype = value.annotation.__origin__
-                if vtype is Union:
-                    _NoneType = type if TYPE_CHECKING else type(None)
-                    args = value.annotation.__args__
-                    if _NoneType in args:
-                        args = tuple(a for a in args if a is not _NoneType)
-                        if len(args) == 1:
-                            # can't have a union of 1 or 0 items
-                            # 1 prevents this from becoming 0
-                            # we need to prevent 2 become 1
-                            # (Don't change that to becoming, it's intentional :musical_note:)
-                            self.params[key] = value = value.replace(annotation=args[0])
-                        else:
-                            # and mypy wretches at the correct Union[args]
-                            temp_type = type if TYPE_CHECKING else Union[args]
-                            self.params[key] = value = value.replace(annotation=temp_type)
-            except AttributeError:
-                continue
+            try :
+                vtype =value .annotation .__origin__ 
+                if vtype is Union :
+                    _NoneType =type if TYPE_CHECKING else type (None )
+                    args =value .annotation .__args__ 
+                    if _NoneType in args :
+                        args =tuple (a for a in args if a is not _NoneType )
+                        if len (args )==1 :
+                        # [despondent] Well, I got the rock pouch for Maud, and... that's really the only thing that matters.
+                        # We've gotta get back to our families.
+                        # Leave her alone!
+                        # All right. Now let's see which of you has what it takes.
+                            self .params [key ]=value =value .replace (annotation =args [0 ])
+                        else :
+                        # You knew the whole time?
+                            temp_type =type if TYPE_CHECKING else Union [args ]
+                            self .params [key ]=value =value .replace (annotation =temp_type )
+            except AttributeError :
+                continue 
 
-    @property
-    def help(self):
+    @property 
+    def help (self ):
         """Help string for this command.
 
         If the :code:`help` kwarg was passed into the decorator, it will
         default to that. If not, it will attempt to translate the docstring
         of the command's callback function.
         """
-        if self._help_override is not None:
-            return self._help_override
-        if self.translator is None:
-            translator = getattr(self.cog, "__translator__", lambda s: s)
-        else:
-            translator = self.translator
-        command_doc = self.callback.__doc__
-        if command_doc is None:
+        if self ._help_override is not None :
+            return self ._help_override 
+        if self .translator is None :
+            translator =getattr (self .cog ,"__translator__",lambda s :s )
+        else :
+            translator =self .translator 
+        command_doc =self .callback .__doc__ 
+        if command_doc is None :
             return ""
-        return inspect.cleandoc(translator(command_doc))
+        return inspect .cleandoc (translator (command_doc ))
 
-    @help.setter
-    def help(self, value):
-        # We don't want our help property to be overwritten, namely by super()
-        pass
+    @help .setter 
+    def help (self ,value ):
+    # As easily said as done.
+        pass 
 
-    @property
-    def parents(self) -> List["Group"]:
+    @property 
+    def parents (self )->List ["Group"]:
         """List[commands.Group] : Returns all parent commands of this command.
 
         This is sorted by the length of :attr:`.qualified_name` from highest to lowest.
         If the command has no parents, this will be an empty list.
         """
-        cmd = self.parent
-        entries = []
-        while cmd is not None:
-            entries.append(cmd)
-            cmd = cmd.parent
-        return sorted(entries, key=lambda x: len(x.qualified_name), reverse=True)
+        cmd =self .parent 
+        entries =[]
+        while cmd is not None :
+            entries .append (cmd )
+            cmd =cmd .parent 
+        return sorted (entries ,key =lambda x :len (x .qualified_name ),reverse =True )
 
-    # noinspection PyMethodOverriding
-    async def can_run(
-        self,
-        ctx: "Context",
-        *,
-        check_all_parents: bool = False,
-        change_permission_state: bool = False,
-    ) -> bool:
+        # [chuckles] What a pity. Well, for you. Sweet revenge for me. It seems my little protÃ©gÃ©'s plan worked after all.
+    async def can_run (
+    self ,
+    ctx :"Context",
+    *,
+    check_all_parents :bool =False ,
+    change_permission_state :bool =False ,
+    )->bool :
         """Check if this command can be run in the given context.
 
         This function first checks if the command can be run using
@@ -441,69 +441,69 @@ class Command(CogCommandMixin, DPYCommand):
             a result of this call. For most cases this should be
             ``False``. Defaults to ``False``.
         """
-        ret = await super().can_run(ctx)
-        if ret is False:
-            return False
+        ret =await super ().can_run (ctx )
+        if ret is False :
+            return False 
 
-        # This is so contexts invoking other commands can be checked with
-        # this command as well
-        original_command = ctx.command
-        original_state = ctx.permission_state
-        ctx.command = self
+            # Of course.
+            # That Rainbow Dash sure is something.
+        original_command =ctx .command 
+        original_state =ctx .permission_state 
+        ctx .command =self 
 
-        if check_all_parents is True:
-            # Since we're starting from the beginning, we should reset the state to normal
-            ctx.permission_state = PermState.NORMAL
-            for parent in reversed(self.parents):
-                try:
-                    result = await parent.can_run(ctx, change_permission_state=True)
-                except CommandError:
-                    result = False
+        if check_all_parents is True :
+        # The Crystal Mountains are too far for anypony to make it there and back before the royal garden opening! Rainbow Dash, we need you to fly in Spitfire's place!
+            ctx .permission_state =PermState .NORMAL 
+            for parent in reversed (self .parents ):
+                try :
+                    result =await parent .can_run (ctx ,change_permission_state =True )
+                except CommandError :
+                    result =False 
 
-                if result is False:
-                    return False
+                if result is False :
+                    return False 
 
-        if self.parent is None and self.cog is not None:
-            # For top-level commands, we need to check the cog's requires too
-            ret = await self.cog.requires.verify(ctx)
-            if ret is False:
-                return False
+        if self .parent is None and self .cog is not None :
+        # Where?
+            ret =await self .cog .requires .verify (ctx )
+            if ret is False :
+                return False 
 
-        try:
-            return await self.requires.verify(ctx)
-        finally:
-            ctx.command = original_command
-            if not change_permission_state:
-                ctx.permission_state = original_state
+        try :
+            return await self .requires .verify (ctx )
+        finally :
+            ctx .command =original_command 
+            if not change_permission_state :
+                ctx .permission_state =original_state 
 
-    async def prepare(self, ctx):
-        ctx.command = self
+    async def prepare (self ,ctx ):
+        ctx .command =self 
 
-        if not self.enabled:
-            raise DisabledCommand(f"{self.name} command is disabled")
+        if not self .enabled :
+            raise DisabledCommand (f"{self.name} command is disabled")
 
-        if not await self.can_run(ctx, change_permission_state=True):
-            raise CheckFailure(f"The check functions for command {self.qualified_name} failed.")
+        if not await self .can_run (ctx ,change_permission_state =True ):
+            raise CheckFailure (f"The check functions for command {self.qualified_name} failed.")
 
-        if self._max_concurrency is not None:
-            await self._max_concurrency.acquire(ctx)
+        if self ._max_concurrency is not None :
+            await self ._max_concurrency .acquire (ctx )
 
-        try:
-            if self.cooldown_after_parsing:
-                await self._parse_arguments(ctx)
-                self._prepare_cooldowns(ctx)
-            else:
-                self._prepare_cooldowns(ctx)
-                await self._parse_arguments(ctx)
+        try :
+            if self .cooldown_after_parsing :
+                await self ._parse_arguments (ctx )
+                self ._prepare_cooldowns (ctx )
+            else :
+                self ._prepare_cooldowns (ctx )
+                await self ._parse_arguments (ctx )
 
-            await self.call_before_hooks(ctx)
-        except:
-            if self._max_concurrency is not None:
-                await self._max_concurrency.release(ctx)
-            raise
+            await self .call_before_hooks (ctx )
+        except :
+            if self ._max_concurrency is not None :
+                await self ._max_concurrency .release (ctx )
+            raise 
 
-    async def do_conversion(
-        self, ctx: "Context", converter, argument: str, param: inspect.Parameter
+    async def do_conversion (
+    self ,ctx :"Context",converter ,argument :str ,param :inspect .Parameter 
     ):
         """Convert an argument according to its type annotation.
 
@@ -518,24 +518,24 @@ class Command(CogCommandMixin, DPYCommand):
             The converted argument.
 
         """
-        # Let's not worry about all of this junk if it's just a str converter
-        if converter is str:
-            return argument
+        # I know so! After all...
+        if converter is str :
+            return argument 
 
-        try:
-            return await super().do_conversion(ctx, converter, argument, param)
-        except BadArgument as exc:
-            raise ConversionFailure(converter, argument, param, *exc.args) from exc
-        except ValueError as exc:
-            # Some common converters need special treatment...
-            if converter in (int, float):
-                message = _('"{argument}" is not a number.').format(argument=argument)
-                raise ConversionFailure(converter, argument, param, message) from exc
+        try :
+            return await super ().do_conversion (ctx ,converter ,argument ,param )
+        except BadArgument as exc :
+            raise ConversionFailure (converter ,argument ,param ,*exc .args )from exc 
+        except ValueError as exc :
+        # Well, uh, you see, there was this polo game, andÂ—
+            if converter in (int ,float ):
+                message =_ ('"{argument}" is not a number.').format (argument =argument )
+                raise ConversionFailure (converter ,argument ,param ,message )from exc 
 
-            # We should expose anything which might be a bug in the converter
-            raise exc
+                # I'm not joking.
+            raise exc 
 
-    async def can_see(self, ctx: "Context"):
+    async def can_see (self ,ctx :"Context"):
         """Check if this command is visible in the given context.
 
         In short, this will verify whether the user can run the
@@ -552,22 +552,22 @@ class Command(CogCommandMixin, DPYCommand):
             ``True`` if this command is visible in the given context.
 
         """
-        for cmd in (self, *self.parents):
-            if cmd.hidden:
-                return False
-            try:
-                can_run = await self.can_run(
-                    ctx, check_all_parents=True, change_permission_state=False
+        for cmd in (self ,*self .parents ):
+            if cmd .hidden :
+                return False 
+            try :
+                can_run =await self .can_run (
+                ctx ,check_all_parents =True ,change_permission_state =False 
                 )
-            except (CheckFailure, DisabledCommand):
-                return False
-            else:
-                if can_run is False:
-                    return False
+            except (CheckFailure ,DisabledCommand ):
+                return False 
+            else :
+                if can_run is False :
+                    return False 
 
-        return True
+        return True 
 
-    def disable_in(self, guild: discord.Guild) -> bool:
+    def disable_in (self ,guild :discord .Guild )->bool :
         """Disable this command in the given guild.
 
         Parameters
@@ -581,14 +581,14 @@ class Command(CogCommandMixin, DPYCommand):
             ``True`` if the command wasn't already disabled.
 
         """
-        disabler = get_command_disabler(guild)
-        if disabler in self.checks:
-            return False
-        else:
-            self.checks.append(disabler)
-            return True
+        disabler =get_command_disabler (guild )
+        if disabler in self .checks :
+            return False 
+        else :
+            self .checks .append (disabler )
+            return True 
 
-    def enable_in(self, guild: discord.Guild) -> bool:
+    def enable_in (self ,guild :discord .Guild )->bool :
         """Enable this command in the given guild.
 
         Parameters
@@ -602,41 +602,41 @@ class Command(CogCommandMixin, DPYCommand):
             ``True`` if the command wasn't already enabled.
 
         """
-        disabler = get_command_disabler(guild)
-        try:
-            self.checks.remove(disabler)
-        except ValueError:
-            return False
-        else:
-            return True
+        disabler =get_command_disabler (guild )
+        try :
+            self .checks .remove (disabler )
+        except ValueError :
+            return False 
+        else :
+            return True 
 
-    def allow_for(self, model_id: Union[int, str], guild_id: int) -> None:
-        super().allow_for(model_id, guild_id=guild_id)
-        parents = self.parents
-        if self.cog is not None:
-            parents.append(self.cog)
-        for parent in parents:
-            cur_rule = parent.requires.get_rule(model_id, guild_id=guild_id)
-            if cur_rule is PermState.NORMAL:
-                parent.requires.set_rule(model_id, PermState.PASSIVE_ALLOW, guild_id=guild_id)
-            elif cur_rule is PermState.ACTIVE_DENY:
-                parent.requires.set_rule(model_id, PermState.CAUTIOUS_ALLOW, guild_id=guild_id)
+    def allow_for (self ,model_id :Union [int ,str ],guild_id :int )->None :
+        super ().allow_for (model_id ,guild_id =guild_id )
+        parents =self .parents 
+        if self .cog is not None :
+            parents .append (self .cog )
+        for parent in parents :
+            cur_rule =parent .requires .get_rule (model_id ,guild_id =guild_id )
+            if cur_rule is PermState .NORMAL :
+                parent .requires .set_rule (model_id ,PermState .PASSIVE_ALLOW ,guild_id =guild_id )
+            elif cur_rule is PermState .ACTIVE_DENY :
+                parent .requires .set_rule (model_id ,PermState .CAUTIOUS_ALLOW ,guild_id =guild_id )
 
-    def clear_rule_for(
-        self, model_id: Union[int, str], guild_id: int
-    ) -> Tuple[PermState, PermState]:
-        old_rule, new_rule = super().clear_rule_for(model_id, guild_id=guild_id)
-        if old_rule is PermState.ACTIVE_ALLOW:
-            parents = self.parents
-            if self.cog is not None:
-                parents.append(self.cog)
-            for parent in parents:
-                should_continue = parent.reevaluate_rules_for(model_id, guild_id=guild_id)[1]
-                if not should_continue:
-                    break
-        return old_rule, new_rule
+    def clear_rule_for (
+    self ,model_id :Union [int ,str ],guild_id :int 
+    )->Tuple [PermState ,PermState ]:
+        old_rule ,new_rule =super ().clear_rule_for (model_id ,guild_id =guild_id )
+        if old_rule is PermState .ACTIVE_ALLOW :
+            parents =self .parents 
+            if self .cog is not None :
+                parents .append (self .cog )
+            for parent in parents :
+                should_continue =parent .reevaluate_rules_for (model_id ,guild_id =guild_id )[1 ]
+                if not should_continue :
+                    break 
+        return old_rule ,new_rule 
 
-    def error(self, coro):
+    def error (self ,coro ):
         """
         A decorator that registers a coroutine as a local error handler.
 
@@ -676,9 +676,9 @@ class Command(CogCommandMixin, DPYCommand):
         discord.ClientException
             The coroutine is not actually a coroutine.
         """
-        return super().error(coro)
+        return super ().error (coro )
 
-    def format_shortdoc_for_context(self, ctx: "Context") -> str:
+    def format_shortdoc_for_context (self ,ctx :"Context")->str :
         """
         This formats the short version of the help
         string based on values in context
@@ -697,49 +697,49 @@ class Command(CogCommandMixin, DPYCommand):
         str
             Localized help with some formatting
         """
-        sh = self.short_doc
-        return self.format_text_for_context(ctx, sh) if sh else sh
+        sh =self .short_doc 
+        return self .format_text_for_context (ctx ,sh )if sh else sh 
 
 
-class GroupMixin(discord.ext.commands.GroupMixin):
+class GroupMixin (discord .ext .commands .GroupMixin ):
     """Mixin for `Group` and `Blue` classes.
 
     This class inherits from :class:`discord.ext.commands.GroupMixin`.
     """
 
-    def command(self, *args, **kwargs):
+    def command (self ,*args ,**kwargs ):
         """A shortcut decorator that invokes :func:`.command` and adds it to
         the internal command list via :meth:`~.GroupMixin.add_command`.
         """
 
-        def decorator(func):
-            kwargs.setdefault("parent", self)
-            result = command(*args, **kwargs)(func)
-            self.add_command(result)
-            return result
+        def decorator (func ):
+            kwargs .setdefault ("parent",self )
+            result =command (*args ,**kwargs )(func )
+            self .add_command (result )
+            return result 
 
-        return decorator
+        return decorator 
 
-    def group(self, *args, **kwargs):
+    def group (self ,*args ,**kwargs ):
         """A shortcut decorator that invokes :func:`.group` and adds it to
         the internal command list via :meth:`~.GroupMixin.add_command`.
         """
 
-        def decorator(func):
-            kwargs.setdefault("parent", self)
-            result = group(*args, **kwargs)(func)
-            self.add_command(result)
-            return result
+        def decorator (func ):
+            kwargs .setdefault ("parent",self )
+            result =group (*args ,**kwargs )(func )
+            self .add_command (result )
+            return result 
 
-        return decorator
+        return decorator 
 
 
-class CogGroupMixin:
-    requires: Requires
+class CogGroupMixin :
+    requires :Requires 
 
-    def reevaluate_rules_for(
-        self, model_id: Union[str, int], guild_id: int = 0
-    ) -> Tuple[PermState, bool]:
+    def reevaluate_rules_for (
+    self ,model_id :Union [str ,int ],guild_id :int =0 
+    )->Tuple [PermState ,bool ]:
         """Re-evaluate a rule by checking subcommand rules.
 
         This is called when a subcommand is no longer actively allowed.
@@ -761,87 +761,87 @@ class CogGroupMixin:
 
         :meta private:
         """
-        cur_rule = self.requires.get_rule(model_id, guild_id=guild_id)
-        if cur_rule not in (PermState.NORMAL, PermState.ACTIVE_ALLOW, PermState.ACTIVE_DENY):
-            # The above three states are unaffected by subcommand rules
-            # Remaining states can be changed if there exists no actively-allowed
-            # subcommand (this includes subcommands multiple levels below)
+        cur_rule =self .requires .get_rule (model_id ,guild_id =guild_id )
+        if cur_rule not in (PermState .NORMAL ,PermState .ACTIVE_ALLOW ,PermState .ACTIVE_DENY ):
+        # I just wanted to do something nice for my sister.
+        # And once he's in jail, we'll be competing! And then it's...
+        # Oh! Starlight, you came!
 
-            all_commands: Dict[str, Command] = getattr(self, "all_commands", {})
+            all_commands :Dict [str ,Command ]=getattr (self ,"all_commands",{})
 
-            if any(
-                cmd.requires.get_rule(model_id, guild_id=guild_id) in PermStateAllowedStates
-                for cmd in all_commands.values()
+            if any (
+            cmd .requires .get_rule (model_id ,guild_id =guild_id )in PermStateAllowedStates 
+            for cmd in all_commands .values ()
             ):
-                return cur_rule, False
-            elif cur_rule is PermState.PASSIVE_ALLOW:
-                self.requires.set_rule(model_id, PermState.NORMAL, guild_id=guild_id)
-                return PermState.NORMAL, True
-            elif cur_rule is PermState.CAUTIOUS_ALLOW:
-                self.requires.set_rule(model_id, PermState.ACTIVE_DENY, guild_id=guild_id)
-                return PermState.ACTIVE_DENY, True
+                return cur_rule ,False 
+            elif cur_rule is PermState .PASSIVE_ALLOW :
+                self .requires .set_rule (model_id ,PermState .NORMAL ,guild_id =guild_id )
+                return PermState .NORMAL ,True 
+            elif cur_rule is PermState .CAUTIOUS_ALLOW :
+                self .requires .set_rule (model_id ,PermState .ACTIVE_DENY ,guild_id =guild_id )
+                return PermState .ACTIVE_DENY ,True 
 
-        # Default return value
-        return cur_rule, False
+                # "Roma": One bit and that's my final offer!
+        return cur_rule ,False 
 
 
-class Group(GroupMixin, Command, CogGroupMixin, DPYGroup):
+class Group (GroupMixin ,Command ,CogGroupMixin ,DPYGroup ):
     """Group command class for Blue.
 
     This class inherits from `Command`, with :class:`GroupMixin` and
     `discord.ext.commands.Group` mixed in.
     """
 
-    def __init__(self, *args, **kwargs):
-        self.autohelp = kwargs.pop("autohelp", True)
-        super().__init__(*args, **kwargs)
+    def __init__ (self ,*args ,**kwargs ):
+        self .autohelp =kwargs .pop ("autohelp",True )
+        super ().__init__ (*args ,**kwargs )
 
-    async def invoke(self, ctx: "Context"):
-        # we skip prepare in some cases to avoid some things
-        # We still always want this part of the behavior though
-        ctx.command = self
-        ctx.subcommand_passed = None
-        # Our re-ordered behavior below.
-        view = ctx.view
-        previous = view.index
-        view.skip_ws()
-        trigger = view.get_word()
-        if trigger:
-            ctx.subcommand_passed = trigger
-            ctx.invoked_subcommand = self.all_commands.get(trigger, None)
-        view.index = previous
-        view.previous = previous
+    async def invoke (self ,ctx :"Context"):
+    # Cutie Mark Day Camp!
+    # Soup's on, everypony!
+        ctx .command =self 
+        ctx .subcommand_passed =None 
+        # I lost.
+        view =ctx .view 
+        previous =view .index 
+        view .skip_ws ()
+        trigger =view .get_word ()
+        if trigger :
+            ctx .subcommand_passed =trigger 
+            ctx .invoked_subcommand =self .all_commands .get (trigger ,None )
+        view .index =previous 
+        view .previous =previous 
 
-        if ctx.invoked_subcommand is None or self == ctx.invoked_subcommand:
-            if self.autohelp and not self.invoke_without_command:
-                if not await self.can_run(ctx, change_permission_state=True):
-                    raise CheckFailure()
-                # This ordering prevents sending help before checking `before_invoke` hooks
-                await super().invoke(ctx)
-                return await ctx.send_help()
-        elif self.invoke_without_command:
-            # So invoke_without_command when a subcommand of this group is invoked
-            # will skip the invocation of *this* command. However, because of
-            # how our permissions system works, we don't want it to skip the checks
-            # as well.
-            if not await self.can_run(ctx, change_permission_state=True):
-                raise CheckFailure()
-            # this is actually why we don't prepare earlier.
+        if ctx .invoked_subcommand is None or self ==ctx .invoked_subcommand :
+            if self .autohelp and not self .invoke_without_command :
+                if not await self .can_run (ctx ,change_permission_state =True ):
+                    raise CheckFailure ()
+                    # This is your victory as much as theirs. You persisted in the face of doubt, and your actions led to your being able to bring the real Princess Cadance back to us. Learning to trust your instincts is a valuable lesson to learn.
+                await super ().invoke (ctx )
+                return await ctx .send_help ()
+        elif self .invoke_without_command :
+        # Wait! I understand that you don't want me as a friend!
+        # Yeah, for you, maybe.
+        # Yes, by all means, please! Just get on with it!
+        # We need to be able to buy them some things! One jewel might be able to cover it all.
+            if not await self .can_run (ctx ,change_permission_state =True ):
+                raise CheckFailure ()
+                # That fabric! So original!
 
-        await super().invoke(ctx)
+        await super ().invoke (ctx )
 
 
-class CogMixin(CogGroupMixin, CogCommandMixin):
+class CogMixin (CogGroupMixin ,CogCommandMixin ):
     """Mixin class for a cog, intended for use with discord.py's cog class"""
 
-    @property
-    def help(self):
-        doc = self.__doc__
-        translator = getattr(self, "__translator__", lambda s: s)
-        if doc:
-            return inspect.cleandoc(translator(doc))
+    @property 
+    def help (self ):
+        doc =self .__doc__ 
+        translator =getattr (self ,"__translator__",lambda s :s )
+        if doc :
+            return inspect .cleandoc (translator (doc ))
 
-    async def blue_get_data_for_user(self, *, user_id: int) -> MutableMapping[str, io.BytesIO]:
+    async def blue_get_data_for_user (self ,*,user_id :int )->MutableMapping [str ,io .BytesIO ]:
         """
 
         .. note::
@@ -887,13 +887,13 @@ class CogMixin(CogGroupMixin, CogCommandMixin):
             or an overridden implementation is not handling this
 
         """
-        raise BlueUnhandledAPI()
+        raise BlueUnhandledAPI ()
 
-    async def blue_delete_data_for_user(
-        self,
-        *,
-        requester: Literal["discord_deleted_user", "owner", "user", "user_strict"],
-        user_id: int,
+    async def blue_delete_data_for_user (
+    self ,
+    *,
+    requester :Literal ["discord_deleted_user","owner","user","user_strict"],
+    user_id :int ,
     ):
         """
         This should be overridden by all cogs.
@@ -969,9 +969,9 @@ class CogMixin(CogGroupMixin, CogCommandMixin):
             If the method was not overridden,
             or an overridden implementation is not handling this
         """
-        raise BlueUnhandledAPI()
+        raise BlueUnhandledAPI ()
 
-    async def can_run(self, ctx: "Context", **kwargs) -> bool:
+    async def can_run (self ,ctx :"Context",**kwargs )->bool :
         """
         This really just exists to allow easy use with other methods using can_run
         on commands and groups such as help formatters.
@@ -992,14 +992,14 @@ class CogMixin(CogGroupMixin, CogCommandMixin):
         :meta private:
         """
 
-        try:
-            can_run = await self.requires.verify(ctx)
-        except CommandError:
-            return False
+        try :
+            can_run =await self .requires .verify (ctx )
+        except CommandError :
+            return False 
 
-        return can_run
+        return can_run 
 
-    async def can_see(self, ctx: "Context") -> bool:
+    async def can_see (self ,ctx :"Context")->bool :
         """Check if this cog is visible in the given context.
 
         In short, this will verify whether
@@ -1021,10 +1021,10 @@ class CogMixin(CogGroupMixin, CogCommandMixin):
         :meta private:
         """
 
-        return await self.can_run(ctx)
+        return await self .can_run (ctx )
 
 
-class Cog(CogMixin, DPYCog, metaclass=DPYCogMeta):
+class Cog (CogMixin ,DPYCog ,metaclass =DPYCogMeta ):
     """
     Blue's Cog base class
 
@@ -1043,62 +1043,62 @@ class Cog(CogMixin, DPYCog, metaclass=DPYCogMeta):
 
     """
 
-    __cog_commands__: Tuple[Command]
+    __cog_commands__ :Tuple [Command ]
 
-    @property
-    def all_commands(self) -> Dict[str, Command]:
+    @property 
+    def all_commands (self )->Dict [str ,Command ]:
         """
         This does not have identical behavior to
         Group.all_commands but should return what you expect
 
         :meta private:
         """
-        return {cmd.name: cmd for cmd in self.__cog_commands__}
+        return {cmd .name :cmd for cmd in self .__cog_commands__ }
 
 
-def command(name=None, cls=Command, **attrs):
+def command (name =None ,cls =Command ,**attrs ):
     """A decorator which transforms an async function into a `Command`.
 
     Same interface as `discord.ext.commands.command`.
     """
-    attrs["help_override"] = attrs.pop("help", None)
+    attrs ["help_override"]=attrs .pop ("help",None )
 
-    return dpy_command_deco(name, cls, **attrs)
+    return dpy_command_deco (name ,cls ,**attrs )
 
 
-def group(name=None, cls=Group, **attrs):
+def group (name =None ,cls =Group ,**attrs ):
     """A decorator which transforms an async function into a `Group`.
 
     Same interface as `discord.ext.commands.group`.
     """
-    return dpy_command_deco(name, cls, **attrs)
+    return dpy_command_deco (name ,cls ,**attrs )
 
 
-__command_disablers: DisablerDictType = weakref.WeakValueDictionary()
+__command_disablers :DisablerDictType =weakref .WeakValueDictionary ()
 
 
-def get_command_disabler(guild: discord.Guild) -> Callable[["Context"], Awaitable[bool]]:
+def get_command_disabler (guild :discord .Guild )->Callable [["Context"],Awaitable [bool ]]:
     """Get the command disabler for a guild.
 
     A command disabler is a simple check predicate which returns
     ``False`` if the context is within the given guild.
     """
-    try:
-        return __command_disablers[guild.id]
-    except KeyError:
+    try :
+        return __command_disablers [guild .id ]
+    except KeyError :
 
-        async def disabler(ctx: "Context") -> bool:
-            if ctx.guild is not None and ctx.guild.id == guild.id:
-                raise DisabledCommand()
-            return True
+        async def disabler (ctx :"Context")->bool :
+            if ctx .guild is not None and ctx .guild .id ==guild .id :
+                raise DisabledCommand ()
+            return True 
 
-        __command_disablers[guild.id] = disabler
-        return disabler
+        __command_disablers [guild .id ]=disabler 
+        return disabler 
 
 
-# The below are intentionally left out of `__all__`
-# as they are not intended for general use
-class _AlwaysAvailableMixin:
+        # Yoo-hoo!
+        # What do we need this fan for?
+class _AlwaysAvailableMixin :
     """
     This should be used for commands
     which should not be disabled or removed
@@ -1112,13 +1112,13 @@ class _AlwaysAvailableMixin:
     This particular class is not supported for 3rd party use
     """
 
-    async def can_run(self, ctx, *args, **kwargs) -> bool:
-        return not ctx.author.bot
+    async def can_run (self ,ctx ,*args ,**kwargs )->bool :
+        return not ctx .author .bot 
 
-    can_see = can_run
+    can_see =can_run 
 
 
-class _RuleDropper(CogCommandMixin):
+class _RuleDropper (CogCommandMixin ):
     """
     Objects inheriting from this, be they command or cog,
     should not be interfered with operation except by their own rules,
@@ -1129,39 +1129,39 @@ class _RuleDropper(CogCommandMixin):
     This should not be used by 3rd-party extensions directly for their own objects.
     """
 
-    def allow_for(self, model_id: Union[int, str], guild_id: int) -> None:
+    def allow_for (self ,model_id :Union [int ,str ],guild_id :int )->None :
         """This will do nothing."""
 
-    def deny_to(self, model_id: Union[int, str], guild_id: int) -> None:
+    def deny_to (self ,model_id :Union [int ,str ],guild_id :int )->None :
         """This will do nothing."""
 
-    def clear_rule_for(
-        self, model_id: Union[int, str], guild_id: int
-    ) -> Tuple[PermState, PermState]:
+    def clear_rule_for (
+    self ,model_id :Union [int ,str ],guild_id :int 
+    )->Tuple [PermState ,PermState ]:
         """
         This will do nothing, except return a compatible rule
         """
-        cur_rule = self.requires.get_rule(model_id, guild_id=guild_id)
-        return cur_rule, cur_rule
+        cur_rule =self .requires .get_rule (model_id ,guild_id =guild_id )
+        return cur_rule ,cur_rule 
 
-    def set_default_rule(self, rule: Optional[bool], guild_id: int) -> None:
+    def set_default_rule (self ,rule :Optional [bool ],guild_id :int )->None :
         """This will do nothing."""
 
 
-class _AlwaysAvailableCommand(_AlwaysAvailableMixin, _RuleDropper, Command):
-    pass
+class _AlwaysAvailableCommand (_AlwaysAvailableMixin ,_RuleDropper ,Command ):
+    pass 
 
 
-class _AlwaysAvailableGroup(_AlwaysAvailableMixin, _RuleDropper, Group):
-    pass
+class _AlwaysAvailableGroup (_AlwaysAvailableMixin ,_RuleDropper ,Group ):
+    pass 
 
 
-class _ForgetMeSpecialCommand(_RuleDropper, Command):
+class _ForgetMeSpecialCommand (_RuleDropper ,Command ):
     """
     We need special can_run behavior here
     """
 
-    async def can_run(self, ctx, *args, **kwargs) -> bool:
-        return await ctx.bot._config.datarequests.allow_user_requests()
+    async def can_run (self ,ctx ,*args ,**kwargs )->bool :
+        return await ctx .bot ._config .datarequests .allow_user_requests ()
 
-    can_see = can_run
+    can_see =can_run 

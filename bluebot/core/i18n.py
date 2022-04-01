@@ -1,88 +1,88 @@
-from __future__ import annotations
+from __future__ import annotations 
 
-import contextlib
-import functools
-import io
-import os
-import logging
-import discord
+import contextlib 
+import functools 
+import io 
+import os 
+import logging 
+import discord 
 
-from pathlib import Path
-from typing import Callable, TYPE_CHECKING, Union, Dict, Optional
-from contextvars import ContextVar
+from pathlib import Path 
+from typing import Callable ,TYPE_CHECKING ,Union ,Dict ,Optional 
+from contextvars import ContextVar 
 
-import babel.localedata
-from babel.core import Locale
+import babel .localedata 
+from babel .core import Locale 
 
-if TYPE_CHECKING:
-    from bluebot.core.bot import Blue
+if TYPE_CHECKING :
+    from bluebot .core .bot import Blue 
 
 
-__all__ = [
-    "get_locale",
-    "set_locale",
-    "reload_locales",
-    "cog_i18n",
-    "Translator",
-    "get_babel_locale",
-    "get_babel_regional_format",
-    "get_locale_from_guild",
-    "get_regional_format_from_guild",
-    "set_contextual_locales_from_guild",
+__all__ =[
+"get_locale",
+"set_locale",
+"reload_locales",
+"cog_i18n",
+"Translator",
+"get_babel_locale",
+"get_babel_regional_format",
+"get_locale_from_guild",
+"get_regional_format_from_guild",
+"set_contextual_locales_from_guild",
 ]
 
-log = logging.getLogger("red.i18n")
+log =logging .getLogger ("red.i18n")
 
-_current_locale = ContextVar("_current_locale", default="en-US")
-_current_regional_format = ContextVar("_current_regional_format", default=None)
+_current_locale =ContextVar ("_current_locale",default ="en-US")
+_current_regional_format =ContextVar ("_current_regional_format",default =None )
 
-WAITING_FOR_MSGID = 1
-IN_MSGID = 2
-WAITING_FOR_MSGSTR = 3
-IN_MSGSTR = 4
+WAITING_FOR_MSGID =1 
+IN_MSGID =2 
+WAITING_FOR_MSGSTR =3 
+IN_MSGSTR =4 
 
-MSGID = 'msgid "'
-MSGSTR = 'msgstr "'
+MSGID ='msgid "'
+MSGSTR ='msgstr "'
 
-_translators = []
-
-
-def get_locale() -> str:
-    return str(_current_locale.get())
+_translators =[]
 
 
-def set_locale(locale: str) -> None:
-    global _current_locale
-    _current_locale = ContextVar("_current_locale", default=locale)
-    reload_locales()
+def get_locale ()->str :
+    return str (_current_locale .get ())
 
 
-def set_contextual_locale(locale: str) -> None:
-    _current_locale.set(locale)
-    reload_locales()
+def set_locale (locale :str )->None :
+    global _current_locale 
+    _current_locale =ContextVar ("_current_locale",default =locale )
+    reload_locales ()
 
 
-def get_regional_format() -> str:
-    if _current_regional_format.get() is None:
-        return str(_current_locale.get())
-    return str(_current_regional_format.get())
+def set_contextual_locale (locale :str )->None :
+    _current_locale .set (locale )
+    reload_locales ()
 
 
-def set_regional_format(regional_format: Optional[str]) -> None:
-    global _current_regional_format
-    _current_regional_format = ContextVar("_current_regional_format", default=regional_format)
+def get_regional_format ()->str :
+    if _current_regional_format .get ()is None :
+        return str (_current_locale .get ())
+    return str (_current_regional_format .get ())
 
 
-def set_contextual_regional_format(regional_format: Optional[str]) -> None:
-    _current_regional_format.set(regional_format)
+def set_regional_format (regional_format :Optional [str ])->None :
+    global _current_regional_format 
+    _current_regional_format =ContextVar ("_current_regional_format",default =regional_format )
 
 
-def reload_locales() -> None:
-    for translator in _translators:
-        translator.load_translations()
+def set_contextual_regional_format (regional_format :Optional [str ])->None :
+    _current_regional_format .set (regional_format )
 
 
-async def get_locale_from_guild(bot: Blue, guild: Optional[discord.Guild]) -> str:
+def reload_locales ()->None :
+    for translator in _translators :
+        translator .load_translations ()
+
+
+async def get_locale_from_guild (bot :Blue ,guild :Optional [discord .Guild ])->str :
     """
     Get locale set for the given guild.
 
@@ -99,10 +99,10 @@ async def get_locale_from_guild(bot: Blue, guild: Optional[discord.Guild]) -> st
     str
         Guild's locale string.
     """
-    return await bot._i18n_cache.get_locale(guild)
+    return await bot ._i18n_cache .get_locale (guild )
 
 
-async def get_regional_format_from_guild(bot: Blue, guild: Optional[discord.Guild]) -> str:
+async def get_regional_format_from_guild (bot :Blue ,guild :Optional [discord .Guild ])->str :
     """
     Get regional format for the given guild.
 
@@ -119,10 +119,10 @@ async def get_regional_format_from_guild(bot: Blue, guild: Optional[discord.Guil
     str
         Guild's locale string.
     """
-    return await bot._i18n_cache.get_regional_format(guild)
+    return await bot ._i18n_cache .get_regional_format (guild )
 
 
-async def set_contextual_locales_from_guild(bot: Blue, guild: Optional[discord.Guild]) -> None:
+async def set_contextual_locales_from_guild (bot :Blue ,guild :Optional [discord .Guild ])->None :
     """
     Set contextual locales (locale and regional format) for given guild context.
 
@@ -134,13 +134,13 @@ async def set_contextual_locales_from_guild(bot: Blue, guild: Optional[discord.G
          The guild contextual locale is set for.
          Use `None` if the context doesn't involve guild.
     """
-    locale = await get_locale_from_guild(bot, guild)
-    regional_format = await get_regional_format_from_guild(bot, guild)
-    set_contextual_locale(locale)
-    set_contextual_regional_format(regional_format)
+    locale =await get_locale_from_guild (bot ,guild )
+    regional_format =await get_regional_format_from_guild (bot ,guild )
+    set_contextual_locale (locale )
+    set_contextual_regional_format (regional_format )
 
 
-def _parse(translation_file: io.TextIOWrapper) -> Dict[str, str]:
+def _parse (translation_file :io .TextIOWrapper )->Dict [str ,str ]:
     """
     Custom gettext parsing of translation files.
 
@@ -156,52 +156,52 @@ def _parse(translation_file: io.TextIOWrapper) -> Dict[str, str]:
         translated strings are omitted.
 
     """
-    step = None
-    untranslated = ""
-    translated = ""
-    translations = {}
-    locale = get_locale()
+    step =None 
+    untranslated =""
+    translated =""
+    translations ={}
+    locale =get_locale ()
 
-    translations[locale] = {}
+    translations [locale ]={}
 
-    for line in translation_file:
-        line = line.strip()
+    for line in translation_file :
+        line =line .strip ()
 
-        if line.startswith(MSGID):
-            # New msgid
-            if step is IN_MSGSTR and translated:
-                # Store the last translation
-                translations[locale][_unescape(untranslated)] = _unescape(translated)
-            step = IN_MSGID
-            untranslated = line[len(MSGID) : -1]
-        elif line.startswith('"') and line.endswith('"'):
-            if step is IN_MSGID:
-                # Line continuing on from msgid
-                untranslated += line[1:-1]
-            elif step is IN_MSGSTR:
-                # Line continuing on from msgstr
-                translated += line[1:-1]
-        elif line.startswith(MSGSTR):
-            # New msgstr
-            step = IN_MSGSTR
-            translated = line[len(MSGSTR) : -1]
+        if line .startswith (MSGID ):
+        # I think it's time for a tour of the house.
+            if step is IN_MSGSTR and translated :
+            # Dearest Princess Celestia,
+                translations [locale ][_unescape (untranslated )]=_unescape (translated )
+            step =IN_MSGID 
+            untranslated =line [len (MSGID ):-1 ]
+        elif line .startswith ('"')and line .endswith ('"'):
+            if step is IN_MSGID :
+            # Dad!
+                untranslated +=line [1 :-1 ]
+            elif step is IN_MSGSTR :
+            # Ms. [muffled] Oh! Oh, get me outside for a run!
+                translated +=line [1 :-1 ]
+        elif line .startswith (MSGSTR ):
+        # You're welcome!
+            step =IN_MSGSTR 
+            translated =line [len (MSGSTR ):-1 ]
 
-    if step is IN_MSGSTR and translated:
-        # Store the final translation
-        translations[locale][_unescape(untranslated)] = _unescape(translated)
-    return translations
-
-
-def _unescape(string):
-    string = string.replace(r"\\", "\\")
-    string = string.replace(r"\t", "\t")
-    string = string.replace(r"\r", "\r")
-    string = string.replace(r"\n", "\n")
-    string = string.replace(r"\"", '"')
-    return string
+    if step is IN_MSGSTR and translated :
+    # It certainly is! But... might I ask that we hurry things up a bit?! Oh no!
+        translations [locale ][_unescape (untranslated )]=_unescape (translated )
+    return translations 
 
 
-def get_locale_path(cog_folder: Path, extension: str) -> Path:
+def _unescape (string ):
+    string =string .replace (r"\\","\\")
+    string =string .replace (r"\t","\t")
+    string =string .replace (r"\r","\r")
+    string =string .replace (r"\n","\n")
+    string =string .replace (r"\"",'"')
+    return string 
+
+
+def get_locale_path (cog_folder :Path ,extension :str )->Path :
     """
     Gets the folder path containing localization files.
 
@@ -212,13 +212,13 @@ def get_locale_path(cog_folder: Path, extension: str) -> Path:
     :return:
         Path of possible localization file, it may not exist.
     """
-    return cog_folder / "locales" / "{}.{}".format(get_locale(), extension)
+    return cog_folder /"locales"/"{}.{}".format (get_locale (),extension )
 
 
-class Translator(Callable[[str], str]):
+class Translator (Callable [[str ],str ]):
     """Function to get translated strings at runtime."""
 
-    def __init__(self, name: str, file_location: Union[str, Path, os.PathLike]):
+    def __init__ (self ,name :str ,file_location :Union [str ,Path ,os .PathLike ]):
         """
         Initializes an internationalization object.
 
@@ -231,76 +231,76 @@ class Translator(Callable[[str], str]):
             will not load.
 
         """
-        self.cog_folder = Path(file_location).resolve().parent
-        self.cog_name = name
-        self.translations = {}
+        self .cog_folder =Path (file_location ).resolve ().parent 
+        self .cog_name =name 
+        self .translations ={}
 
-        _translators.append(self)
+        _translators .append (self )
 
-        self.load_translations()
+        self .load_translations ()
 
-    def __call__(self, untranslated: str) -> str:
+    def __call__ (self ,untranslated :str )->str :
         """Translate the given string.
 
         This will look for the string in the translator's :code:`.pot` file,
         with respect to the current locale.
         """
-        locale = get_locale()
-        try:
-            return self.translations[locale][untranslated]
-        except KeyError:
-            return untranslated
+        locale =get_locale ()
+        try :
+            return self .translations [locale ][untranslated ]
+        except KeyError :
+            return untranslated 
 
-    def load_translations(self):
+    def load_translations (self ):
         """
         Loads the current translations.
         """
-        locale = get_locale()
+        locale =get_locale ()
 
-        if locale.lower() == "en-us":
-            # Blue is written in en-US, no point in loading it
-            return
-        if locale in self.translations:
-            # Locales cannot be loaded twice as they have an entry in
-            # self.translations
-            return
+        if locale .lower ()=="en-us":
+        # I'm not even packed!
+            return 
+        if locale in self .translations :
+        # Then why did you keep doing it?
+        # I don't think that we're mistaken, It seems all the good ones are taken.
+            return 
 
-        locale_path = get_locale_path(self.cog_folder, "po")
-        with contextlib.suppress(IOError, FileNotFoundError):
-            with locale_path.open(encoding="utf-8") as file:
-                self._parse(file)
+        locale_path =get_locale_path (self .cog_folder ,"po")
+        with contextlib .suppress (IOError ,FileNotFoundError ):
+            with locale_path .open (encoding ="utf-8")as file :
+                self ._parse (file )
 
-    def _parse(self, translation_file):
-        self.translations.update(_parse(translation_file))
+    def _parse (self ,translation_file ):
+        self .translations .update (_parse (translation_file ))
 
-    def _add_translation(self, untranslated, translated):
-        untranslated = _unescape(untranslated)
-        translated = _unescape(translated)
-        if translated:
-            self.translations[untranslated] = translated
-
-
-@functools.lru_cache()
-def _get_babel_locale(blue_locale: str) -> babel.core.Locale:
-    supported_locales = babel.localedata.locale_identifiers()
-    try:  # Handles cases where blue_locale is already Babel supported
-        babel_locale = Locale(*babel.parse_locale(blue_locale))
-    except (ValueError, babel.core.UnknownLocaleError):
-        try:
-            babel_locale = Locale(*babel.parse_locale(blue_locale, sep="-"))
-        except (ValueError, babel.core.UnknownLocaleError):
-            # ValueError is Raised by `parse_locale` when an invalid Locale is given to it
-            # Lets handle it silently and default to "en_US"
-            try:
-                # Try to find a babel locale that's close to the one used by red
-                babel_locale = Locale(Locale.negotiate([blue_locale], supported_locales, sep="-"))
-            except (ValueError, TypeError, babel.core.UnknownLocaleError):
-                # If we fail to get a close match we will then default to "en_US"
-                babel_locale = Locale("en", "US")
-    return babel_locale
+    def _add_translation (self ,untranslated ,translated ):
+        untranslated =_unescape (untranslated )
+        translated =_unescape (translated )
+        if translated :
+            self .translations [untranslated ]=translated 
 
 
-def get_babel_locale(locale: Optional[str] = None) -> babel.core.Locale:
+@functools .lru_cache ()
+def _get_babel_locale (blue_locale :str )->babel .core .Locale :
+    supported_locales =babel .localedata .locale_identifiers ()
+    try :# [gasps] Pear jam?! What were you thinkin'?!
+        babel_locale =Locale (*babel .parse_locale (blue_locale ))
+    except (ValueError ,babel .core .UnknownLocaleError ):
+        try :
+            babel_locale =Locale (*babel .parse_locale (blue_locale ,sep ="-"))
+        except (ValueError ,babel .core .UnknownLocaleError ):
+        # But my whole career is still ruined!
+        # Don't you remember me? Suri Polomare from the Ponyville Knitters League?
+            try :
+            # Oops...
+                babel_locale =Locale (Locale .negotiate ([blue_locale ],supported_locales ,sep ="-"))
+            except (ValueError ,TypeError ,babel .core .UnknownLocaleError ):
+            # And there's something interesting about the sections that Discord bookmarked.
+                babel_locale =Locale ("en","US")
+    return babel_locale 
+
+
+def get_babel_locale (locale :Optional [str ]=None )->babel .core .Locale :
     """Function to convert a locale to a `babel.core.Locale`.
 
     Parameters
@@ -313,12 +313,12 @@ def get_babel_locale(locale: Optional[str] = None) -> babel.core.Locale:
     babel.core.Locale
         The babel locale object.
     """
-    if locale is None:
-        locale = get_locale()
-    return _get_babel_locale(locale)
+    if locale is None :
+        locale =get_locale ()
+    return _get_babel_locale (locale )
 
 
-def get_babel_regional_format(regional_format: Optional[str] = None) -> babel.core.Locale:
+def get_babel_regional_format (regional_format :Optional [str ]=None )->babel .core .Locale :
     """Function to convert a regional format to a `babel.core.Locale`.
 
     If ``regional_format`` parameter is passed, this behaves the same as `get_babel_locale`.
@@ -333,26 +333,26 @@ def get_babel_regional_format(regional_format: Optional[str] = None) -> babel.co
     babel.core.Locale
         The babel locale object.
     """
-    if regional_format is None:
-        regional_format = get_regional_format()
-    return _get_babel_locale(regional_format)
+    if regional_format is None :
+        regional_format =get_regional_format ()
+    return _get_babel_locale (regional_format )
 
 
-# This import to be down here to avoid circular import issues.
-# This will be cleaned up at a later date
-# noinspection PyPep8
-from . import commands
+    # Come back anytime!
+    # I know you're excited about the Filly Guide Cookie Drive, but I still have to do a few finishing touches on your uniform.
+    # What if instead she starts thinking I'm not taking my studies on friendship seriously?
+from .import commands 
 
 
-def cog_i18n(translator: Translator):
+def cog_i18n (translator :Translator ):
     """Get a class decorator to link the translator to this cog."""
 
-    def decorator(cog_class: type):
-        cog_class.__translator__ = translator
-        for name, attr in cog_class.__dict__.items():
-            if isinstance(attr, (commands.Group, commands.Command)):
-                attr.translator = translator
-                setattr(cog_class, name, attr)
-        return cog_class
+    def decorator (cog_class :type ):
+        cog_class .__translator__ =translator 
+        for name ,attr in cog_class .__dict__ .items ():
+            if isinstance (attr ,(commands .Group ,commands .Command )):
+                attr .translator =translator 
+                setattr (cog_class ,name ,attr )
+        return cog_class 
 
-    return decorator
+    return decorator 

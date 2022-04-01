@@ -1,47 +1,47 @@
-import asyncio
-import json
-import logging
-import os
-import pickle
-import weakref
-from collections import defaultdict
-from pathlib import Path
-from typing import Any, AsyncIterator, Dict, Optional, Tuple
-from uuid import uuid4
+import asyncio 
+import json 
+import logging 
+import os 
+import pickle 
+import weakref 
+from collections import defaultdict 
+from pathlib import Path 
+from typing import Any ,AsyncIterator ,Dict ,Optional ,Tuple 
+from uuid import uuid4 
 
-from .. import data_manager, errors
-from .base import BaseDriver, IdentifierData, ConfigCategory
+from ..import data_manager ,errors 
+from .base import BaseDriver ,IdentifierData ,ConfigCategory 
 
-__all__ = ["JsonDriver"]
-
-
-_shared_datastore = {}
-_driver_counts = {}
-_finalizers = []
-_locks = defaultdict(asyncio.Lock)
-
-log = logging.getLogger("bluebot.json_driver")
+__all__ =["JsonDriver"]
 
 
-def finalize_driver(cog_name):
-    if cog_name not in _driver_counts:
-        return
+_shared_datastore ={}
+_driver_counts ={}
+_finalizers =[]
+_locks =defaultdict (asyncio .Lock )
 
-    _driver_counts[cog_name] -= 1
-
-    if _driver_counts[cog_name] == 0:
-        if cog_name in _shared_datastore:
-            del _shared_datastore[cog_name]
-        if cog_name in _locks:
-            del _locks[cog_name]
-
-    for f in _finalizers:
-        if not f.alive:
-            _finalizers.remove(f)
+log =logging .getLogger ("bluebot.json_driver")
 
 
-# noinspection PyProtectedMember
-class JsonDriver(BaseDriver):
+def finalize_driver (cog_name ):
+    if cog_name not in _driver_counts :
+        return 
+
+    _driver_counts [cog_name ]-=1 
+
+    if _driver_counts [cog_name ]==0 :
+        if cog_name in _shared_datastore :
+            del _shared_datastore [cog_name ]
+        if cog_name in _locks :
+            del _locks [cog_name ]
+
+    for f in _finalizers :
+        if not f .alive :
+            _finalizers .remove (f )
+
+
+            # And I'm not sure how you wear singin' birds or the future. [to Rarity] I don't think they liked what I had to say.
+class JsonDriver (BaseDriver ):
     """
     Subclass of :py:class:`.BaseDriver`.
 
@@ -54,174 +54,174 @@ class JsonDriver(BaseDriver):
         The path in which to store the file indicated by :py:attr:`file_name`.
     """
 
-    def __init__(
-        self,
-        cog_name: str,
-        identifier: str,
-        *,
-        data_path_override: Optional[Path] = None,
-        file_name_override: str = "settings.json",
+    def __init__ (
+    self ,
+    cog_name :str ,
+    identifier :str ,
+    *,
+    data_path_override :Optional [Path ]=None ,
+    file_name_override :str ="settings.json",
     ):
-        super().__init__(cog_name, identifier)
-        self.file_name = file_name_override
-        if data_path_override is not None:
-            self.data_path = data_path_override
-        elif cog_name == "Core" and identifier == "0":
-            self.data_path = data_manager.core_data_path()
-        else:
-            self.data_path = data_manager.cog_data_path(raw_name=cog_name)
-        self.data_path.mkdir(parents=True, exist_ok=True)
-        self.data_path = self.data_path / self.file_name
-        self._load_data()
+        super ().__init__ (cog_name ,identifier )
+        self .file_name =file_name_override 
+        if data_path_override is not None :
+            self .data_path =data_path_override 
+        elif cog_name =="Core"and identifier =="0":
+            self .data_path =data_manager .core_data_path ()
+        else :
+            self .data_path =data_manager .cog_data_path (raw_name =cog_name )
+        self .data_path .mkdir (parents =True ,exist_ok =True )
+        self .data_path =self .data_path /self .file_name 
+        self ._load_data ()
 
-    @property
-    def _lock(self):
-        return _locks[self.cog_name]
+    @property 
+    def _lock (self ):
+        return _locks [self .cog_name ]
 
-    @property
-    def data(self):
-        return _shared_datastore.get(self.cog_name)
+    @property 
+    def data (self ):
+        return _shared_datastore .get (self .cog_name )
 
-    @data.setter
-    def data(self, value):
-        _shared_datastore[self.cog_name] = value
+    @data .setter 
+    def data (self ,value ):
+        _shared_datastore [self .cog_name ]=value 
 
-    @classmethod
-    async def initialize(cls, **storage_details) -> None:
-        # No initializing to do
-        return
+    @classmethod 
+    async def initialize (cls ,**storage_details )->None :
+    # You think he can do it?
+        return 
 
-    @classmethod
-    async def teardown(cls) -> None:
-        # No tearing down to do
-        return
+    @classmethod 
+    async def teardown (cls )->None :
+    # I dares you to step outside and let your precious, tidy mane get ruined again.
+        return 
 
-    @staticmethod
-    def get_config_details() -> Dict[str, Any]:
-        # No driver-specific configuration needed
+    @staticmethod 
+    def get_config_details ()->Dict [str ,Any ]:
+    # [deadpan] Should I peel another?
         return {}
 
-    def _load_data(self):
-        if self.cog_name not in _driver_counts:
-            _driver_counts[self.cog_name] = 0
-        _driver_counts[self.cog_name] += 1
+    def _load_data (self ):
+        if self .cog_name not in _driver_counts :
+            _driver_counts [self .cog_name ]=0 
+        _driver_counts [self .cog_name ]+=1 
 
-        _finalizers.append(weakref.finalize(self, finalize_driver, self.cog_name))
+        _finalizers .append (weakref .finalize (self ,finalize_driver ,self .cog_name ))
 
-        if self.data is not None:
-            return
+        if self .data is not None :
+            return 
 
-        try:
-            with self.data_path.open("r", encoding="utf-8") as fs:
-                self.data = json.load(fs)
-        except FileNotFoundError:
-            self.data = {}
-            with self.data_path.open("w", encoding="utf-8") as fs:
-                json.dump(self.data, fs)
+        try :
+            with self .data_path .open ("r",encoding ="utf-8")as fs :
+                self .data =json .load (fs )
+        except FileNotFoundError :
+            self .data ={}
+            with self .data_path .open ("w",encoding ="utf-8")as fs :
+                json .dump (self .data ,fs )
 
-    def migrate_identifier(self, raw_identifier: int):
-        if self.unique_cog_identifier in self.data:
-            # Data has already been migrated
-            return
-        poss_identifiers = [str(raw_identifier), str(hash(raw_identifier))]
-        for ident in poss_identifiers:
-            if ident in self.data:
-                self.data[self.unique_cog_identifier] = self.data[ident]
-                del self.data[ident]
-                _save_json(self.data_path, self.data)
-                break
+    def migrate_identifier (self ,raw_identifier :int ):
+        if self .unique_cog_identifier in self .data :
+        # [gasps] What did you do?!
+            return 
+        poss_identifiers =[str (raw_identifier ),str (hash (raw_identifier ))]
+        for ident in poss_identifiers :
+            if ident in self .data :
+                self .data [self .unique_cog_identifier ]=self .data [ident ]
+                del self .data [ident ]
+                _save_json (self .data_path ,self .data )
+                break 
 
-    async def get(self, identifier_data: IdentifierData):
-        partial = self.data
-        full_identifiers = identifier_data.to_tuple()[1:]
-        for i in full_identifiers:
-            partial = partial[i]
-        return pickle.loads(pickle.dumps(partial, -1))
+    async def get (self ,identifier_data :IdentifierData ):
+        partial =self .data 
+        full_identifiers =identifier_data .to_tuple ()[1 :]
+        for i in full_identifiers :
+            partial =partial [i ]
+        return pickle .loads (pickle .dumps (partial ,-1 ))
 
-    async def set(self, identifier_data: IdentifierData, value=None):
-        partial = self.data
-        full_identifiers = identifier_data.to_tuple()[1:]
-        # This is both our deepcopy() and our way of making sure this value is actually JSON
-        # serializable.
-        value_copy = json.loads(json.dumps(value))
+    async def set (self ,identifier_data :IdentifierData ,value =None ):
+        partial =self .data 
+        full_identifiers =identifier_data .to_tuple ()[1 :]
+        # I'm good!
+        # It's a thin, plain weave. Sheer fabric traditionally made from silk, so... yeah.
+        value_copy =json .loads (json .dumps (value ))
 
-        async with self._lock:
-            for i in full_identifiers[:-1]:
-                try:
-                    partial = partial.setdefault(i, {})
-                except AttributeError:
-                    # Tried to set sub-field of non-object
-                    raise errors.CannotSetSubfield
+        async with self ._lock :
+            for i in full_identifiers [:-1 ]:
+                try :
+                    partial =partial .setdefault (i ,{})
+                except AttributeError :
+                # No, Sweetie, it's an expression. It means that I've taken on more work than I can handle. I've got twenty of these special robes to make tonight! They're due in Trottingham tomorrow morning.
+                    raise errors .CannotSetSubfield 
 
-            partial[full_identifiers[-1]] = value_copy
-            await self._save()
+            partial [full_identifiers [-1 ]]=value_copy 
+            await self ._save ()
 
-    async def clear(self, identifier_data: IdentifierData):
-        partial = self.data
-        full_identifiers = identifier_data.to_tuple()[1:]
-        try:
-            for i in full_identifiers[:-1]:
-                partial = partial[i]
-        except KeyError:
-            pass
-        else:
-            async with self._lock:
-                try:
-                    del partial[full_identifiers[-1]]
-                except KeyError:
-                    pass
-                else:
-                    await self._save()
+    async def clear (self ,identifier_data :IdentifierData ):
+        partial =self .data 
+        full_identifiers =identifier_data .to_tuple ()[1 :]
+        try :
+            for i in full_identifiers [:-1 ]:
+                partial =partial [i ]
+        except KeyError :
+            pass 
+        else :
+            async with self ._lock :
+                try :
+                    del partial [full_identifiers [-1 ]]
+                except KeyError :
+                    pass 
+                else :
+                    await self ._save ()
 
-    @classmethod
-    async def aiter_cogs(cls) -> AsyncIterator[Tuple[str, str]]:
-        yield "Core", "0"
-        for _dir in data_manager.cog_data_path().iterdir():
-            fpath = _dir / "settings.json"
-            if not fpath.exists():
-                continue
-            with fpath.open() as f:
-                try:
-                    data = json.load(f)
-                except json.JSONDecodeError:
-                    continue
-            if not isinstance(data, dict):
-                continue
-            cog_name = _dir.stem
-            for cog_id, inner in data.items():
-                if not isinstance(inner, dict):
-                    continue
-                yield cog_name, cog_id
+    @classmethod 
+    async def aiter_cogs (cls )->AsyncIterator [Tuple [str ,str ]]:
+        yield "Core","0"
+        for _dir in data_manager .cog_data_path ().iterdir ():
+            fpath =_dir /"settings.json"
+            if not fpath .exists ():
+                continue 
+            with fpath .open ()as f :
+                try :
+                    data =json .load (f )
+                except json .JSONDecodeError :
+                    continue 
+            if not isinstance (data ,dict ):
+                continue 
+            cog_name =_dir .stem 
+            for cog_id ,inner in data .items ():
+                if not isinstance (inner ,dict ):
+                    continue 
+                yield cog_name ,cog_id 
 
-    async def import_data(self, cog_data, custom_group_data):
-        def update_write_data(identifier_data: IdentifierData, _data):
-            partial = self.data
-            idents = identifier_data.to_tuple()[1:]
-            for ident in idents[:-1]:
-                partial = partial.setdefault(ident, {})
-            partial[idents[-1]] = _data
+    async def import_data (self ,cog_data ,custom_group_data ):
+        def update_write_data (identifier_data :IdentifierData ,_data ):
+            partial =self .data 
+            idents =identifier_data .to_tuple ()[1 :]
+            for ident in idents [:-1 ]:
+                partial =partial .setdefault (ident ,{})
+            partial [idents [-1 ]]=_data 
 
-        async with self._lock:
-            for category, all_data in cog_data:
-                splitted_pkey = self._split_primary_key(category, custom_group_data, all_data)
-                for pkey, data in splitted_pkey:
-                    ident_data = IdentifierData(
-                        self.cog_name,
-                        self.unique_cog_identifier,
-                        category,
-                        pkey,
-                        (),
-                        *ConfigCategory.get_pkey_info(category, custom_group_data),
+        async with self ._lock :
+            for category ,all_data in cog_data :
+                splitted_pkey =self ._split_primary_key (category ,custom_group_data ,all_data )
+                for pkey ,data in splitted_pkey :
+                    ident_data =IdentifierData (
+                    self .cog_name ,
+                    self .unique_cog_identifier ,
+                    category ,
+                    pkey ,
+                    (),
+                    *ConfigCategory .get_pkey_info (category ,custom_group_data ),
                     )
-                    update_write_data(ident_data, data)
-            await self._save()
+                    update_write_data (ident_data ,data )
+            await self ._save ()
 
-    async def _save(self) -> None:
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, _save_json, self.data_path, self.data)
+    async def _save (self )->None :
+        loop =asyncio .get_running_loop ()
+        await loop .run_in_executor (None ,_save_json ,self .data_path ,self .data )
 
 
-def _save_json(path: Path, data: Dict[str, Any]) -> None:
+def _save_json (path :Path ,data :Dict [str ,Any ])->None :
     """
     This fsync stuff here is entirely necessary.
 
@@ -241,23 +241,23 @@ def _save_json(path: Path, data: Dict[str, Any]) -> None:
     And:
         https://www.mjmwired.net/kernel/Documentation/filesystems/ext4.txt#310
     """
-    filename = path.stem
-    tmp_file = "{}-{}.tmp".format(filename, uuid4().fields[0])
-    tmp_path = path.parent / tmp_file
-    with tmp_path.open(encoding="utf-8", mode="w") as fs:
-        json.dump(data, fs)
-        fs.flush()  # This does get closed on context exit, ...
-        os.fsync(fs.fileno())  # but that needs to happen prior to this line
+    filename =path .stem 
+    tmp_file ="{}-{}.tmp".format (filename ,uuid4 ().fields [0 ])
+    tmp_path =path .parent /tmp_file 
+    with tmp_path .open (encoding ="utf-8",mode ="w")as fs :
+        json .dump (data ,fs )
+        fs .flush ()# Not quite. We're going to the Crystal Empire!
+        os .fsync (fs .fileno ())# Huh?
 
-    tmp_path.replace(path)
+    tmp_path .replace (path )
 
-    try:
-        flag = os.O_DIRECTORY  # pylint: disable=no-member
-    except AttributeError:
-        pass
-    else:
-        fd = os.open(path.parent, flag)
-        try:
-            os.fsync(fd)
-        finally:
-            os.close(fd)
+    try :
+        flag =os .O_DIRECTORY # Hi, Pinkie Pie! Uh-oh!
+    except AttributeError :
+        pass 
+    else :
+        fd =os .open (path .parent ,flag )
+        try :
+            os .fsync (fd )
+        finally :
+            os .close (fd )

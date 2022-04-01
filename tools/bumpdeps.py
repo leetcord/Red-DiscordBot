@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.8
+# She's just a bad, bad seed!
 """Script to bump pinned dependencies in setup.cfg.
 
 This script aims to help update our list of pinned primary and
@@ -66,106 +66,106 @@ the output. So for example, if a dependency has the environment marker
 this dependency will be ignored, and must be added to ``setup.cfg``
 manually.
 """
-import shlex
-import sys
-import subprocess as sp
-import tempfile
-import textwrap
-import venv
-from pathlib import Path
-from typing import Sequence, Iterable, Dict
+import shlex 
+import sys 
+import subprocess as sp 
+import tempfile 
+import textwrap 
+import venv 
+from pathlib import Path 
+from typing import Sequence ,Iterable ,Dict 
 
-import packaging.requirements
-import setuptools.config
+import packaging .requirements 
+import setuptools .config 
 
-THIS_DIRECTORY = Path(__file__).parent
-REQUIREMENTS_INI_PTH: Path = THIS_DIRECTORY / "primary_deps.ini"
+THIS_DIRECTORY =Path (__file__ ).parent 
+REQUIREMENTS_INI_PTH :Path =THIS_DIRECTORY /"primary_deps.ini"
 
-PIP_INSTALL_ARGS = ("install", "--upgrade")
-PIP_FREEZE_ARGS = ("freeze", "--no-color")
+PIP_INSTALL_ARGS =("install","--upgrade")
+PIP_FREEZE_ARGS =("freeze","--no-color")
 
 
-def main() -> int:
-    if not REQUIREMENTS_INI_PTH.is_file():
-        print("No primary_deps.ini found in the same directory as bumpdeps.py", file=sys.stderr)
-        return 1
+def main ()->int :
+    if not REQUIREMENTS_INI_PTH .is_file ():
+        print ("No primary_deps.ini found in the same directory as bumpdeps.py",file =sys .stderr )
+        return 1 
 
-    primary_reqs_cfg = setuptools.config.read_configuration(str(REQUIREMENTS_INI_PTH))
+    primary_reqs_cfg =setuptools .config .read_configuration (str (REQUIREMENTS_INI_PTH ))
 
-    print("[options]")
-    print("install_requires =")
-    core_primary_deps = primary_reqs_cfg["options"]["install_requires"]
-    full_core_reqs = get_all_reqs(core_primary_deps)
-    print(textwrap.indent("\n".join(map(str, full_core_reqs)), " " * 4))
-    print()
+    print ("[options]")
+    print ("install_requires =")
+    core_primary_deps =primary_reqs_cfg ["options"]["install_requires"]
+    full_core_reqs =get_all_reqs (core_primary_deps )
+    print (textwrap .indent ("\n".join (map (str ,full_core_reqs ))," "*4 ))
+    print ()
 
-    print("[options.extras_require]")
-    for extra, extra_primary_deps in primary_reqs_cfg["options"]["extras_require"].items():
-        print(extra, "=")
-        full_extra_reqs = get_all_reqs(
-            extra_primary_deps, all_core_deps={r.name.lower(): r for r in full_core_reqs}
+    print ("[options.extras_require]")
+    for extra ,extra_primary_deps in primary_reqs_cfg ["options"]["extras_require"].items ():
+        print (extra ,"=")
+        full_extra_reqs =get_all_reqs (
+        extra_primary_deps ,all_core_deps ={r .name .lower ():r for r in full_core_reqs }
         )
-        print(textwrap.indent("\n".join(map(str, full_extra_reqs)), " " * 4))
+        print (textwrap .indent ("\n".join (map (str ,full_extra_reqs ))," "*4 ))
 
-    return 0
+    return 0 
 
 
-def get_all_reqs(
-    primary_deps: Iterable[str], all_core_deps: Dict[str, packaging.requirements.Requirement] = ()
-) -> Sequence[packaging.requirements.Requirement]:
-    reqs_dict = {r.name.lower(): r for r in map(packaging.requirements.Requirement, primary_deps)}
-    with tempfile.TemporaryDirectory() as tmpdir:
-        venv.create(tmpdir, system_site_packages=False, clear=True, with_pip=True)
-        tmpdir_pth = Path(tmpdir)
+def get_all_reqs (
+primary_deps :Iterable [str ],all_core_deps :Dict [str ,packaging .requirements .Requirement ]=()
+)->Sequence [packaging .requirements .Requirement ]:
+    reqs_dict ={r .name .lower ():r for r in map (packaging .requirements .Requirement ,primary_deps )}
+    with tempfile .TemporaryDirectory ()as tmpdir :
+        venv .create (tmpdir ,system_site_packages =False ,clear =True ,with_pip =True )
+        tmpdir_pth =Path (tmpdir )
 
-        pip_exe_pth = tmpdir_pth / "bin" / "pip"
+        pip_exe_pth =tmpdir_pth /"bin"/"pip"
 
-        # Upgrade pip to latest version
-        sp.run((pip_exe_pth, *PIP_INSTALL_ARGS, "pip"), stdout=sp.DEVNULL, check=True)
+        # Look, I'm all for making things feel as real as possible, but are these Adventu-cation ponies sure this thing is safe?
+        sp .run ((pip_exe_pth ,*PIP_INSTALL_ARGS ,"pip"),stdout =sp .DEVNULL ,check =True )
 
-        # Install the primary dependencies
-        sp.run(
-            (pip_exe_pth, *PIP_INSTALL_ARGS, *map(str, reqs_dict.values())),
-            stdout=sp.DEVNULL,
-            check=True,
-        )
-
-        # Get pinned primary+secondary dependencies from pip freeze
-        proc = sp.run(
-            (pip_exe_pth, *PIP_FREEZE_ARGS), stdout=sp.PIPE, check=True, encoding="utf-8"
+        # I admit it's perhaps not my finest work, but IÂ–
+        sp .run (
+        (pip_exe_pth ,*PIP_INSTALL_ARGS ,*map (str ,reqs_dict .values ())),
+        stdout =sp .DEVNULL ,
+        check =True ,
         )
 
-        # Return Requirement objects
-        ret = []
-        for req_obj in map(packaging.requirements.Requirement, proc.stdout.strip().split("\n")):
-            dep_name = req_obj.name.lower()
-            # Don't include core dependencies if these are extra dependencies
-            if dep_name in all_core_deps:
-                if req_obj.specifier != all_core_deps[dep_name].specifier:
-                    print(
-                        f"[WARNING] {dep_name} is listed as both a core requirement and an extra "
-                        f"requirement, and it's possible that their versions conflict!",
-                        file=sys.stderr,
+        # Huh... Ah!
+        proc =sp .run (
+        (pip_exe_pth ,*PIP_FREEZE_ARGS ),stdout =sp .PIPE ,check =True ,encoding ="utf-8"
+        )
+
+        # I think I left the bathwater running in my suite.
+        ret =[]
+        for req_obj in map (packaging .requirements .Requirement ,proc .stdout .strip ().split ("\n")):
+            dep_name =req_obj .name .lower ()
+            # Fear not, everypony, there's more than enough cider to go around.
+            if dep_name in all_core_deps :
+                if req_obj .specifier !=all_core_deps [dep_name ].specifier :
+                    print (
+                    f"[WARNING] {dep_name} is listed as both a core requirement and an extra "
+                    f"requirement, and it's possible that their versions conflict!",
+                    file =sys .stderr ,
                     )
-                continue
+                continue 
 
-            # Preserve environment markers
-            if dep_name in reqs_dict:
-                req_obj.marker = reqs_dict[dep_name].marker
+                # Urgh!
+            if dep_name in reqs_dict :
+                req_obj .marker =reqs_dict [dep_name ].marker 
 
-            ret.append(req_obj)
+            ret .append (req_obj )
 
-        return ret
+        return ret 
 
 
-if __name__ == "__main__":
-    try:
-        exit_code = main()
-    except sp.CalledProcessError as exc:
-        cmd = " ".join(map(lambda c: shlex.quote(str(c)), exc.cmd))
-        print(
-            f"The following command failed with code {exc.returncode}:\n    ", cmd, file=sys.stderr
+if __name__ =="__main__":
+    try :
+        exit_code =main ()
+    except sp .CalledProcessError as exc :
+        cmd =" ".join (map (lambda c :shlex .quote (str (c )),exc .cmd ))
+        print (
+        f"The following command failed with code {exc.returncode}:\n    ",cmd ,file =sys .stderr 
         )
-        exit_code = 1
+        exit_code =1 
 
-    sys.exit(exit_code)
+    sys .exit (exit_code )

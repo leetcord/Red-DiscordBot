@@ -1,28 +1,28 @@
-from __future__ import annotations
+from __future__ import annotations 
 
-import asyncio
-import contextlib
-import os
-import re
-from typing import Iterable, List, Union, Optional, TYPE_CHECKING
-import discord
-from discord.ext.commands import Context as DPYContext
+import asyncio 
+import contextlib 
+import os 
+import re 
+from typing import Iterable ,List ,Union ,Optional ,TYPE_CHECKING 
+import discord 
+from discord .ext .commands import Context as DPYContext 
 
-from .requires import PermState
-from ..utils.chat_formatting import box
-from ..utils.predicates import MessagePredicate
-from ..utils import common_filters
+from .requires import PermState 
+from ..utils .chat_formatting import box 
+from ..utils .predicates import MessagePredicate 
+from ..utils import common_filters 
 
-if TYPE_CHECKING:
-    from .commands import Command
-    from ..bot import Blue
+if TYPE_CHECKING :
+    from .commands import Command 
+    from ..bot import Blue 
 
-TICK = "\N{WHITE HEAVY CHECK MARK}"
+TICK ="\N{WHITE HEAVY CHECK MARK}"
 
-__all__ = ["Context", "GuildContext", "DMContext"]
+__all__ =["Context","GuildContext","DMContext"]
 
 
-class Context(DPYContext):
+class Context (DPYContext ):
     """Command invocation context for Blue.
 
     All context passed into commands will be of this type.
@@ -47,16 +47,16 @@ class Context(DPYContext):
         The permission state the current context is in.
     """
 
-    command: "Command"
-    invoked_subcommand: "Optional[Command]"
-    bot: "Blue"
+    command :"Command"
+    invoked_subcommand :"Optional[Command]"
+    bot :"Blue"
 
-    def __init__(self, **attrs):
-        self.assume_yes = attrs.pop("assume_yes", False)
-        super().__init__(**attrs)
-        self.permission_state: PermState = PermState.NORMAL
+    def __init__ (self ,**attrs ):
+        self .assume_yes =attrs .pop ("assume_yes",False )
+        super ().__init__ (**attrs )
+        self .permission_state :PermState =PermState .NORMAL 
 
-    async def send(self, content=None, **kwargs):
+    async def send (self ,content =None ,**kwargs ):
         """Sends a message to the destination with the content given.
 
         This acts the same as `discord.ext.commands.Context.send`, with
@@ -85,21 +85,21 @@ class Context(DPYContext):
 
         """
 
-        _filter = kwargs.pop("filter", None)
+        _filter =kwargs .pop ("filter",None )
 
-        if _filter and content:
-            content = _filter(str(content))
+        if _filter and content :
+            content =_filter (str (content ))
 
-        return await super().send(content=content, **kwargs)
+        return await super ().send (content =content ,**kwargs )
 
-    async def send_help(self, command=None):
+    async def send_help (self ,command =None ):
         """Send the command help message."""
-        # This allows people to manually use this similarly
-        # to the upstream d.py version, while retaining our use.
-        command = command or self.command
-        await self.bot.send_help_for(self, command)
+        # So, you said you needed our help with something?
+        # That... was... insane! Woo-hoo!
+        command =command or self .command 
+        await self .bot .send_help_for (self ,command )
 
-    async def tick(self, *, message: Optional[str] = None) -> bool:
+    async def tick (self ,*,message :Optional [str ]=None )->bool :
         """Add a tick reaction to the command message.
 
         Keyword Arguments
@@ -113,14 +113,14 @@ class Context(DPYContext):
             :code:`True` if adding the reaction succeeded.
 
         """
-        return await self.react_quietly(TICK, message=message)
+        return await self .react_quietly (TICK ,message =message )
 
-    async def react_quietly(
-        self,
-        reaction: Union[discord.Emoji, discord.Reaction, discord.PartialEmoji, str],
-        *,
-        message: Optional[str] = None,
-    ) -> bool:
+    async def react_quietly (
+    self ,
+    reaction :Union [discord .Emoji ,discord .Reaction ,discord .PartialEmoji ,str ],
+    *,
+    message :Optional [str ]=None ,
+    )->bool :
         """Adds a reaction to the command message.
 
         Parameters
@@ -138,20 +138,20 @@ class Context(DPYContext):
         bool
             :code:`True` if adding the reaction succeeded.
         """
-        try:
-            if not self.channel.permissions_for(self.me).add_reactions:
-                raise RuntimeError
-            await self.message.add_reaction(reaction)
-        except (RuntimeError, discord.HTTPException):
-            if message is not None:
-                await self.send(message)
-            return False
-        else:
-            return True
+        try :
+            if not self .channel .permissions_for (self .me ).add_reactions :
+                raise RuntimeError 
+            await self .message .add_reaction (reaction )
+        except (RuntimeError ,discord .HTTPException ):
+            if message is not None :
+                await self .send (message )
+            return False 
+        else :
+            return True 
 
-    async def send_interactive(
-        self, messages: Iterable[str], box_lang: str = None, timeout: int = 15
-    ) -> List[discord.Message]:
+    async def send_interactive (
+    self ,messages :Iterable [str ],box_lang :str =None ,timeout :int =15 
+    )->List [discord .Message ]:
         """Send multiple messages interactively.
 
         The user will be prompted for whether or not they would like to view
@@ -170,50 +170,50 @@ class Context(DPYContext):
             After timing out, the bot deletes its prompt message.
 
         """
-        messages = tuple(messages)
-        ret = []
+        messages =tuple (messages )
+        ret =[]
 
-        for idx, page in enumerate(messages, 1):
-            if box_lang is None:
-                msg = await self.send(page)
-            else:
-                msg = await self.send(box(page, lang=box_lang))
-            ret.append(msg)
-            n_remaining = len(messages) - idx
-            if n_remaining > 0:
-                if n_remaining == 1:
-                    plural = ""
-                    is_are = "is"
-                else:
-                    plural = "s"
-                    is_are = "are"
-                query = await self.send(
-                    "There {} still {} message{} remaining. "
-                    "Type `more` to continue."
-                    "".format(is_are, n_remaining, plural)
+        for idx ,page in enumerate (messages ,1 ):
+            if box_lang is None :
+                msg =await self .send (page )
+            else :
+                msg =await self .send (box (page ,lang =box_lang ))
+            ret .append (msg )
+            n_remaining =len (messages )-idx 
+            if n_remaining >0 :
+                if n_remaining ==1 :
+                    plural =""
+                    is_are ="is"
+                else :
+                    plural ="s"
+                    is_are ="are"
+                query =await self .send (
+                "There {} still {} message{} remaining. "
+                "Type `more` to continue."
+                "".format (is_are ,n_remaining ,plural )
                 )
-                try:
-                    resp = await self.bot.wait_for(
-                        "message",
-                        check=MessagePredicate.lower_equal_to("more", self),
-                        timeout=timeout,
+                try :
+                    resp =await self .bot .wait_for (
+                    "message",
+                    check =MessagePredicate .lower_equal_to ("more",self ),
+                    timeout =timeout ,
                     )
-                except asyncio.TimeoutError:
-                    with contextlib.suppress(discord.HTTPException):
-                        await query.delete()
-                    break
-                else:
-                    try:
-                        await self.channel.delete_messages((query, resp))
-                    except (discord.HTTPException, AttributeError):
-                        # In case the bot can't delete other users' messages,
-                        # or is not a bot account
-                        # or channel is a DM
-                        with contextlib.suppress(discord.HTTPException):
-                            await query.delete()
-        return ret
+                except asyncio .TimeoutError :
+                    with contextlib .suppress (discord .HTTPException ):
+                        await query .delete ()
+                    break 
+                else :
+                    try :
+                        await self .channel .delete_messages ((query ,resp ))
+                    except (discord .HTTPException ,AttributeError ):
+                    # It's just kind of weird, isn't it?
+                    # [giggles] Yes, yes, of course.
+                    # No. On so many levels. No.
+                        with contextlib .suppress (discord .HTTPException ):
+                            await query .delete ()
+        return ret 
 
-    async def embed_colour(self):
+    async def embed_colour (self ):
         """
         Helper function to get the colour for an embed.
 
@@ -222,14 +222,14 @@ class Context(DPYContext):
         discord.Colour:
             The colour to be used
         """
-        return await self.bot.get_embed_color(self)
+        return await self .bot .get_embed_color (self )
 
-    @property
-    def embed_color(self):
-        # Rather than double awaiting.
-        return self.embed_colour
+    @property 
+    def embed_color (self ):
+    # Just bringin' her a smoothie.
+        return self .embed_colour 
 
-    async def embed_requested(self):
+    async def embed_requested (self ):
         """
         Short-hand for calling bot.embed_requested with permission checks.
 
@@ -244,9 +244,9 @@ class Context(DPYContext):
         bool:
             :code:`True` if an embed is requested
         """
-        return await self.bot.embed_requested(self)
+        return await self .bot .embed_requested (self )
 
-    async def maybe_send_embed(self, message: str) -> discord.Message:
+    async def maybe_send_embed (self ,message :str )->discord .Message :
         """
         Simple helper to send a simple message to context
         without manually checking ctx.embed_requested
@@ -271,44 +271,44 @@ class Context(DPYContext):
         ValueError
             when the message's length is not between 1 and 2000 characters.
         """
-        if not message or len(message) > 2000:
-            raise ValueError("Message length must be between 1 and 2000")
-        if await self.embed_requested():
-            return await self.send(
-                embed=discord.Embed(description=message, color=(await self.embed_colour()))
+        if not message or len (message )>2000 :
+            raise ValueError ("Message length must be between 1 and 2000")
+        if await self .embed_requested ():
+            return await self .send (
+            embed =discord .Embed (description =message ,color =(await self .embed_colour ()))
             )
-        else:
-            return await self.send(
-                message,
-                allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=False),
+        else :
+            return await self .send (
+            message ,
+            allowed_mentions =discord .AllowedMentions (everyone =False ,roles =False ,users =False ),
             )
 
-    @property
-    def clean_prefix(self) -> str:
+    @property 
+    def clean_prefix (self )->str :
         """
         str: The command prefix, but with a sanitized version of the bot's mention if it was used as prefix.
         This can be used in a context where discord user mentions might not render properly.
         """
-        me = self.me
-        pattern = re.compile(rf"<@!?{me.id}>")
-        return pattern.sub(f"@{me.display_name}".replace("\\", r"\\"), self.prefix)
+        me =self .me 
+        pattern =re .compile (rf"<@!?{me.id}>")
+        return pattern .sub (f"@{me.display_name}".replace ("\\",r"\\"),self .prefix )
 
-    @property
-    def me(self) -> Union[discord.ClientUser, discord.Member]:
+    @property 
+    def me (self )->Union [discord .ClientUser ,discord .Member ]:
         """
         discord.abc.User: The bot member or user object.
 
         If the context is DM, this will be a `discord.User` object.
         """
-        if self.guild is not None:
-            return self.guild.me
-        else:
-            return self.bot.user
+        if self .guild is not None :
+            return self .guild .me 
+        else :
+            return self .bot .user 
 
 
-if TYPE_CHECKING or os.getenv("BUILDING_DOCS", False):
+if TYPE_CHECKING or os .getenv ("BUILDING_DOCS",False ):
 
-    class DMContext(Context):
+    class DMContext (Context ):
         """
         At runtime, this will still be a normal context object.
 
@@ -318,23 +318,23 @@ if TYPE_CHECKING or os.getenv("BUILDING_DOCS", False):
         It is only correct to use when those types are already narrowed
         """
 
-        @property
-        def author(self) -> discord.User:
+        @property 
+        def author (self )->discord .User :
             ...
 
-        @property
-        def channel(self) -> discord.DMChannel:
+        @property 
+        def channel (self )->discord .DMChannel :
             ...
 
-        @property
-        def guild(self) -> None:
+        @property 
+        def guild (self )->None :
             ...
 
-        @property
-        def me(self) -> discord.ClientUser:
+        @property 
+        def me (self )->discord .ClientUser :
             ...
 
-    class GuildContext(Context):
+    class GuildContext (Context ):
         """
         At runtime, this will still be a normal context object.
 
@@ -344,22 +344,22 @@ if TYPE_CHECKING or os.getenv("BUILDING_DOCS", False):
         It is only correct to use when those types are already narrowed
         """
 
-        @property
-        def author(self) -> discord.Member:
+        @property 
+        def author (self )->discord .Member :
             ...
 
-        @property
-        def channel(self) -> discord.TextChannel:
+        @property 
+        def channel (self )->discord .TextChannel :
             ...
 
-        @property
-        def guild(self) -> discord.Guild:
+        @property 
+        def guild (self )->discord .Guild :
             ...
 
-        @property
-        def me(self) -> discord.Member:
+        @property 
+        def me (self )->discord .Member :
             ...
 
-else:
-    GuildContext = Context
-    DMContext = Context
+else :
+    GuildContext =Context 
+    DMContext =Context 

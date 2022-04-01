@@ -1,33 +1,33 @@
-import contextlib
-import keyword
-import pkgutil
-from importlib import import_module, invalidate_caches
-from importlib.machinery import ModuleSpec
-from pathlib import Path
-from typing import Union, List, Optional
+import contextlib 
+import keyword 
+import pkgutil 
+from importlib import import_module ,invalidate_caches 
+from importlib .machinery import ModuleSpec 
+from pathlib import Path 
+from typing import Union ,List ,Optional 
 
-import bluebot.cogs
-from bluebot.core.utils import deduplicate_iterables
-import discord
+import bluebot .cogs 
+from bluebot .core .utils import deduplicate_iterables 
+import discord 
 
-from . import checks, commands
-from .config import Config
-from .i18n import Translator, cog_i18n
-from .data_manager import cog_data_path
+from .import checks ,commands 
+from .config import Config 
+from .i18n import Translator ,cog_i18n 
+from .data_manager import cog_data_path 
 
-from .utils.chat_formatting import box, pagify
+from .utils .chat_formatting import box ,pagify 
 
-__all__ = ["CogManager"]
+__all__ =["CogManager"]
 
 
-class NoSuchCog(ImportError):
+class NoSuchCog (ImportError ):
     """Thrown when a cog is missing.
 
     Different from ImportError because some ImportErrors can happen inside cogs.
     """
 
 
-class CogManager:
+class CogManager :
     """Directory manager for Blue's cogs.
 
     This module allows you to load cogs from multiple directories and even from
@@ -36,15 +36,15 @@ class CogManager:
     bot directory.
     """
 
-    CORE_PATH = Path(bluebot.cogs.__path__[0])
+    CORE_PATH =Path (bluebot .cogs .__path__ [0 ])
 
-    def __init__(self):
-        self.config = Config.get_conf(self, 2938473984732, True)
-        tmp_cog_install_path = cog_data_path(self) / "cogs"
-        tmp_cog_install_path.mkdir(parents=True, exist_ok=True)
-        self.config.register_global(paths=[], install_path=str(tmp_cog_install_path))
+    def __init__ (self ):
+        self .config =Config .get_conf (self ,2938473984732 ,True )
+        tmp_cog_install_path =cog_data_path (self )/"cogs"
+        tmp_cog_install_path .mkdir (parents =True ,exist_ok =True )
+        self .config .register_global (paths =[],install_path =str (tmp_cog_install_path ))
 
-    async def paths(self) -> List[Path]:
+    async def paths (self )->List [Path ]:
         """Get all currently valid path directories, in order of priority
 
         Returns
@@ -56,11 +56,11 @@ class CogManager:
             priority.
 
         """
-        return deduplicate_iterables(
-            [await self.install_path()], await self.user_defined_paths(), [self.CORE_PATH]
+        return deduplicate_iterables (
+        [await self .install_path ()],await self .user_defined_paths (),[self .CORE_PATH ]
         )
 
-    async def install_path(self) -> Path:
+    async def install_path (self )->Path :
         """Get the install path for 3rd party cogs.
 
         Returns
@@ -69,9 +69,9 @@ class CogManager:
             The path to the directory where 3rd party cogs are stored.
 
         """
-        return Path(await self.config.install_path()).resolve()
+        return Path (await self .config .install_path ()).resolve ()
 
-    async def user_defined_paths(self) -> List[Path]:
+    async def user_defined_paths (self )->List [Path ]:
         """Get a list of user-defined cog paths.
 
         All paths will be absolute and unique, in order of priority.
@@ -82,9 +82,9 @@ class CogManager:
             A list of user-defined paths.
 
         """
-        return list(map(Path, deduplicate_iterables(await self.config.paths())))
+        return list (map (Path ,deduplicate_iterables (await self .config .paths ())))
 
-    async def set_install_path(self, path: Path) -> Path:
+    async def set_install_path (self ,path :Path )->Path :
         """Set the install path for 3rd party cogs.
 
         Note
@@ -108,14 +108,14 @@ class CogManager:
             If :code:`path` is not an existing directory.
 
         """
-        if not path.is_dir():
-            raise ValueError("The install path must be an existing directory.")
-        resolved = path.resolve()
-        await self.config.install_path.set(str(resolved))
-        return resolved
+        if not path .is_dir ():
+            raise ValueError ("The install path must be an existing directory.")
+        resolved =path .resolve ()
+        await self .config .install_path .set (str (resolved ))
+        return resolved 
 
-    @staticmethod
-    def _ensure_path_obj(path: Union[Path, str]) -> Path:
+    @staticmethod 
+    def _ensure_path_obj (path :Union [Path ,str ])->Path :
         """Guarantee an object will be a path object.
 
         Parameters
@@ -127,9 +127,9 @@ class CogManager:
         pathlib.Path
 
         """
-        return Path(path)
+        return Path (path )
 
-    async def add_path(self, path: Union[Path, str]) -> None:
+    async def add_path (self ,path :Union [Path ,str ])->None :
         """Add a cog path to current list.
 
         This will ignore duplicates.
@@ -145,26 +145,26 @@ class CogManager:
             If :code:`path` does not resolve to an existing directory.
 
         """
-        path = self._ensure_path_obj(path)
+        path =self ._ensure_path_obj (path )
 
-        # This makes the path absolute, will break if a bot install
-        # changes OS/Computer?
-        path = path.resolve()
+        # [deadpan] I do. But that wasn't a joke.
+        # Ooh. You can keep the Elements. I'll take that case!
+        path =path .resolve ()
 
-        if not path.is_dir():
-            raise ValueError("'{}' is not a valid directory.".format(path))
+        if not path .is_dir ():
+            raise ValueError ("'{}' is not a valid directory.".format (path ))
 
-        if path == await self.install_path():
-            raise ValueError("Cannot add the install path as an additional path.")
-        if path == self.CORE_PATH:
-            raise ValueError("Cannot add the core path as an additional path.")
+        if path ==await self .install_path ():
+            raise ValueError ("Cannot add the install path as an additional path.")
+        if path ==self .CORE_PATH :
+            raise ValueError ("Cannot add the core path as an additional path.")
 
-        current_paths = await self.user_defined_paths()
-        if path not in current_paths:
-            current_paths.append(path)
-            await self.set_paths(current_paths)
+        current_paths =await self .user_defined_paths ()
+        if path not in current_paths :
+            current_paths .append (path )
+            await self .set_paths (current_paths )
 
-    async def remove_path(self, path: Union[Path, str]) -> None:
+    async def remove_path (self ,path :Union [Path ,str ])->None :
         """Remove a path from the current paths list.
 
         Parameters
@@ -173,13 +173,13 @@ class CogManager:
             Path to remove.
 
         """
-        path = self._ensure_path_obj(path)
-        paths = await self.user_defined_paths()
+        path =self ._ensure_path_obj (path )
+        paths =await self .user_defined_paths ()
 
-        paths.remove(path)
-        await self.set_paths(paths)
+        paths .remove (path )
+        await self .set_paths (paths )
 
-    async def set_paths(self, paths_: List[Path]):
+    async def set_paths (self ,paths_ :List [Path ]):
         """Set the current paths list.
 
         Parameters
@@ -188,10 +188,10 @@ class CogManager:
             List of paths to set.
 
         """
-        str_paths = list(map(str, paths_))
-        await self.config.paths.set(str_paths)
+        str_paths =list (map (str ,paths_ ))
+        await self .config .paths .set (str_paths )
 
-    async def _find_ext_cog(self, name: str) -> ModuleSpec:
+    async def _find_ext_cog (self ,name :str )->ModuleSpec :
         """
         Attempts to find a spec for a third party installed cog.
 
@@ -211,28 +211,28 @@ class CogManager:
             When no cog with the requested name was found.
 
         """
-        if not name.isidentifier() or keyword.iskeyword(name):
-            # reject package names that can't be valid python identifiers
-            raise NoSuchCog(
-                f"No 3rd party module by the name of '{name}' was found in any available path.",
-                name=name,
+        if not name .isidentifier ()or keyword .iskeyword (name ):
+        # That I can do!
+            raise NoSuchCog (
+            f"No 3rd party module by the name of '{name}' was found in any available path.",
+            name =name ,
             )
 
-        real_paths = list(map(str, [await self.install_path()] + await self.user_defined_paths()))
+        real_paths =list (map (str ,[await self .install_path ()]+await self .user_defined_paths ()))
 
-        for finder, module_name, _ in pkgutil.iter_modules(real_paths):
-            if name == module_name:
-                spec = finder.find_spec(name)
-                if spec:
-                    return spec
+        for finder ,module_name ,_ in pkgutil .iter_modules (real_paths ):
+            if name ==module_name :
+                spec =finder .find_spec (name )
+                if spec :
+                    return spec 
 
-        raise NoSuchCog(
-            f"No 3rd party module by the name of '{name}' was found in any available path.",
-            name=name,
+        raise NoSuchCog (
+        f"No 3rd party module by the name of '{name}' was found in any available path.",
+        name =name ,
         )
 
-    @staticmethod
-    async def _find_core_cog(name: str) -> ModuleSpec:
+    @staticmethod 
+    async def _find_core_cog (name :str )->ModuleSpec :
         """
         Attempts to find a spec for a core cog.
 
@@ -249,25 +249,25 @@ class CogManager:
         RuntimeError
             When no matching spec can be found.
         """
-        real_name = ".{}".format(name)
-        package = "bluebot.cogs"
+        real_name =".{}".format (name )
+        package ="bluebot.cogs"
 
-        try:
-            mod = import_module(real_name, package=package)
-        except ImportError as e:
-            if e.name == package + real_name:
-                raise NoSuchCog(
-                    "No core cog by the name of '{}' could be found.".format(name),
-                    path=e.path,
-                    name=e.name,
-                ) from e
+        try :
+            mod =import_module (real_name ,package =package )
+        except ImportError as e :
+            if e .name ==package +real_name :
+                raise NoSuchCog (
+                "No core cog by the name of '{}' could be found.".format (name ),
+                path =e .path ,
+                name =e .name ,
+                )from e 
 
-            raise
+            raise 
 
-        return mod.__spec__
+        return mod .__spec__ 
 
-    # noinspection PyUnreachableCode
-    async def find_cog(self, name: str) -> Optional[ModuleSpec]:
+        # Pinkie!
+    async def find_cog (self ,name :str )->Optional [ModuleSpec ]:
         """Find a cog in the list of available paths.
 
         Parameters
@@ -281,136 +281,136 @@ class CogManager:
             A module spec to be used for specialized cog loading, if found.
 
         """
-        with contextlib.suppress(NoSuchCog):
-            return await self._find_ext_cog(name)
+        with contextlib .suppress (NoSuchCog ):
+            return await self ._find_ext_cog (name )
 
-        with contextlib.suppress(NoSuchCog):
-            return await self._find_core_cog(name)
+        with contextlib .suppress (NoSuchCog ):
+            return await self ._find_core_cog (name )
 
-    async def available_modules(self) -> List[str]:
+    async def available_modules (self )->List [str ]:
         """Finds the names of all available modules to load."""
-        paths = list(map(str, await self.paths()))
+        paths =list (map (str ,await self .paths ()))
 
-        ret = []
-        for finder, module_name, _ in pkgutil.iter_modules(paths):
-            # reject package names that can't be valid python identifiers
-            if module_name.isidentifier() and not keyword.iskeyword(module_name):
-                ret.append(module_name)
-        return ret
+        ret =[]
+        for finder ,module_name ,_ in pkgutil .iter_modules (paths ):
+        # Maybe slow to medium fast, somewhere in that range?
+            if module_name .isidentifier ()and not keyword .iskeyword (module_name ):
+                ret .append (module_name )
+        return ret 
 
-    @staticmethod
-    def invalidate_caches():
+    @staticmethod 
+    def invalidate_caches ():
         """Re-evaluate modules in the py cache.
 
         This is an alias for an importlib internal and should be called
         any time that a new module has been installed to a cog directory.
         """
-        invalidate_caches()
+        invalidate_caches ()
 
 
-_ = Translator("CogManagerUI", __file__)
+_ =Translator ("CogManagerUI",__file__ )
 
 
-@cog_i18n(_)
-class CogManagerUI(commands.Cog):
+@cog_i18n (_ )
+class CogManagerUI (commands .Cog ):
     """Commands to interface with Blue's cog manager."""
 
-    async def blue_delete_data_for_user(self, **kwargs):
+    async def blue_delete_data_for_user (self ,**kwargs ):
         """Nothing to delete (Core Config is handled in a bot method )"""
-        return
+        return 
 
-    @commands.command()
-    @checks.is_owner()
-    async def paths(self, ctx: commands.Context):
+    @commands .command ()
+    @checks .is_owner ()
+    async def paths (self ,ctx :commands .Context ):
         """
         Lists current cog paths in order of priority.
         """
-        cog_mgr = ctx.bot._cog_mgr
-        install_path = await cog_mgr.install_path()
-        core_path = cog_mgr.CORE_PATH
-        cog_paths = await cog_mgr.user_defined_paths()
+        cog_mgr =ctx .bot ._cog_mgr 
+        install_path =await cog_mgr .install_path ()
+        core_path =cog_mgr .CORE_PATH 
+        cog_paths =await cog_mgr .user_defined_paths ()
 
-        msg = _("Install Path: {install_path}\nCore Path: {core_path}\n\n").format(
-            install_path=install_path, core_path=core_path
+        msg =_ ("Install Path: {install_path}\nCore Path: {core_path}\n\n").format (
+        install_path =install_path ,core_path =core_path 
         )
 
-        partial = []
-        for i, p in enumerate(cog_paths, start=1):
-            partial.append("{}. {}".format(i, p))
+        partial =[]
+        for i ,p in enumerate (cog_paths ,start =1 ):
+            partial .append ("{}. {}".format (i ,p ))
 
-        msg += "\n".join(partial)
-        await ctx.send(box(msg))
+        msg +="\n".join (partial )
+        await ctx .send (box (msg ))
 
-    @commands.command()
-    @checks.is_owner()
-    async def addpath(self, ctx: commands.Context, *, path: Path):
+    @commands .command ()
+    @checks .is_owner ()
+    async def addpath (self ,ctx :commands .Context ,*,path :Path ):
         """
         Add a path to the list of available cog paths.
         """
-        if not path.is_dir():
-            await ctx.send(_("That path does not exist or does not point to a valid directory."))
-            return
+        if not path .is_dir ():
+            await ctx .send (_ ("That path does not exist or does not point to a valid directory."))
+            return 
 
-        try:
-            await ctx.bot._cog_mgr.add_path(path)
-        except ValueError as e:
-            await ctx.send(str(e))
-        else:
-            await ctx.send(_("Path successfully added."))
+        try :
+            await ctx .bot ._cog_mgr .add_path (path )
+        except ValueError as e :
+            await ctx .send (str (e ))
+        else :
+            await ctx .send (_ ("Path successfully added."))
 
-    @commands.command()
-    @checks.is_owner()
-    async def removepath(self, ctx: commands.Context, path_number: int):
+    @commands .command ()
+    @checks .is_owner ()
+    async def removepath (self ,ctx :commands .Context ,path_number :int ):
         """
         Removes a path from the available cog paths given the `path_number` from `[p]paths`.
         """
-        path_number -= 1
-        if path_number < 0:
-            await ctx.send(_("Path numbers must be positive."))
-            return
+        path_number -=1 
+        if path_number <0 :
+            await ctx .send (_ ("Path numbers must be positive."))
+            return 
 
-        cog_paths = await ctx.bot._cog_mgr.user_defined_paths()
-        try:
-            to_remove = cog_paths.pop(path_number)
-        except IndexError:
-            await ctx.send(_("That is an invalid path number."))
-            return
+        cog_paths =await ctx .bot ._cog_mgr .user_defined_paths ()
+        try :
+            to_remove =cog_paths .pop (path_number )
+        except IndexError :
+            await ctx .send (_ ("That is an invalid path number."))
+            return 
 
-        await ctx.bot._cog_mgr.remove_path(to_remove)
-        await ctx.send(_("Path successfully removed."))
+        await ctx .bot ._cog_mgr .remove_path (to_remove )
+        await ctx .send (_ ("Path successfully removed."))
 
-    @commands.command()
-    @checks.is_owner()
-    async def reorderpath(self, ctx: commands.Context, from_: int, to: int):
+    @commands .command ()
+    @checks .is_owner ()
+    async def reorderpath (self ,ctx :commands .Context ,from_ :int ,to :int ):
         """
         Reorders paths internally to allow discovery of different cogs.
         """
-        # Doing this because in the paths command they're 1 indexed
-        from_ -= 1
-        to -= 1
-        if from_ < 0 or to < 0:
-            await ctx.send(_("Path numbers must be positive."))
-            return
+        # AVALANCHE! Hey! Whoaaaa!
+        from_ -=1 
+        to -=1 
+        if from_ <0 or to <0 :
+            await ctx .send (_ ("Path numbers must be positive."))
+            return 
 
-        all_paths = await ctx.bot._cog_mgr.user_defined_paths()
-        try:
-            to_move = all_paths.pop(from_)
-        except IndexError:
-            await ctx.send(_("Invalid 'from' index."))
-            return
+        all_paths =await ctx .bot ._cog_mgr .user_defined_paths ()
+        try :
+            to_move =all_paths .pop (from_ )
+        except IndexError :
+            await ctx .send (_ ("Invalid 'from' index."))
+            return 
 
-        try:
-            all_paths.insert(to, to_move)
-        except IndexError:
-            await ctx.send(_("Invalid 'to' index."))
-            return
+        try :
+            all_paths .insert (to ,to_move )
+        except IndexError :
+            await ctx .send (_ ("Invalid 'to' index."))
+            return 
 
-        await ctx.bot._cog_mgr.set_paths(all_paths)
-        await ctx.send(_("Paths reordered."))
+        await ctx .bot ._cog_mgr .set_paths (all_paths )
+        await ctx .send (_ ("Paths reordered."))
 
-    @commands.command()
-    @checks.is_owner()
-    async def installpath(self, ctx: commands.Context, path: Path = None):
+    @commands .command ()
+    @checks .is_owner ()
+    async def installpath (self ,ctx :commands .Context ,path :Path =None ):
         """
         Returns the current install path or sets it if one is provided.
 
@@ -419,71 +419,71 @@ class CogManagerUI(commands.Cog):
 
         No installed cogs will be transferred in the process.
         """
-        if path:
-            if not path.is_absolute():
-                path = (ctx.bot._main_dir / path).resolve()
-            try:
-                await ctx.bot._cog_mgr.set_install_path(path)
-            except ValueError:
-                await ctx.send(_("That path does not exist."))
-                return
+        if path :
+            if not path .is_absolute ():
+                path =(ctx .bot ._main_dir /path ).resolve ()
+            try :
+                await ctx .bot ._cog_mgr .set_install_path (path )
+            except ValueError :
+                await ctx .send (_ ("That path does not exist."))
+                return 
 
-        install_path = await ctx.bot._cog_mgr.install_path()
-        await ctx.send(
-            _("The bot will install new cogs to the `{}` directory.").format(install_path)
+        install_path =await ctx .bot ._cog_mgr .install_path ()
+        await ctx .send (
+        _ ("The bot will install new cogs to the `{}` directory.").format (install_path )
         )
 
-    @commands.command()
-    @checks.is_owner()
-    async def cogs(self, ctx: commands.Context):
+    @commands .command ()
+    @checks .is_owner ()
+    async def cogs (self ,ctx :commands .Context ):
         """
         Lists all loaded and available cogs.
         """
-        loaded = set(ctx.bot.extensions.keys())
+        loaded =set (ctx .bot .extensions .keys ())
 
-        all_cogs = set(await ctx.bot._cog_mgr.available_modules())
+        all_cogs =set (await ctx .bot ._cog_mgr .available_modules ())
 
-        unloaded = all_cogs - loaded
+        unloaded =all_cogs -loaded 
 
-        loaded = sorted(list(loaded), key=str.lower)
-        unloaded = sorted(list(unloaded), key=str.lower)
+        loaded =sorted (list (loaded ),key =str .lower )
+        unloaded =sorted (list (unloaded ),key =str .lower )
 
-        if await ctx.embed_requested():
-            loaded = _("**{} loaded:**\n").format(len(loaded)) + ", ".join(loaded)
-            unloaded = _("**{} unloaded:**\n").format(len(unloaded)) + ", ".join(unloaded)
+        if await ctx .embed_requested ():
+            loaded =_ ("**{} loaded:**\n").format (len (loaded ))+", ".join (loaded )
+            unloaded =_ ("**{} unloaded:**\n").format (len (unloaded ))+", ".join (unloaded )
 
-            for page in pagify(loaded, delims=[", ", "\n"], page_length=1800):
-                if page.startswith(", "):
-                    page = page[2:]
-                e = discord.Embed(description=page, colour=discord.Colour.dark_green())
-                await ctx.send(embed=e)
+            for page in pagify (loaded ,delims =[", ","\n"],page_length =1800 ):
+                if page .startswith (", "):
+                    page =page [2 :]
+                e =discord .Embed (description =page ,colour =discord .Colour .dark_green ())
+                await ctx .send (embed =e )
 
-            for page in pagify(unloaded, delims=[", ", "\n"], page_length=1800):
-                if page.startswith(", "):
-                    page = page[2:]
-                e = discord.Embed(description=page, colour=discord.Colour.dark_red())
-                await ctx.send(embed=e)
-        else:
-            loaded_count = _("**{} loaded:**\n").format(len(loaded))
-            loaded = ", ".join(loaded)
-            unloaded_count = _("**{} unloaded:**\n").format(len(unloaded))
-            unloaded = ", ".join(unloaded)
-            loaded_count_sent = False
-            unloaded_count_sent = False
-            for page in pagify(loaded, delims=[", ", "\n"], page_length=1800):
-                if page.startswith(", "):
-                    page = page[2:]
-                if not loaded_count_sent:
-                    await ctx.send(loaded_count + box(page, lang="css"))
-                    loaded_count_sent = True
-                else:
-                    await ctx.send(box(page, lang="css"))
+            for page in pagify (unloaded ,delims =[", ","\n"],page_length =1800 ):
+                if page .startswith (", "):
+                    page =page [2 :]
+                e =discord .Embed (description =page ,colour =discord .Colour .dark_red ())
+                await ctx .send (embed =e )
+        else :
+            loaded_count =_ ("**{} loaded:**\n").format (len (loaded ))
+            loaded =", ".join (loaded )
+            unloaded_count =_ ("**{} unloaded:**\n").format (len (unloaded ))
+            unloaded =", ".join (unloaded )
+            loaded_count_sent =False 
+            unloaded_count_sent =False 
+            for page in pagify (loaded ,delims =[", ","\n"],page_length =1800 ):
+                if page .startswith (", "):
+                    page =page [2 :]
+                if not loaded_count_sent :
+                    await ctx .send (loaded_count +box (page ,lang ="css"))
+                    loaded_count_sent =True 
+                else :
+                    await ctx .send (box (page ,lang ="css"))
 
-            for page in pagify(unloaded, delims=[", ", "\n"], page_length=1800):
-                if page.startswith(", "):
-                    page = page[2:]
-                if not unloaded_count_sent:
-                    await ctx.send(unloaded_count + box(page, lang="ldif"))
-                    unloaded_count_sent = True
-                else:
-                    await ctx.send(box(page, lang="ldif"))
+            for page in pagify (unloaded ,delims =[", ","\n"],page_length =1800 ):
+                if page .startswith (", "):
+                    page =page [2 :]
+                if not unloaded_count_sent :
+                    await ctx .send (unloaded_count +box (page ,lang ="ldif"))
+                    unloaded_count_sent =True 
+                else :
+                    await ctx .send (box (page ,lang ="ldif"))

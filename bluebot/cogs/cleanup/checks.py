@@ -1,15 +1,15 @@
-from bluebot.core.commands import Context, permissions_check
-from bluebot.core.utils.mod import is_mod_or_superior, check_permissions
+from bluebot .core .commands import Context ,permissions_check 
+from bluebot .core .utils .mod import is_mod_or_superior ,check_permissions 
 
 
-def check_self_permissions():
-    async def predicate(ctx: Context):
-        if not ctx.guild:
-            return True
-        if await check_permissions(ctx, {"manage_messages": True}) or await is_mod_or_superior(
-            ctx.bot, ctx.author
+def check_self_permissions ():
+    async def predicate (ctx :Context ):
+        if not ctx .guild :
+            return True 
+        if await check_permissions (ctx ,{"manage_messages":True })or await is_mod_or_superior (
+        ctx .bot ,ctx .author 
         ):
-            return True
-        return False
+            return True 
+        return False 
 
-    return permissions_check(predicate)
+    return permissions_check (predicate )

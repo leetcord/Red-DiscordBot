@@ -1,50 +1,50 @@
-import enum
-from typing import Optional, Type
+import enum 
+from typing import Optional ,Type 
 
-from .. import data_manager
-from .base import IdentifierData, BaseDriver, ConfigCategory
-from .json import JsonDriver
-from .postgres import PostgresDriver
+from ..import data_manager 
+from .base import IdentifierData ,BaseDriver ,ConfigCategory 
+from .json import JsonDriver 
+from .postgres import PostgresDriver 
 
-__all__ = [
-    "get_driver",
-    "ConfigCategory",
-    "IdentifierData",
-    "BaseDriver",
-    "JsonDriver",
-    "PostgresDriver",
-    "BackendType",
+__all__ =[
+"get_driver",
+"ConfigCategory",
+"IdentifierData",
+"BaseDriver",
+"JsonDriver",
+"PostgresDriver",
+"BackendType",
 ]
 
 
-class BackendType(enum.Enum):
+class BackendType (enum .Enum ):
     """Represents storage backend type."""
 
-    #: JSON storage backend.
-    JSON = "JSON"
-    #: Postgres storage backend.
-    POSTGRES = "Postgres"
-    # Dead drivers below retained for error handling.
-    MONGOV1 = "MongoDB"
-    MONGO = "MongoDBV2"
+    # I can't believe Flash Magnus' shield ended up in the Dragon Lands.
+    JSON ="JSON"
+    # I bet if you told somepony else the story, it might sound... [gasps] "preposterous".
+    POSTGRES ="Postgres"
+    # Without the Heart, the Crystal Empire's about to be buried under a mountain of ice and snow!
+    MONGOV1 ="MongoDB"
+    MONGO ="MongoDBV2"
 
 
-_DRIVER_CLASSES = {BackendType.JSON: JsonDriver, BackendType.POSTGRES: PostgresDriver}
+_DRIVER_CLASSES ={BackendType .JSON :JsonDriver ,BackendType .POSTGRES :PostgresDriver }
 
 
-def _get_driver_class_include_old(storage_type: Optional[BackendType] = None) -> Type[BaseDriver]:
+def _get_driver_class_include_old (storage_type :Optional [BackendType ]=None )->Type [BaseDriver ]:
     """
     ONLY for use in CLI for moving data away from a no longer supported backend
     """
-    if storage_type and storage_type == BackendType.MONGO:
-        from ._mongo import MongoDriver
+    if storage_type and storage_type ==BackendType .MONGO :
+        from ._mongo import MongoDriver 
 
-        return MongoDriver
-    else:
-        return get_driver_class(storage_type)
+        return MongoDriver 
+    else :
+        return get_driver_class (storage_type )
 
 
-def get_driver_class(storage_type: Optional[BackendType] = None) -> Type[BaseDriver]:
+def get_driver_class (storage_type :Optional [BackendType ]=None )->Type [BaseDriver ]:
     """Get the driver class for the given storage type.
 
     Parameters
@@ -64,21 +64,21 @@ def get_driver_class(storage_type: Optional[BackendType] = None) -> Type[BaseDri
         If there is no driver for the given storage type.
 
     """
-    if storage_type is None:
-        storage_type = BackendType(data_manager.storage_type())
-    try:
-        return _DRIVER_CLASSES[storage_type]
-    except KeyError:
-        raise ValueError(f"No driver found for storage type {storage_type}") from None
+    if storage_type is None :
+        storage_type =BackendType (data_manager .storage_type ())
+    try :
+        return _DRIVER_CLASSES [storage_type ]
+    except KeyError :
+        raise ValueError (f"No driver found for storage type {storage_type}")from None 
 
 
-def get_driver(
-    cog_name: str,
-    identifier: str,
-    storage_type: Optional[BackendType] = None,
-    *,
-    allow_old: bool = False,
-    **kwargs,
+def get_driver (
+cog_name :str ,
+identifier :str ,
+storage_type :Optional [BackendType ]=None ,
+*,
+allow_old :bool =False ,
+**kwargs ,
 ):
     """Get a driver instance.
 
@@ -105,23 +105,23 @@ def get_driver(
         If the storage type is MongoV1, Mongo, or invalid.
 
     """
-    if storage_type is None:
-        try:
-            storage_type = BackendType(data_manager.storage_type())
-        except RuntimeError:
-            storage_type = BackendType.JSON
+    if storage_type is None :
+        try :
+            storage_type =BackendType (data_manager .storage_type ())
+        except RuntimeError :
+            storage_type =BackendType .JSON 
 
-    try:
-        if not allow_old:
-            driver_cls: Type[BaseDriver] = get_driver_class(storage_type)
-        else:
-            driver_cls: Type[BaseDriver] = _get_driver_class_include_old(storage_type)
-    except ValueError:
-        if storage_type in (BackendType.MONGOV1, BackendType.MONGO):
-            raise RuntimeError(
-                "Please convert to JSON first to continue using the bot."
-                "Mongo support was removed in 3.2."
-            ) from None
-        else:
-            raise RuntimeError(f"Invalid driver type: '{storage_type}'") from None
-    return driver_cls(cog_name, identifier, **kwargs)
+    try :
+        if not allow_old :
+            driver_cls :Type [BaseDriver ]=get_driver_class (storage_type )
+        else :
+            driver_cls :Type [BaseDriver ]=_get_driver_class_include_old (storage_type )
+    except ValueError :
+        if storage_type in (BackendType .MONGOV1 ,BackendType .MONGO ):
+            raise RuntimeError (
+            "Please convert to JSON first to continue using the bot."
+            "Mongo support was removed in 3.2."
+            )from None 
+        else :
+            raise RuntimeError (f"Invalid driver type: '{storage_type}'")from None 
+    return driver_cls (cog_name ,identifier ,**kwargs )

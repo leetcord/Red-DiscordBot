@@ -1,25 +1,25 @@
-import json
-from pathlib import Path
+import json 
+from pathlib import Path 
 
-import pytest
+import pytest 
 
-from bluebot.pytest.data_manager import *
-from bluebot.core import data_manager
-
-
-def test_no_basic(cog_instance):
-    with pytest.raises(RuntimeError):
-        data_manager.core_data_path()
-
-    with pytest.raises(RuntimeError):
-        data_manager.cog_data_path(cog_instance)
+from bluebot .pytest .data_manager import *
+from bluebot .core import data_manager 
 
 
-@pytest.mark.skip
-def test_core_path(data_mgr_config, tmpdir):
-    conf_path = tmpdir.join("config.json")
-    conf_path.write(json.dumps(data_mgr_config))
+def test_no_basic (cog_instance ):
+    with pytest .raises (RuntimeError ):
+        data_manager .core_data_path ()
 
-    data_manager.load_basic_configuration(Path(str(conf_path)))
+    with pytest .raises (RuntimeError ):
+        data_manager .cog_data_path (cog_instance )
 
-    assert data_manager.core_data_path().parent == Path(data_mgr_config["BASE_DIR"])
+
+@pytest .mark .skip 
+def test_core_path (data_mgr_config ,tmpdir ):
+    conf_path =tmpdir .join ("config.json")
+    conf_path .write (json .dumps (data_mgr_config ))
+
+    data_manager .load_basic_configuration (Path (str (conf_path )))
+
+    assert data_manager .core_data_path ().parent ==Path (data_mgr_config ["BASE_DIR"])

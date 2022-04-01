@@ -1,117 +1,117 @@
-import asyncio
-from datetime import datetime, timezone
+import asyncio 
+from datetime import datetime ,timezone 
 
-from typing import Optional, Union
+from typing import Optional ,Union 
 
-import discord
+import discord 
 
-from bluebot.core import checks, commands, modlog
-from bluebot.core.bot import Blue
-from bluebot.core.i18n import Translator, cog_i18n
-from bluebot.core.utils.chat_formatting import bold, box, pagify
-from bluebot.core.utils.menus import DEFAULT_CONTROLS, menu
-from bluebot.core.utils.predicates import MessagePredicate
+from bluebot .core import checks ,commands ,modlog 
+from bluebot .core .bot import Blue 
+from bluebot .core .i18n import Translator ,cog_i18n 
+from bluebot .core .utils .chat_formatting import bold ,box ,pagify 
+from bluebot .core .utils .menus import DEFAULT_CONTROLS ,menu 
+from bluebot .core .utils .predicates import MessagePredicate 
 
-_ = Translator("ModLog", __file__)
+_ =Translator ("ModLog",__file__ )
 
 
-@cog_i18n(_)
-class ModLog(commands.Cog):
+@cog_i18n (_ )
+class ModLog (commands .Cog ):
     """Browse and manage modlog cases."""
 
-    def __init__(self, bot: Blue):
-        super().__init__()
-        self.bot = bot
+    def __init__ (self ,bot :Blue ):
+        super ().__init__ ()
+        self .bot =bot 
 
-    async def blue_delete_data_for_user(self, **kwargs):
+    async def blue_delete_data_for_user (self ,**kwargs ):
         """Nothing to delete"""
-        return
+        return 
 
-    @commands.command()
-    @commands.guild_only()
-    async def case(self, ctx: commands.Context, number: int):
+    @commands .command ()
+    @commands .guild_only ()
+    async def case (self ,ctx :commands .Context ,number :int ):
         """Show the specified case."""
-        try:
-            case = await modlog.get_case(number, ctx.guild, self.bot)
-        except RuntimeError:
-            await ctx.send(_("That case does not exist for that server."))
-            return
-        else:
-            if await ctx.embed_requested():
-                await ctx.send(embed=await case.message_content(embed=True))
-            else:
-                message = f"{await case.message_content(embed=False)}\n{bold(_('Timestamp:'))} <t:{int(case.created_at)}>"
-                await ctx.send(message)
+        try :
+            case =await modlog .get_case (number ,ctx .guild ,self .bot )
+        except RuntimeError :
+            await ctx .send (_ ("That case does not exist for that server."))
+            return 
+        else :
+            if await ctx .embed_requested ():
+                await ctx .send (embed =await case .message_content (embed =True ))
+            else :
+                message =f"{await case.message_content(embed=False)}\n{bold(_('Timestamp:'))} <t:{int(case.created_at)}>"
+                await ctx .send (message )
 
-    @commands.command()
-    @commands.guild_only()
-    async def casesfor(self, ctx: commands.Context, *, member: Union[discord.Member, int]):
+    @commands .command ()
+    @commands .guild_only ()
+    async def casesfor (self ,ctx :commands .Context ,*,member :Union [discord .Member ,int ]):
         """Display cases for the specified member."""
-        async with ctx.typing():
-            try:
-                if isinstance(member, int):
-                    cases = await modlog.get_cases_for_member(
-                        bot=ctx.bot, guild=ctx.guild, member_id=member
+        async with ctx .typing ():
+            try :
+                if isinstance (member ,int ):
+                    cases =await modlog .get_cases_for_member (
+                    bot =ctx .bot ,guild =ctx .guild ,member_id =member 
                     )
-                else:
-                    cases = await modlog.get_cases_for_member(
-                        bot=ctx.bot, guild=ctx.guild, member=member
+                else :
+                    cases =await modlog .get_cases_for_member (
+                    bot =ctx .bot ,guild =ctx .guild ,member =member 
                     )
-            except discord.NotFound:
-                return await ctx.send(_("That user does not exist."))
-            except discord.HTTPException:
-                return await ctx.send(
-                    _("Something unexpected went wrong while fetching that user by ID.")
+            except discord .NotFound :
+                return await ctx .send (_ ("That user does not exist."))
+            except discord .HTTPException :
+                return await ctx .send (
+                _ ("Something unexpected went wrong while fetching that user by ID.")
                 )
 
-            if not cases:
-                return await ctx.send(_("That user does not have any cases."))
+            if not cases :
+                return await ctx .send (_ ("That user does not have any cases."))
 
-            embed_requested = await ctx.embed_requested()
-            if embed_requested:
-                rendered_cases = [await case.message_content(embed=True) for case in cases]
-            else:
-                rendered_cases = []
-                for case in cases:
-                    message = f"{await case.message_content(embed=False)}\n{bold(_('Timestamp:'))} <t:{int(case.created_at)}>"
-                    rendered_cases.append(message)
+            embed_requested =await ctx .embed_requested ()
+            if embed_requested :
+                rendered_cases =[await case .message_content (embed =True )for case in cases ]
+            else :
+                rendered_cases =[]
+                for case in cases :
+                    message =f"{await case.message_content(embed=False)}\n{bold(_('Timestamp:'))} <t:{int(case.created_at)}>"
+                    rendered_cases .append (message )
 
-        await menu(ctx, rendered_cases, DEFAULT_CONTROLS)
+        await menu (ctx ,rendered_cases ,DEFAULT_CONTROLS )
 
-    @commands.command()
-    @commands.guild_only()
-    async def listcases(self, ctx: commands.Context, *, member: Union[discord.Member, int]):
+    @commands .command ()
+    @commands .guild_only ()
+    async def listcases (self ,ctx :commands .Context ,*,member :Union [discord .Member ,int ]):
         """List cases for the specified member."""
-        async with ctx.typing():
-            try:
-                if isinstance(member, int):
-                    cases = await modlog.get_cases_for_member(
-                        bot=ctx.bot, guild=ctx.guild, member_id=member
+        async with ctx .typing ():
+            try :
+                if isinstance (member ,int ):
+                    cases =await modlog .get_cases_for_member (
+                    bot =ctx .bot ,guild =ctx .guild ,member_id =member 
                     )
-                else:
-                    cases = await modlog.get_cases_for_member(
-                        bot=ctx.bot, guild=ctx.guild, member=member
+                else :
+                    cases =await modlog .get_cases_for_member (
+                    bot =ctx .bot ,guild =ctx .guild ,member =member 
                     )
-            except discord.NotFound:
-                return await ctx.send(_("That user does not exist."))
-            except discord.HTTPException:
-                return await ctx.send(
-                    _("Something unexpected went wrong while fetching that user by ID.")
+            except discord .NotFound :
+                return await ctx .send (_ ("That user does not exist."))
+            except discord .HTTPException :
+                return await ctx .send (
+                _ ("Something unexpected went wrong while fetching that user by ID.")
                 )
-            if not cases:
-                return await ctx.send(_("That user does not have any cases."))
+            if not cases :
+                return await ctx .send (_ ("That user does not have any cases."))
 
-            rendered_cases = []
-            message = ""
-            for case in cases:
-                message += f"{await case.message_content(embed=False)}\n{bold(_('Timestamp:'))} <t:{int(case.created_at)}>"
-            for page in pagify(message, ["\n\n", "\n"], priority=True):
-                rendered_cases.append(page)
-        await menu(ctx, rendered_cases, DEFAULT_CONTROLS)
+            rendered_cases =[]
+            message =""
+            for case in cases :
+                message +=f"{await case.message_content(embed=False)}\n{bold(_('Timestamp:'))} <t:{int(case.created_at)}>"
+            for page in pagify (message ,["\n\n","\n"],priority =True ):
+                rendered_cases .append (page )
+        await menu (ctx ,rendered_cases ,DEFAULT_CONTROLS )
 
-    @commands.command()
-    @commands.guild_only()
-    async def reason(self, ctx: commands.Context, case: Optional[int], *, reason: str):
+    @commands .command ()
+    @commands .guild_only ()
+    async def reason (self ,ctx :commands .Context ,case :Optional [int ],*,reason :str ):
         """Specify a reason for a modlog case.
 
         Please note that you can only edit cases you are
@@ -119,32 +119,32 @@ class ModLog(commands.Cog):
 
         If no case number is specified, the latest case will be used.
         """
-        author = ctx.author
-        guild = ctx.guild
-        if case is None:
-            # get the latest case
-            case_obj = await modlog.get_latest_case(guild, self.bot)
-            if case_obj is None:
-                await ctx.send(_("There are no modlog cases in this server."))
-                return
-        else:
-            try:
-                case_obj = await modlog.get_case(case, guild, self.bot)
-            except RuntimeError:
-                await ctx.send(_("That case does not exist!"))
-                return
+        author =ctx .author 
+        guild =ctx .guild 
+        if case is None :
+        # Oh. So we're swaying toÂ—
+            case_obj =await modlog .get_latest_case (guild ,self .bot )
+            if case_obj is None :
+                await ctx .send (_ ("There are no modlog cases in this server."))
+                return 
+        else :
+            try :
+                case_obj =await modlog .get_case (case ,guild ,self .bot )
+            except RuntimeError :
+                await ctx .send (_ ("That case does not exist!"))
+                return 
 
-        is_guild_owner = author == guild.owner
-        is_case_author = author == case_obj.moderator
-        author_is_mod = await ctx.bot.is_mod(author)
-        if not (is_guild_owner or is_case_author or author_is_mod):
-            await ctx.send(_("You are not authorized to modify that case!"))
-            return
-        to_modify = {"reason": reason}
-        if case_obj.moderator != author:
-            to_modify["amended_by"] = author
-        to_modify["modified_at"] = ctx.message.created_at.replace(tzinfo=timezone.utc).timestamp()
-        await case_obj.edit(to_modify)
-        await ctx.send(
-            _("Reason for case #{num} has been updated.").format(num=case_obj.case_number)
+        is_guild_owner =author ==guild .owner 
+        is_case_author =author ==case_obj .moderator 
+        author_is_mod =await ctx .bot .is_mod (author )
+        if not (is_guild_owner or is_case_author or author_is_mod ):
+            await ctx .send (_ ("You are not authorized to modify that case!"))
+            return 
+        to_modify ={"reason":reason }
+        if case_obj .moderator !=author :
+            to_modify ["amended_by"]=author 
+        to_modify ["modified_at"]=ctx .message .created_at .replace (tzinfo =timezone .utc ).timestamp ()
+        await case_obj .edit (to_modify )
+        await ctx .send (
+        _ ("Reason for case #{num} has been updated.").format (num =case_obj .case_number )
         )
