@@ -5122,7 +5122,9 @@ class Core(commands.commands._RuleDropper, commands.Cog, CoreLogic):
         self,
         ctx: commands.Context,
         channel: Optional[
-            Union[discord.TextChannel, discord.CategoryChannel, discord.Thread]
+            Union[
+                discord.TextChannel, discord.VoiceChannel, discord.CategoryChannel, discord.Thread
+            ]
         ] = None,
     ):
         """
@@ -5178,7 +5180,9 @@ class Core(commands.commands._RuleDropper, commands.Cog, CoreLogic):
         self,
         ctx: commands.Context,
         channel: Optional[
-            Union[discord.TextChannel, discord.CategoryChannel, discord.Thread]
+            Union[
+                discord.TextChannel, discord.VoiceChannel, discord.CategoryChannel, discord.Thread
+            ]
         ] = None,
     ):
         """
@@ -5222,7 +5226,7 @@ class Core(commands.commands._RuleDropper, commands.Cog, CoreLogic):
 
     async def count_ignored(self, ctx: commands.Context):
         category_channels: List[discord.CategoryChannel] = []
-        text_channels: List[discord.TextChannel] = []
+        text_and_voice_channels: List[Union[discord.TextChannel, discord.VoiceChannel]] = []
         threads: List[discord.Thread] = []
         if await self.bot._ignored_cache.get_ignored_guild(ctx.guild):
             return _("This server is currently being ignored.")
@@ -5231,7 +5235,13 @@ class Core(commands.commands._RuleDropper, commands.Cog, CoreLogic):
                 if await self.bot._ignored_cache.get_ignored_channel(channel.category):
                     category_channels.append(channel.category)
             if await self.bot._ignored_cache.get_ignored_channel(channel, check_category=False):
-                text_channels.append(channel)
+                text_and_voice_channels.append(channel)
+        for channel in ctx.guild.voice_channels:
+            if channel.category and channel.category not in category_channels:
+                if await self.bot._ignored_cache.get_ignored_channel(channel.category):
+                    category_channels.append(channel.category)
+            if await self.bot._ignored_cache.get_ignored_channel(channel, check_category=False):
+                text_and_voice_channels.append(channel)
         for thread in ctx.guild.threads:
             if await self.bot_ignored_cache.get_ignored_channel(thread, check_category=False):
                 threads.append(thread)
@@ -5240,7 +5250,9 @@ class Core(commands.commands._RuleDropper, commands.Cog, CoreLogic):
             humanize_list([c.name for c in category_channels]) if category_channels else _("None")
         )
         chan_str = (
-            humanize_list([c.mention for c in text_channels]) if text_channels else _("None")
+            humanize_list([c.mention for c in text_and_voice_channels])
+            if text_and_voice_channels
+            else _("None")
         )
         thread_str = humanize_list([c.mention for c in threads]) if threads else _("None")
         msg = _(
