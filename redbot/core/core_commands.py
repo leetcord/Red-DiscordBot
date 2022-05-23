@@ -4131,7 +4131,7 @@ class Core(commands.commands._RuleDropper, commands.Cog, CoreLogic):
     async def diagnoseissues(
         self,
         ctx: commands.Context,
-        channel: Optional[Union[discord.TextChannel, discord.Thread]],
+        channel: Optional[Union[discord.TextChannel, discord.VoiceChannel, discord.Thread]],
         member: Union[discord.Member, discord.User],
         *,
         command_name: str,
@@ -4152,10 +4152,12 @@ class Core(commands.commands._RuleDropper, commands.Cog, CoreLogic):
         """
         if channel is None:
             channel = ctx.channel
-            if not isinstance(channel, (discord.TextChannel, discord.Thread)):
+            if not isinstance(
+                channel, (discord.TextChannel, discord.VoiceChannel, discord.Thread)
+            ):
                 await ctx.send(
                     _(
-                        "The text channel or thread needs to be passed"
+                        "A text channel, voice channel, or thread needs to be passed"
                         " when using this command in DMs."
                     )
                 )
