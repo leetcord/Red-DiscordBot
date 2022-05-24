@@ -1615,7 +1615,6 @@ class Red(
         cogname: str,
         /,
         *,
-        # DEP-WARN: MISSING is implementation detail
         guild: Optional[discord.abc.Snowflake] = discord.utils.MISSING,
         guilds: List[discord.abc.Snowflake] = discord.utils.MISSING,
     ) -> Optional[commands.Cog]:
@@ -1727,7 +1726,6 @@ class Red(
         /,
         *,
         override: bool = False,
-        # DEP-WARN: MISSING is implementation detail
         guild: Optional[discord.abc.Snowflake] = discord.utils.MISSING,
         guilds: List[discord.abc.Snowflake] = discord.utils.MISSING,
     ) -> None:
