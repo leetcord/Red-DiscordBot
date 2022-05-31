@@ -1349,7 +1349,12 @@ class Core(commands.commands._RuleDropper, commands.Cog, CoreLogic):
     @embedset.command(name="channel")
     @checks.guildowner_or_permissions(administrator=True)
     @commands.guild_only()
-    async def embedset_channel(self, ctx: commands.Context, enabled: bool = None):
+    async def embedset_channel(
+        self,
+        ctx: commands.Context,
+        channel: Union[discord.TextChannel, discord.VoiceChannel, discord.ForumChannel],
+        enabled: bool = None,
+    ):
         """
         Set's a channel's embed setting.
 
@@ -1361,27 +1366,20 @@ class Core(commands.commands._RuleDropper, commands.Cog, CoreLogic):
         To see full evaluation order of embed settings, run `[p]help embedset`.
 
         **Examples:**
-            - `[p]embedset channel False` - Disables embeds in this channel.
-            - `[p]embedset channel` - Resets value to use guild default.
+            - `[p]embedset channel #text-channel False` - Disables embeds in the #text-channel.
+            - `[p]embedset channel #forum-channel disable` - Disables embeds in the #forum-channel.
+            - `[p]embedset channel #text-channel` - Resets value to use guild default in the #text-channel .
 
         **Arguments:**
+            - `<channel>` - The text, voice, or forum channel to set embed setting for.
             - `[enabled]` - Whether to use embeds in this channel. Leave blank to reset to default.
         """
-        if isinstance(ctx.channel, discord.Thread):
-            await ctx.send(
-                _(
-                    "This setting cannot be set for threads. If you want to set this for"
-                    " the parent channel, send the command in that channel."
-                )
-            )
-            return
-
         if enabled is None:
-            await self.bot._config.channel(ctx.channel).embeds.clear()
+            await self.bot._config.channel(channel).embeds.clear()
             await ctx.send(_("Embeds will now fall back to the global setting."))
             return
 
-        await self.bot._config.channel(ctx.channel).embeds.set(enabled)
+        await self.bot._config.channel(channel).embeds.set(enabled)
         await ctx.send(
             _("Embeds are now {} for this channel.").format(
                 _("enabled") if enabled else _("disabled")
@@ -2245,7 +2243,11 @@ class Core(commands.commands._RuleDropper, commands.Cog, CoreLogic):
 
     @modlogset.command(aliases=["channel"], name="modlog")
     @commands.guild_only()
-    async def modlogset_modlog(self, ctx: commands.Context, channel: discord.TextChannel = None):
+    async def modlogset_modlog(
+        self,
+        ctx: commands.Context,
+        channel: Union[discord.TextChannel, discord.VoiceChannel] = None,
+    ):
         """Set a channel as the modlog.
 
         Omit `[channel]` to disable the modlog.
@@ -3239,7 +3241,7 @@ class Core(commands.commands._RuleDropper, commands.Cog, CoreLogic):
 
     @_set_ownernotifications.command(name="adddestination")
     async def _set_ownernotifications_adddestination(
-        self, ctx: commands.Context, *, channel: discord.TextChannel
+        self, ctx: commands.Context, *, channel: Union[discord.TextChannel, discord.VoiceChannel]
     ):
         """
         Adds a destination text channel to receive owner notifications.
@@ -3261,7 +3263,10 @@ class Core(commands.commands._RuleDropper, commands.Cog, CoreLogic):
         name="removedestination", aliases=["remdestination", "deletedestination", "deldestination"]
     )
     async def _set_ownernotifications_removedestination(
-        self, ctx: commands.Context, *, channel: Union[discord.TextChannel, int]
+        self,
+        ctx: commands.Context,
+        *,
+        channel: Union[discord.TextChannel, discord.VoiceChannel, int],
     ):
         """
         Removes a destination text channel from receiving owner notifications.
@@ -4134,8 +4139,11 @@ class Core(commands.commands._RuleDropper, commands.Cog, CoreLogic):
     async def diagnoseissues(
         self,
         ctx: commands.Context,
-        channel: Optional[Union[discord.TextChannel, discord.Thread]],
-        member: Union[discord.Member, discord.User],
+        channel: Optional[
+            Union[discord.TextChannel, discord.VoiceChannel, discord.Thread]
+        ] = commands.CurrentChannel,
+        # avoid non-default argument following default argument by using empty param()
+        member: Union[discord.Member, discord.User] = commands.param(),
         *,
         command_name: str,
     ) -> None:
@@ -4153,16 +4161,14 @@ class Core(commands.commands._RuleDropper, commands.Cog, CoreLogic):
             - `<member>` - The member that should be considered as the command caller.
             - `<command_name>` - The name of the command to test.
         """
-        if channel is None:
-            channel = ctx.channel
-            if not isinstance(channel, (discord.TextChannel, discord.Thread)):
-                await ctx.send(
-                    _(
-                        "The text channel or thread needs to be passed"
-                        " when using this command in DMs."
-                    )
+        if ctx.guild is None:
+            await ctx.send(
+                _(
+                    "A text channel, voice channel, or thread needs to be passed"
+                    " when using this command in DMs."
                 )
-                return
+            )
+            return
 
         command = self.bot.get_command(command_name)
         if command is None:
@@ -5122,9 +5128,13 @@ class Core(commands.commands._RuleDropper, commands.Cog, CoreLogic):
     async def ignore_channel(
         self,
         ctx: commands.Context,
-        channel: Optional[
-            Union[discord.TextChannel, discord.CategoryChannel, discord.Thread]
-        ] = None,
+        channel: Union[
+            discord.TextChannel,
+            discord.VoiceChannel,
+            discord.ForumChannel,
+            discord.CategoryChannel,
+            discord.Thread,
+        ] = commands.CurrentChannel,
     ):
         """
         Ignore commands in the channel, thread, or category.
@@ -5142,8 +5152,6 @@ class Core(commands.commands._RuleDropper, commands.Cog, CoreLogic):
         **Arguments:**
             - `<channel>` - The channel to ignore. This can also be a thread or category channel.
         """
-        if not channel:
-            channel = ctx.channel
         if not await self.bot._ignored_cache.get_ignored_channel(channel):
             await self.bot._ignored_cache.set_ignored_channel(channel, True)
             await ctx.send(_("Channel added to ignore list."))
@@ -5178,9 +5186,13 @@ class Core(commands.commands._RuleDropper, commands.Cog, CoreLogic):
     async def unignore_channel(
         self,
         ctx: commands.Context,
-        channel: Optional[
-            Union[discord.TextChannel, discord.CategoryChannel, discord.Thread]
-        ] = None,
+        channel: Union[
+            discord.TextChannel,
+            discord.VoiceChannel,
+            discord.ForumChannel,
+            discord.CategoryChannel,
+            discord.Thread,
+        ] = commands.CurrentChannel,
     ):
         """
         Remove a channel, thread, or category from the ignore list.
@@ -5196,9 +5208,6 @@ class Core(commands.commands._RuleDropper, commands.Cog, CoreLogic):
         **Arguments:**
             - `<channel>` - The channel to unignore. This can also be a thread or category channel.
         """
-        if not channel:
-            channel = ctx.channel
-
         if await self.bot._ignored_cache.get_ignored_channel(channel):
             await self.bot._ignored_cache.set_ignored_channel(channel, False)
             await ctx.send(_("Channel removed from ignore list."))
@@ -5223,7 +5232,7 @@ class Core(commands.commands._RuleDropper, commands.Cog, CoreLogic):
 
     async def count_ignored(self, ctx: commands.Context):
         category_channels: List[discord.CategoryChannel] = []
-        text_channels: List[discord.TextChannel] = []
+        channels: List[Union[discord.TextChannel, discord.VoiceChannel, discord.ForumChannel]] = []
         threads: List[discord.Thread] = []
         if await self.bot._ignored_cache.get_ignored_guild(ctx.guild):
             return _("This server is currently being ignored.")
@@ -5232,7 +5241,19 @@ class Core(commands.commands._RuleDropper, commands.Cog, CoreLogic):
                 if await self.bot._ignored_cache.get_ignored_channel(channel.category):
                     category_channels.append(channel.category)
             if await self.bot._ignored_cache.get_ignored_channel(channel, check_category=False):
-                text_channels.append(channel)
+                channels.append(channel)
+        for channel in ctx.guild.voice_channels:
+            if channel.category and channel.category not in category_channels:
+                if await self.bot._ignored_cache.get_ignored_channel(channel.category):
+                    category_channels.append(channel.category)
+            if await self.bot._ignored_cache.get_ignored_channel(channel, check_category=False):
+                channels.append(channel)
+        for channel in ctx.guild.forum_channels:
+            if channel.category and channel.category not in category_channels:
+                if await self.bot._ignored_cache.get_ignored_channel(channel.category):
+                    category_channels.append(channel.category)
+            if await self.bot._ignored_cache.get_ignored_channel(channel, check_category=False):
+                channels.append(channel)
         for thread in ctx.guild.threads:
             if await self.bot_ignored_cache.get_ignored_channel(thread, check_category=False):
                 threads.append(thread)
@@ -5240,9 +5261,7 @@ class Core(commands.commands._RuleDropper, commands.Cog, CoreLogic):
         cat_str = (
             humanize_list([c.name for c in category_channels]) if category_channels else _("None")
         )
-        chan_str = (
-            humanize_list([c.mention for c in text_channels]) if text_channels else _("None")
-        )
+        chan_str = humanize_list([c.mention for c in channels]) if channels else _("None")
         thread_str = humanize_list([c.mention for c in threads]) if threads else _("None")
         msg = _(
             "Currently ignored categories: {categories}\n"
