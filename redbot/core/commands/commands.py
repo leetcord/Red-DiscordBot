@@ -14,6 +14,7 @@ from typing import (
     Any,
     Awaitable,
     Callable,
+    ClassVar,
     Dict,
     List,
     Literal,
@@ -33,6 +34,9 @@ from discord.ext.commands import (
     DisabledCommand,
     command as dpy_command_deco,
     Command as DPYCommand,
+    GroupCog as DPYGroupCog,
+    HybridCommand as DPYHybridCommand,
+    HybridGroup as DPYHybridGroup,
     Cog as DPYCog,
     CogMeta as DPYCogMeta,
     Group as DPYGroup,
@@ -55,9 +59,12 @@ __all__ = [
     "CogGroupMixin",
     "Command",
     "Group",
+    "GroupCog",
     "GroupMixin",
     "command",
     "group",
+    "hybrid_command",
+    "hybrid_group",
     "RESERVED_COMMAND_NAMES",
     "RedUnhandledAPI",
 ]
@@ -287,9 +294,9 @@ class Command(CogCommandMixin, DPYCommand):
 
     def __init__(self, *args, **kwargs):
         self.ignore_optional_for_conversion = kwargs.pop("ignore_optional_for_conversion", False)
-        super().__init__(*args, **kwargs)
         self._help_override = kwargs.pop("help_override", None)
         self.translator = kwargs.pop("i18n", None)
+        super().__init__(*args, **kwargs)
         if self.parent is None:
             for name in (self.name, *self.aliases):
                 if name in RESERVED_COMMAND_NAMES:
@@ -982,6 +989,121 @@ class Cog(CogMixin, DPYCog, metaclass=DPYCogMeta):
         :meta private:
         """
         return {cmd.name: cmd for cmd in self.__cog_commands__}
+
+
+class GroupCog(Cog, DPYGroupCog):
+    """
+    Red's Cog base class with app commands group as the base.
+
+    This class inherits from `Cog` and `discord.ext.commands.GroupCog`
+    """
+
+
+class HybridCommand(Command, DPYHybridCommand):
+    """HybridCommand class for Red.
+
+    This should not be created directly, and instead via the decorator.
+
+    This class inherits from `Command` and `discord.ext.commands.HybridCommand`.
+
+    .. warning::
+
+        This class is not intended to be subclassed.
+    """
+
+
+class HybridGroup(Group, DPYHybridGroup):
+    """HybridGroup command class for Red.
+
+    This should not be created directly, and instead via the decorator.
+
+    This class inherits from `Group` and `discord.ext.commands.HybridGroup`.
+
+    .. note::
+        Red's HybridGroups differ from `discord.ext.commands.HybridGroup`
+        by setting `discord.ext.commands.Group.invoke_without_command` to be `False` by default.
+        If `discord.ext.commands.HybridGroup.fallback` is provided then
+        `discord.ext.commands.Group.invoke_without_command` is
+        set to `True`.
+
+    .. warning::
+
+        This class is not intended to be subclassed.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any):
+        fallback = "fallback" in kwargs and kwargs["fallback"] is not None
+        invoke_without_command = kwargs.pop("invoke_without_command", False) or fallback
+        kwargs["invoke_without_command"] = invoke_without_command
+        super().__init__(*args, **kwargs)
+        self.invoke_without_command = invoke_without_command
+
+    @property
+    def callback(self):
+        return self._callback
+
+    @callback.setter
+    def callback(self, function):
+        # Below should be mostly the same as discord.py
+        super(__class__, __class__).callback.__set__(self, function)
+
+        if not self.invoke_without_command and self.params:
+            raise TypeError(
+                "You cannot have a group command with callbacks and `invoke_without_command` set to False."
+            )
+
+    def command(self, name: str = discord.utils.MISSING, *args: Any, **kwargs: Any):
+        def decorator(func):
+            kwargs.setdefault("parent", self)
+            result = hybrid_command(name=name, *args, **kwargs)(func)
+            self.add_command(result)
+            return result
+
+        return decorator
+
+    def group(
+        self,
+        name: str = discord.utils.MISSING,
+        *args: Any,
+        **kwargs: Any,
+    ):
+        def decorator(func):
+            kwargs.setdefault("parent", self)
+            result = hybrid_group(name=name, *args, **kwargs)(func)
+            self.add_command(result)
+            return result
+
+        return decorator
+
+
+def hybrid_command(name: str = discord.utils.MISSING, **attrs: Any):
+    """A decorator which transforms an async function into a `HybridCommand`.
+
+    Same interface as `discord.ext.commands.hybrid_command`.
+    """
+
+    def decorator(func):
+        if isinstance(func, Command):
+            raise TypeError("callback is already a command.")
+        attrs["help_override"] = attrs.pop("help", None)
+        return HybridCommand(func, name=name, **attrs)
+
+    return decorator
+
+
+def hybrid_group(name: str = discord.utils.MISSING, **attrs: Any):
+    """A decorator which transforms an async function into a `HybridGroup`.
+
+    Same interface as `discord.ext.commands.hybrid_group`.
+    """
+
+    def decorator(func):
+        if isinstance(func, Command):
+            raise TypeError("callback is already a command.")
+        attrs["help_override"] = attrs.pop("help", None)
+        return HybridGroup(func, name=name, **attrs)
+
+    return decorator
 
 
 def command(name=None, cls=Command, **attrs):
