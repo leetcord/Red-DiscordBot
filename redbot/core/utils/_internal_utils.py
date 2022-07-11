@@ -32,8 +32,7 @@ from typing import (
 import aiohttp
 import discord
 import pkg_resources
-from discord.ext.commands.converter import get_converter  # DEP-WARN
-from rapidfuzz import fuzz, process
+from fuzzywuzzy import fuzz, process
 from rich.progress import ProgressColumn
 from rich.progress_bar import ProgressBar
 from red_commons.logging import VERBOSE, TRACE
@@ -60,7 +59,6 @@ __all__ = (
     "deprecated_removed",
     "RichIndefiniteBarColumn",
     "cli_level_to_log_level",
-    "get_converter",
 )
 
 _T = TypeVar("_T")

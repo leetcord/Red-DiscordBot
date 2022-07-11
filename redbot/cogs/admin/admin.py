@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Tuple
+from typing import Tuple, Union
 
 import discord
 from redbot.core import Config, checks, commands
@@ -214,7 +214,11 @@ class Admin(commands.Cog):
     @commands.guild_only()
     @checks.admin_or_permissions(manage_roles=True)
     async def addrole(
-        self, ctx: commands.Context, rolename: discord.Role, *, user: discord.Member = None
+        self,
+        ctx: commands.Context,
+        rolename: discord.Role,
+        *,
+        user: discord.Member = commands.Author,
     ):
         """
         Add a role to a user.
@@ -222,15 +226,17 @@ class Admin(commands.Cog):
         Use double quotes if the role contains spaces.
         If user is left blank it defaults to the author of the command.
         """
-        if user is None:
-            user = ctx.author
         await self._addrole(ctx, user, rolename)
 
     @commands.command()
     @commands.guild_only()
     @checks.admin_or_permissions(manage_roles=True)
     async def removerole(
-        self, ctx: commands.Context, rolename: discord.Role, *, user: discord.Member = None
+        self,
+        ctx: commands.Context,
+        rolename: discord.Role,
+        *,
+        user: discord.Member = commands.Author,
     ):
         """
         Remove a role from a user.
@@ -238,8 +244,6 @@ class Admin(commands.Cog):
         Use double quotes if the role contains spaces.
         If user is left blank it defaults to the author of the command.
         """
-        if user is None:
-            user = ctx.author
         await self._removerole(ctx, user, rolename)
 
     @commands.group()
@@ -349,7 +353,9 @@ class Admin(commands.Cog):
         pass
 
     @announceset.command(name="channel")
-    async def announceset_channel(self, ctx, *, channel: discord.TextChannel):
+    async def announceset_channel(
+        self, ctx, *, channel: Union[discord.TextChannel, discord.VoiceChannel]
+    ):
         """Change the channel where the bot will send announcements."""
         await self.config.guild(ctx.guild).announce_channel.set(channel.id)
         await ctx.send(
