@@ -5,7 +5,7 @@ apsw
 babel
 Brotli
 click
-discord.py @ https://github.com/Rapptz/discord.py/archive/3d914e08e0c7df370987592affb3655d2a12f7d1.zip
+discord.py @ https://github.com/Rapptz/discord.py/archive/dc50736bfc3340d7b999d9f165808f8dcb8f1a60.zip
 markdown
 orjson
 platformdirs
