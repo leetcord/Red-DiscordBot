@@ -265,7 +265,7 @@ def _ensure_no_colorama():
             import colorama
             import colorama.initialise
         except ModuleNotFoundError:
-            # colorama isn't installed so we don't have to nuke it
+            # colorama is not Red's primary dependency so it might not be present
             return
 
         colorama.deinit()
