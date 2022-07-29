@@ -7,13 +7,12 @@ babel
 click
 colorama
 discord.py @ https://github.com/Rapptz/discord.py/archive/3d914e08e0c7df370987592affb3655d2a12f7d1.zip
-fuzzywuzzy
 markdown
 psutil
 python-dateutil
-python-Levenshtein-wheels
 PyNaCl
 PyYAML
+rapidfuzz
 Red-Commons
 Red-Lavalink>=0.11.0rc0
 rich
