@@ -32,7 +32,6 @@ from typing import (
 import aiohttp
 import discord
 import pkg_resources
-from discord.ext.commands.converter import get_converter  # DEP-WARN
 from rapidfuzz import fuzz, process
 from rich.progress import ProgressColumn
 from rich.progress_bar import ProgressBar
