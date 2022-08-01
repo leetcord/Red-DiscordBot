@@ -14,6 +14,14 @@ from redbot import VersionInfo
 version, _ = VersionInfo._get_version(ignore_installed=True)
 
 
+def get_requirements(fp):
+    return [
+        line.strip()
+        for line in fp.read().splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
+
+
 def extras_combined(*extra_names):
     return list(
         {
@@ -26,12 +34,12 @@ def extras_combined(*extra_names):
 
 
 with open(REQUIREMENTS_FOLDER / "base.txt", encoding="utf-8") as fp:
-    install_requires = fp.read().splitlines()
+    install_requires = get_requirements(fp)
 
 extras_require = {}
 for file in REQUIREMENTS_FOLDER.glob("extra-*.txt"):
     with file.open(encoding="utf-8") as fp:
-        extras_require[file.stem[len("extra-") :]] = fp.read().splitlines()
+        extras_require[file.stem[len("extra-") :]] = get_requirements(fp)
 
 extras_require["dev"] = extras_combined()
 extras_require["all"] = extras_combined("postgres")
