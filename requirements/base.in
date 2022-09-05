@@ -5,7 +5,7 @@ apsw
 babel
 Brotli
 click
-discord.py @ https://github.com/Rapptz/discord.py/archive/4182496713f854ff3dc7a949de2a0e18de31c417.zip
+discord.py @ https://github.com/Rapptz/discord.py/archive/e8f6b29a2da83829f3f8708c28cdd4bb24af2ea4.zip
 markdown
 orjson
 platformdirs
@@ -19,5 +19,7 @@ rich
 schema
 typing_extensions
 yarl
+aiocron
+dateparser
 distro; sys_platform == "linux"
 uvloop; sys_platform != "win32" and platform_python_implementation == "CPython"
