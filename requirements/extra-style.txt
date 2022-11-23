@@ -1,0 +1,8 @@
+black==22.6.0
+    # via -r extra-style.in
+mypy-extensions==0.4.3
+    # via black
+pathspec==0.9.0
+    # via black
+tomli==2.0.1
+    # via black
