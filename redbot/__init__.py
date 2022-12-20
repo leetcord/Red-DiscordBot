@@ -261,8 +261,12 @@ def _ensure_no_colorama():
     from rich.console import detect_legacy_windows
 
     if not detect_legacy_windows():
-        import colorama
-        import colorama.initialise
+        try:
+            import colorama
+            import colorama.initialise
+        except ModuleNotFoundError:
+            # colorama is not Red's primary dependency so it might not be present
+            return
 
         colorama.deinit()
 
@@ -292,8 +296,6 @@ _VERSION = "3.5.0.dev1"
 
 __version__, version_info = VersionInfo._get_version()
 
-# Filter fuzzywuzzy slow sequence matcher warning
-_warnings.filterwarnings("ignore", module=r"fuzzywuzzy.*")
 # Show DeprecationWarning
 _warnings.filterwarnings("default", category=DeprecationWarning)
 
