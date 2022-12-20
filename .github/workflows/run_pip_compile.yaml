@@ -53,7 +53,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install -U https://github.com/pypa/packaging/archive/2bd5da391c302f2f5a18fd3e2bd9fb3b75c02e34.zip
+          python -m pip install -U "packaging>=22.0"
 
       - name: Download Windows requirements.
         uses: actions/download-artifact@v3

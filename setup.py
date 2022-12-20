@@ -2,7 +2,10 @@ import os
 import sys
 from pathlib import Path
 
-from setuptools import setup
+from setuptools import find_namespace_packages, setup
+
+ROOT_FOLDER = Path(__file__).parent.absolute()
+REQUIREMENTS_FOLDER = ROOT_FOLDER / "requirements"
 
 ROOT_FOLDER = Path(__file__).parent.absolute()
 REQUIREMENTS_FOLDER = ROOT_FOLDER / "requirements"
@@ -46,14 +49,19 @@ extras_require["dev"] = extras_combined()
 extras_require["all"] = extras_combined("postgres")
 
 
-setup_kwargs = {
-    "version": version,
-    "install_requires": install_requires,
-    "extras_require": extras_require,
-}
-if os.getenv("TOX_RED", False) and sys.version_info >= (3, 11):
-    # We want to be able to test Python versions that we do not support yet.
-    setup(python_requires=">=3.8.1", **setup_kwargs)
-else:
-    # Metadata and options defined in setup.cfg
-    setup(**setup_kwargs)
+python_requires = ">=3.8.1"
+if not os.getenv("TOX_RED", False) or sys.version_info < (3, 10):
+    python_requires += ",<3.10"
+
+# Metadata and options defined in pyproject.toml
+setup(
+    version=version,
+    python_requires=python_requires,
+    # TODO: use [tool.setuptools.dynamic] table once this feature gets out of beta
+    install_requires=install_requires,
+    extras_require=extras_require,
+    # TODO: use [project] table once PEP 639 gets accepted
+    license_files=["LICENSE", "redbot/**/*.LICENSE"],
+    # TODO: use [tool.setuptools.packages] table once this feature gets out of beta
+    packages=find_namespace_packages(include=["redbot", "redbot.*"]),
+)
